@@ -34,7 +34,7 @@ class InitializationTests(unittest.TestCase):
             path.write_bytes(contents.encode("utf-8"))
 
     def snapshot(self):
-        return {str(p.relative_to(self.root)): p.read_bytes() for p in self.root.rglob("*") if p.is_file()}
+        return {p.relative_to(self.root).as_posix(): p.read_bytes() for p in self.root.rglob("*") if p.is_file()}
 
     def initialize(self, **overrides):
         args = dict(root=self.root, name="file-tool", repository="https://github.com/example/file-tool", description='Counts "files" safely.')
