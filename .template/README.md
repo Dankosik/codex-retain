@@ -53,6 +53,11 @@ cargo test --locked
 vendored Rust skills. [First command](docs/first-command.md) explains how to
 replace the example and its release smoke check.
 
+The [library guide](docs/library-guide.md) maps common CLI work to the predeclared
+toolbox and additional crates. Consult it before writing technical helpers;
+the [research record](docs/research/2026-09-08-cli-libraries.md) preserves the basis
+for those choices.
+
 See [performance](docs/performance.md), [releases](docs/releasing.md),
 [contributing](CONTRIBUTING.md), and [security](SECURITY.md) for their respective
 contracts. Source publication to crates.io is initially disabled; native binary

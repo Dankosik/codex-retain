@@ -19,6 +19,8 @@ Install [Rust through rustup](https://rust-lang.org/tools/install/), with your
 platform's normal native linker. The repository selects Rust 1.98.1 and the
 formatter/Clippy components automatically. Python 3.9+ is used for initialization
 and repository maintenance; ordinary application development uses Cargo.
+The minimum supported compiler is also Rust 1.98.1. The template follows the
+current stable baseline; it no longer targets Rust 1.85.1.
 
 Create your repository using GitHub's **Use this template** button, or:
 
@@ -68,7 +70,8 @@ Vendored skills and upstream attribution remain unchanged.
 | Streaming core | Byte-safe scanning with memchr, fixed buffer, short-read/Interrupted handling, checked count growth |
 | Tests | Focused core tests plus real binaries, pipes, config, native paths, output failure and subprocess cleanup |
 | Rust tooling | Pinned toolchain, lockfile, formatter, Clippy, profiling profile, editor recommendations |
-| CI | Linux/macOS/Windows tests, tested MSRV 1.85.1, dependency advisories/licenses, renamed-consumer validation |
+| CLI toolbox | Collections, byte strings, traversal, glob filters, temporary files, progress, logging, and application errors |
+| CI | Linux/macOS/Windows tests, declared minimum Rust 1.98.1, dependency advisories/licenses, renamed-consumer validation |
 | Delivery | Native archives for Linux, both macOS architectures, and Windows; extracted-binary smoke tests and checksums |
 | Agents | Shared AGENTS.md, Claude/Copilot pointers, 16 vendored Rust skills with immutable provenance |
 | Adoption | Safe identity initializer, integrity checks, explicit pinned skill updates, first-command guide |
@@ -76,8 +79,19 @@ Vendored skills and upstream attribution remain unchanged.
 Direct dependencies have specific jobs: `clap` and `clap_complete` own command
 parsing and completion generation; `serde`, `serde_json`, and `toml` handle typed
 formats; `thiserror` preserves error meaning; `memchr` supplies optimized byte
-search. `tempfile` is a development-only test dependency. [Cargo.toml](Cargo.toml)
+search. The predeclared toolbox adds `anyhow`, `itertools`, `bstr`, `walkdir`,
+`ignore`, `globset`, `tempfile`, `indicatif`, `log`, and `env_logger`. `assert_cmd`
+is available in dev-dependencies for ordinary CLI tests. [Cargo.toml](Cargo.toml)
 and [Cargo.lock](Cargo.lock) are the dependency authorities.
+
+Use the [library guide](docs/library-guide.md) before writing a technical helper.
+It maps concrete needs to installed APIs and additional maintained crates, with
+feature and resource tradeoffs. The toolbox is deliberately available before
+the first product command; the sample does not manufacture uses of every crate.
+Chosen default features avoid unrelated WebAssembly progress support, Unicode
+tables for byte-only helpers, and timestamp/message-regex logging features.
+The full [research record](docs/research/2026-09-08-cli-libraries.md) and
+[78-crate catalog](docs/research/library-catalog.md) are kept in the repository.
 
 The release profile uses ordinary optimized Rust with thin LTO and keeps unwind
 semantics. It makes no CPU-native assumptions. Startup, throughput, resident

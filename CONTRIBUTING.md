@@ -11,6 +11,8 @@ coding agents should read [AGENTS.md](AGENTS.md).
 
 Keep changes focused and preserve existing CLI contracts unless the change
 explicitly revises them. Prefer the standard library and existing dependencies.
+Consult the matching entry in [the library guide](docs/library-guide.md) before
+writing reusable technical mechanics or adding another crate.
 Include focused regression coverage for changed behavior; exercise the actual
 executable when arguments, streams, status, or effects change. Choose fixtures
 that expose a plausible defect rather than merely repeating the implementation.

@@ -26,10 +26,27 @@ publication, destructive changes, and communications.
 ## Engineering
 
 Read the affected implementation and callers before editing. Reuse existing
-functions, standard-library APIs, and declared crates. A dependency, abstraction,
-runtime, or configuration option needs a current requirement. Keep parsing,
+functions, standard-library APIs, and declared crates. The predeclared CLI toolbox
+is an intentional template capability. Further dependencies, abstractions,
+runtimes, or configuration options need a current requirement. Keep parsing,
 computation, and process-level decisions separately understandable; add no layer
 merely to mirror another layer.
+
+Before writing technical helpers for collections, bytes, traversal, formats,
+configuration, terminal output, processes, or tests, consult the matching row in
+the [library guide](docs/library-guide.md). Use a suitable standard or library API
+directly. If a listed library is not installed and its capability is needed for
+the requested task, add it with the appropriate scope and minimal features;
+routine dependency selection remains agent-owned. Preserve any concrete semantic
+gap that still requires local policy. Do not create artificial uses of every
+toolbox crate. The [research record](docs/research/2026-09-08-cli-libraries.md)
+preserves the evidence behind the choices.
+
+The current language/API baseline is Rust 1.98.1, edition 2024. Use stable APIs
+available at that baseline, including standard OnceLock/LazyLock and File locking
+when applicable. Check the current stable release before a requested Rust update;
+keep Cargo rust-version, rust-toolchain.toml, clippy.toml, and documentation aligned.
+CI reads the declared minimum from Cargo.toml rather than a separate version pin.
 
 Preserve documented arguments, configuration precedence, stdout/stderr, exit
 status, output schemas, and path semantics. Keep help and version independent

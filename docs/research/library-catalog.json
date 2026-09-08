@@ -1,0 +1,3633 @@
+{
+  "retrieved_on": "2026-09-08",
+  "template_commit": "90893f1eb3f911e2394788c6577b6b4ef2aaea06",
+  "template_msrv": "1.85.1",
+  "method": "crates.io package/version metadata; GitHub GraphQL repository/default-branch observations; current Codeberg API for migrated directories family; primary docs for shortlist. Downloads are registry counts, not unique users. Declared MSRV is not a full feature/dependency-graph compile test. No library performance comparison performed.",
+  "packages": [
+    {
+      "name": "abscissa_core",
+      "version": "0.9.0",
+      "released_at": "2025-11-06T22:55:49.874527Z",
+      "rust_version": "1.85",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/iqlusioninc/abscissa/tree/main/core/",
+      "recent_downloads": 3249641,
+      "features": {
+        "application": [
+          "arc-swap",
+          "config",
+          "trace",
+          "options",
+          "semver/serde",
+          "terminal"
+        ],
+        "backtrace": [
+          "dep:color-eyre",
+          "dep:backtrace"
+        ],
+        "config": [
+          "secrets",
+          "serde",
+          "terminal",
+          "toml"
+        ],
+        "default": [
+          "application",
+          "backtrace",
+          "secrets",
+          "testing"
+        ],
+        "options": [
+          "clap"
+        ],
+        "secrets": [
+          "secrecy"
+        ],
+        "terminal": [
+          "termcolor"
+        ],
+        "testing": [
+          "regex",
+          "wait-timeout"
+        ],
+        "trace": [
+          "tracing",
+          "tracing-log",
+          "tracing-subscriber"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/abscissa_core",
+      "repository_observation": {
+        "url": "https://github.com/iqlusioninc/abscissa",
+        "archived": false,
+        "pushed_at": "2026-04-06T13:05:55Z",
+        "head_commit_date": "2026-02-17T15:30:55Z",
+        "head_sha": "721fb340417578c00b3838098bb7990b7bd0f400",
+        "stars": 593
+      },
+      "recommendation_scope": "Alternative framework or parser to evaluate",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "anyhow",
+      "version": "1.0.104",
+      "released_at": "2026-07-18T20:59:37.656167Z",
+      "rust_version": "1.68",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/anyhow",
+      "recent_downloads": 205887089,
+      "features": {
+        "backtrace": [],
+        "default": [
+          "std"
+        ],
+        "std": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/anyhow",
+      "repository_observation": {
+        "url": "https://github.com/dtolnay/anyhow",
+        "archived": false,
+        "pushed_at": "2026-08-22T02:43:42Z",
+        "head_commit_date": "2026-08-22T02:43:38Z",
+        "head_sha": "c63b279f3f4af2b02ca6267d9eb47d6d10497f69",
+        "stars": 6650
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "assert_cmd",
+      "version": "2.2.2",
+      "released_at": "2026-05-11T14:12:46.232740Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/assert-rs/assert_cmd.git",
+      "recent_downloads": 16315195,
+      "features": {
+        "color": [
+          "dep:anstream",
+          "predicates/color"
+        ],
+        "color-auto": [
+          "color"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/assert_cmd",
+      "repository_observation": {
+        "url": "https://github.com/assert-rs/assert_cmd",
+        "archived": false,
+        "pushed_at": "2026-09-01T13:05:47Z",
+        "head_commit_date": "2026-09-01T13:05:43Z",
+        "head_sha": "a57ef45a33986390be3057c192c6bdbe61b8912d",
+        "stars": 562
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "assert_fs",
+      "version": "1.1.4",
+      "released_at": "2026-05-26T16:15:40.257152Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/assert-rs/assert_fs.git",
+      "recent_downloads": 3472037,
+      "features": {
+        "color": [
+          "dep:anstream",
+          "predicates/color"
+        ],
+        "color-auto": [
+          "color"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/assert_fs",
+      "repository_observation": {
+        "url": "https://github.com/assert-rs/assert_fs",
+        "archived": false,
+        "pushed_at": "2026-09-01T12:10:00Z",
+        "head_commit_date": "2026-09-01T12:09:58Z",
+        "head_sha": "9da98d67f825568b8764bb6930f452625b128e6e",
+        "stars": 127
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "atomic-write-file",
+      "version": "0.3.1",
+      "released_at": "2026-08-11T01:57:19.616357Z",
+      "rust_version": "1.85",
+      "license": "BSD-3-Clause",
+      "repository": "https://github.com/andreacorbellini/rust-atomic-write-file",
+      "recent_downloads": 671930,
+      "features": {
+        "default": [],
+        "unnamed-tmpfile": [],
+        "unstable-can_vector": [],
+        "unstable-read_buf": [],
+        "unstable-seek_stream_len": [],
+        "unstable-unix_file_vectored_at": [],
+        "unstable-write_all_vectored": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/atomic-write-file",
+      "repository_observation": {
+        "url": "https://github.com/andreacorbellini/rust-atomic-write-file",
+        "archived": false,
+        "pushed_at": "2026-08-11T01:48:02Z",
+        "head_commit_date": "2026-08-11T01:47:48Z",
+        "head_sha": "e1ee3a5f75717532e5275261af45de0f8d4980e6",
+        "stars": 35
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "bpaf",
+      "version": "0.9.27",
+      "released_at": "2026-07-29T15:42:10.202113Z",
+      "rust_version": "1.68",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/pacak/bpaf",
+      "recent_downloads": 1640075,
+      "features": {
+        "autocomplete": [],
+        "batteries": [],
+        "bright-color": [
+          "color"
+        ],
+        "color": [
+          "supports-color",
+          "owo-colors"
+        ],
+        "derive": [
+          "bpaf_derive"
+        ],
+        "docgen": [],
+        "dull-color": [
+          "color"
+        ],
+        "extradocs": [],
+        "unstable-docs": [
+          "derive",
+          "extradocs",
+          "autocomplete",
+          "batteries",
+          "docgen"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/bpaf",
+      "repository_observation": {
+        "url": "https://github.com/pacak/bpaf",
+        "archived": false,
+        "pushed_at": "2026-09-05T14:53:43Z",
+        "head_commit_date": "2026-07-29T15:40:39Z",
+        "head_sha": "6cdc398cd5e48af1dfc7381c82a8a9f9a5cc51e4",
+        "stars": 461
+      },
+      "recommendation_scope": "Alternative framework or parser to evaluate",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "bstr",
+      "version": "1.13.1",
+      "released_at": "2026-08-10T11:12:08.883439Z",
+      "rust_version": "1.65",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/BurntSushi/bstr",
+      "recent_downloads": 86811496,
+      "features": {
+        "alloc": [
+          "memchr/alloc",
+          "serde_core?/alloc"
+        ],
+        "default": [
+          "std",
+          "unicode"
+        ],
+        "serde": [
+          "dep:serde_core"
+        ],
+        "std": [
+          "alloc",
+          "memchr/std",
+          "serde_core?/std"
+        ],
+        "unicode": [
+          "dep:regex-automata"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/bstr",
+      "repository_observation": {
+        "url": "https://github.com/BurntSushi/bstr",
+        "archived": false,
+        "pushed_at": "2026-08-10T11:12:13Z",
+        "head_commit_date": "2026-08-10T11:12:08Z",
+        "head_sha": "134195be38c7c9a4887980fd0f6f8bae042dd91e",
+        "stars": 1115
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "bytes",
+      "version": "1.12.1",
+      "released_at": "2026-07-08T10:01:28.616466Z",
+      "rust_version": "1.57",
+      "license": "MIT",
+      "repository": "https://github.com/tokio-rs/bytes",
+      "recent_downloads": 238266660,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "std": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/bytes",
+      "repository_observation": {
+        "url": "https://github.com/tokio-rs/bytes",
+        "archived": false,
+        "pushed_at": "2026-09-03T15:19:26Z",
+        "head_commit_date": "2026-09-03T15:00:02Z",
+        "head_sha": "7930d93d583757e922014312d4aa3e58a415131f",
+        "stars": 2253
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "camino",
+      "version": "1.2.5",
+      "released_at": "2026-07-28T03:52:43.121888Z",
+      "rust_version": "1.61.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/camino-rs/camino",
+      "recent_downloads": 62630977,
+      "features": {
+        "proptest1": [
+          "dep:proptest"
+        ],
+        "serde1": [
+          "dep:serde_core"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/camino",
+      "repository_observation": {
+        "url": "https://github.com/camino-rs/camino",
+        "archived": false,
+        "pushed_at": "2026-07-28T04:05:29Z",
+        "head_commit_date": "2026-07-28T04:02:30Z",
+        "head_sha": "8cb639347ba3d41f44822e21006c88d839e469d9",
+        "stars": 578
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "clap",
+      "version": "4.6.6",
+      "released_at": "2026-08-06T14:03:25.998957Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/clap-rs/clap",
+      "recent_downloads": 225298967,
+      "features": {
+        "cargo": [
+          "clap_builder/cargo"
+        ],
+        "color": [
+          "clap_builder/color"
+        ],
+        "debug": [
+          "clap_builder/debug",
+          "clap_derive?/debug"
+        ],
+        "default": [
+          "std",
+          "color",
+          "help",
+          "usage",
+          "error-context",
+          "suggestions"
+        ],
+        "deprecated": [
+          "clap_builder/deprecated",
+          "clap_derive?/deprecated"
+        ],
+        "derive": [
+          "dep:clap_derive"
+        ],
+        "env": [
+          "clap_builder/env"
+        ],
+        "error-context": [
+          "clap_builder/error-context"
+        ],
+        "help": [
+          "clap_builder/help"
+        ],
+        "std": [
+          "clap_builder/std"
+        ],
+        "string": [
+          "clap_builder/string"
+        ],
+        "suggestions": [
+          "clap_builder/suggestions"
+        ],
+        "unicode": [
+          "clap_builder/unicode"
+        ],
+        "unstable-derive-ui-tests": [],
+        "unstable-doc": [
+          "clap_builder/unstable-doc",
+          "derive"
+        ],
+        "unstable-ext": [
+          "clap_builder/unstable-ext"
+        ],
+        "unstable-markdown": [
+          "clap_derive/unstable-markdown"
+        ],
+        "unstable-styles": [
+          "clap_builder/unstable-styles"
+        ],
+        "unstable-v5": [
+          "clap_builder/unstable-v5",
+          "clap_derive?/unstable-v5",
+          "deprecated"
+        ],
+        "usage": [
+          "clap_builder/usage"
+        ],
+        "wrap_help": [
+          "clap_builder/wrap_help"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/clap",
+      "repository_observation": {
+        "url": "https://github.com/clap-rs/clap",
+        "archived": false,
+        "pushed_at": "2026-09-08T01:25:47Z",
+        "head_commit_date": "2026-09-01T12:04:15Z",
+        "head_sha": "af3044228bd76a87a3f46a3c7c3343563c059527",
+        "stars": 16697
+      },
+      "recommendation_scope": "Already in template runtime",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "clap-cargo",
+      "version": "0.19.0",
+      "released_at": "2026-08-18T18:02:56.658819Z",
+      "rust_version": "1.86",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/crate-ci/clap-cargo",
+      "recent_downloads": 3031987,
+      "features": {
+        "cargo_metadata": [
+          "dep:cargo_metadata",
+          "dep:serde",
+          "dep:serde_json"
+        ],
+        "clap": [
+          "dep:clap"
+        ],
+        "default": [
+          "clap"
+        ],
+        "testing_colors": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/clap-cargo",
+      "repository_observation": {
+        "url": "https://github.com/crate-ci/clap-cargo",
+        "archived": false,
+        "pushed_at": "2026-09-01T18:42:46Z",
+        "head_commit_date": "2026-09-01T18:42:46Z",
+        "head_sha": "20bcf083ca9d8966e0a89bc0638cca6cbeea607d",
+        "stars": 46
+      },
+      "recommendation_scope": "Alternative framework or parser to evaluate",
+      "declared_msrv_exceeds_template": true
+    },
+    {
+      "name": "clap_complete",
+      "version": "4.6.9",
+      "released_at": "2026-08-06T13:28:20.621576Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/clap-rs/clap",
+      "recent_downloads": 27136968,
+      "features": {
+        "debug": [
+          "clap/debug"
+        ],
+        "default": [],
+        "unstable-doc": [
+          "unstable-dynamic"
+        ],
+        "unstable-dynamic": [
+          "dep:clap_lex",
+          "dep:shlex",
+          "dep:is_executable",
+          "clap/unstable-ext"
+        ],
+        "unstable-shell-tests": [
+          "dep:completest",
+          "dep:completest-pty"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/clap_complete",
+      "repository_observation": {
+        "url": "https://github.com/clap-rs/clap",
+        "archived": false,
+        "pushed_at": "2026-09-08T01:25:47Z",
+        "head_commit_date": "2026-09-01T12:04:15Z",
+        "head_sha": "af3044228bd76a87a3f46a3c7c3343563c059527",
+        "stars": 16697
+      },
+      "recommendation_scope": "Already in template runtime",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "clap_mangen",
+      "version": "0.3.3",
+      "released_at": "2026-08-12T21:15:45.513390Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/clap-rs/clap",
+      "recent_downloads": 3862414,
+      "features": {
+        "debug": [
+          "clap/debug"
+        ],
+        "default": [],
+        "env": [
+          "clap/env"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/clap_mangen",
+      "repository_observation": {
+        "url": "https://github.com/clap-rs/clap",
+        "archived": false,
+        "pushed_at": "2026-09-08T01:25:47Z",
+        "head_commit_date": "2026-09-01T12:04:15Z",
+        "head_sha": "af3044228bd76a87a3f46a3c7c3343563c059527",
+        "stars": 16697
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "cliclack",
+      "version": "0.5.6",
+      "released_at": "2026-08-10T16:50:04.124778Z",
+      "rust_version": null,
+      "license": "MIT",
+      "repository": "https://github.com/fadeevab/cliclack",
+      "recent_downloads": 1024778,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/cliclack",
+      "repository_observation": {
+        "url": "https://github.com/fadeevab/cliclack",
+        "archived": false,
+        "pushed_at": "2026-08-10T16:49:59Z",
+        "head_commit_date": "2026-08-10T16:49:52Z",
+        "head_sha": "bf5e861ba89ab4163912f0e383cfb06d60b98970",
+        "stars": 366
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "cling",
+      "version": "0.1.3",
+      "released_at": "2025-05-04T11:49:45.249121Z",
+      "rust_version": "1.77.0",
+      "license": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/AhmedSoliman/cling",
+      "recent_downloads": 15635,
+      "features": {
+        "default": [
+          "derive"
+        ],
+        "derive": [
+          "dep:cling-derive"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/cling",
+      "repository_observation": {
+        "url": "https://github.com/AhmedSoliman/cling",
+        "archived": false,
+        "pushed_at": "2026-06-19T10:32:38Z",
+        "head_commit_date": "2026-04-17T16:22:41Z",
+        "head_sha": "b2fd83d06af1d22f5a404dda589bcfc75b410d01",
+        "stars": 28
+      },
+      "recommendation_scope": "Alternative framework or parser to evaluate",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "color-eyre",
+      "version": "0.6.5",
+      "released_at": "2025-05-30T16:39:28.879707Z",
+      "rust_version": "1.65.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/eyre-rs/eyre",
+      "recent_downloads": 12822937,
+      "features": {
+        "capture-spantrace": [
+          "tracing-error",
+          "color-spantrace"
+        ],
+        "default": [
+          "track-caller",
+          "capture-spantrace"
+        ],
+        "issue-url": [
+          "url"
+        ],
+        "track-caller": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/color-eyre",
+      "repository_observation": {
+        "url": "https://github.com/eyre-rs/eyre",
+        "archived": false,
+        "pushed_at": "2026-08-11T19:48:05Z",
+        "head_commit_date": "2026-08-10T22:29:04Z",
+        "head_sha": "808110cc68ddd47bf48f97d7f827aa8b137dfeeb",
+        "stars": 1778
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "config",
+      "version": "0.15.25",
+      "released_at": "2026-06-26T17:42:54.380787Z",
+      "rust_version": "1.85.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-cli/config-rs",
+      "recent_downloads": 17752647,
+      "features": {
+        "async": [
+          "async-trait"
+        ],
+        "convert-case": [
+          "convert_case"
+        ],
+        "corn": [
+          "dep:corn"
+        ],
+        "default": [
+          "toml",
+          "json",
+          "yaml",
+          "ini",
+          "ron",
+          "json5",
+          "convert-case",
+          "async"
+        ],
+        "ini": [
+          "rust-ini"
+        ],
+        "json": [
+          "serde_json"
+        ],
+        "json5": [
+          "dep:json5",
+          "dep:serde-untagged"
+        ],
+        "preserve_order": [
+          "indexmap",
+          "toml?/preserve_order",
+          "serde_json?/preserve_order",
+          "ron?/indexmap"
+        ],
+        "toml": [
+          "dep:toml"
+        ],
+        "yaml": [
+          "yaml-rust2"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/config",
+      "repository_observation": {
+        "url": "https://github.com/rust-cli/config-rs",
+        "archived": false,
+        "pushed_at": "2026-09-02T22:48:34Z",
+        "head_commit_date": "2026-09-01T11:09:41Z",
+        "head_sha": "970020ad5c7ef8c0fce9cd0c3bc1c1f91d88c7a9",
+        "stars": 3207
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "console",
+      "version": "0.16.4",
+      "released_at": "2026-07-01T13:06:14.585167Z",
+      "rust_version": "1.71",
+      "license": "MIT",
+      "repository": "https://github.com/console-rs/console",
+      "recent_downloads": 78993670,
+      "features": {
+        "alloc": [],
+        "ansi-parsing": [],
+        "default": [
+          "unicode-width",
+          "ansi-parsing",
+          "std"
+        ],
+        "std": [
+          "dep:libc",
+          "alloc"
+        ],
+        "windows-console-colors": [
+          "ansi-parsing"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/console",
+      "repository_observation": {
+        "url": "https://github.com/console-rs/console",
+        "archived": false,
+        "pushed_at": "2026-09-05T14:05:18Z",
+        "head_commit_date": "2026-09-05T14:05:17Z",
+        "head_sha": "ed342d0874091e5785829f978af0ca1b79fd92a3",
+        "stars": 1191
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "crossterm",
+      "version": "0.29.0",
+      "released_at": "2025-04-05T15:21:48.500601Z",
+      "rust_version": "1.63.0",
+      "license": "MIT",
+      "repository": "https://github.com/crossterm-rs/crossterm",
+      "recent_downloads": 43137644,
+      "features": {
+        "bracketed-paste": [],
+        "default": [
+          "bracketed-paste",
+          "events",
+          "windows",
+          "derive-more"
+        ],
+        "derive-more": [
+          "dep:derive_more"
+        ],
+        "event-stream": [
+          "dep:futures-core",
+          "events"
+        ],
+        "events": [
+          "dep:mio",
+          "dep:signal-hook",
+          "dep:signal-hook-mio"
+        ],
+        "osc52": [
+          "dep:base64"
+        ],
+        "serde": [
+          "dep:serde",
+          "bitflags/serde"
+        ],
+        "use-dev-tty": [
+          "filedescriptor",
+          "rustix/process"
+        ],
+        "windows": [
+          "dep:winapi",
+          "dep:crossterm_winapi"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/crossterm",
+      "repository_observation": {
+        "url": "https://github.com/crossterm-rs/crossterm",
+        "archived": false,
+        "pushed_at": "2026-09-01T04:36:52Z",
+        "head_commit_date": "2026-08-21T00:06:18Z",
+        "head_sha": "cdc30a9cd7f89d97a847c182feab66147eb50223",
+        "stars": 4211
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "csv",
+      "version": "1.4.0",
+      "released_at": "2025-10-17T13:56:07.013801Z",
+      "rust_version": "1.73",
+      "license": "Unlicense/MIT",
+      "repository": "https://github.com/BurntSushi/rust-csv",
+      "recent_downloads": 46264075,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/csv",
+      "repository_observation": {
+        "url": "https://github.com/BurntSushi/rust-csv",
+        "archived": false,
+        "pushed_at": "2026-08-04T10:45:35Z",
+        "head_commit_date": "2026-08-04T10:45:21Z",
+        "head_sha": "05612e87e6e92910d40d7214b70952b8434fef9b",
+        "stars": 1957
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "ctrlc",
+      "version": "3.5.2",
+      "released_at": "2026-02-10T20:41:44.442750Z",
+      "rust_version": "1.69.0",
+      "license": "MIT/Apache-2.0",
+      "repository": "https://github.com/Detegr/rust-ctrlc.git",
+      "recent_downloads": 21003825,
+      "features": {
+        "termination": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/ctrlc",
+      "repository_observation": {
+        "url": "https://github.com/Detegr/rust-ctrlc",
+        "archived": false,
+        "pushed_at": "2026-07-22T09:47:21Z",
+        "head_commit_date": "2026-07-22T09:47:20Z",
+        "head_sha": "3c7098cc637ddd381b8d888560eb5c11c60aa6b1",
+        "stars": 667
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "derive_more",
+      "version": "2.1.1",
+      "released_at": "2025-12-22T09:13:44.198298Z",
+      "rust_version": "1.81.0",
+      "license": "MIT",
+      "repository": "https://github.com/JelteF/derive_more",
+      "recent_downloads": 110438025,
+      "features": {
+        "add": [
+          "derive_more-impl/add"
+        ],
+        "add_assign": [
+          "derive_more-impl/add_assign"
+        ],
+        "as_ref": [
+          "derive_more-impl/as_ref"
+        ],
+        "constructor": [
+          "derive_more-impl/constructor"
+        ],
+        "debug": [
+          "derive_more-impl/debug"
+        ],
+        "default": [
+          "std"
+        ],
+        "deref": [
+          "derive_more-impl/deref"
+        ],
+        "deref_mut": [
+          "derive_more-impl/deref_mut"
+        ],
+        "display": [
+          "derive_more-impl/display"
+        ],
+        "eq": [
+          "derive_more-impl/eq"
+        ],
+        "error": [
+          "derive_more-impl/error"
+        ],
+        "from": [
+          "derive_more-impl/from"
+        ],
+        "from_str": [
+          "derive_more-impl/from_str"
+        ],
+        "full": [
+          "add",
+          "add_assign",
+          "as_ref",
+          "constructor",
+          "debug",
+          "deref",
+          "deref_mut",
+          "display",
+          "eq",
+          "error",
+          "from",
+          "from_str",
+          "index",
+          "index_mut",
+          "into",
+          "into_iterator",
+          "is_variant",
+          "mul",
+          "mul_assign",
+          "not",
+          "sum",
+          "try_from",
+          "try_into",
+          "try_unwrap",
+          "unwrap"
+        ],
+        "index": [
+          "derive_more-impl/index"
+        ],
+        "index_mut": [
+          "derive_more-impl/index_mut"
+        ],
+        "into": [
+          "derive_more-impl/into"
+        ],
+        "into_iterator": [
+          "derive_more-impl/into_iterator"
+        ],
+        "is_variant": [
+          "derive_more-impl/is_variant"
+        ],
+        "mul": [
+          "derive_more-impl/mul"
+        ],
+        "mul_assign": [
+          "derive_more-impl/mul_assign"
+        ],
+        "not": [
+          "derive_more-impl/not"
+        ],
+        "std": [],
+        "sum": [
+          "derive_more-impl/sum"
+        ],
+        "testing-helpers": [
+          "derive_more-impl/testing-helpers",
+          "dep:rustc_version"
+        ],
+        "try_from": [
+          "derive_more-impl/try_from"
+        ],
+        "try_into": [
+          "derive_more-impl/try_into"
+        ],
+        "try_unwrap": [
+          "derive_more-impl/try_unwrap"
+        ],
+        "unwrap": [
+          "derive_more-impl/unwrap"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/derive_more",
+      "repository_observation": {
+        "url": "https://github.com/JelteF/derive_more",
+        "archived": false,
+        "pushed_at": "2026-09-07T22:42:38Z",
+        "head_commit_date": "2026-05-09T11:37:50Z",
+        "head_sha": "e13226493dbdb510dae2b3548c975f01624f11d5",
+        "stars": 2135
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "dialoguer",
+      "version": "0.12.0",
+      "released_at": "2025-08-23T15:37:51.581957Z",
+      "rust_version": "1.66",
+      "license": "MIT",
+      "repository": "https://github.com/console-rs/dialoguer",
+      "recent_downloads": 16081059,
+      "features": {
+        "completion": [],
+        "default": [
+          "editor",
+          "password"
+        ],
+        "editor": [
+          "tempfile"
+        ],
+        "fuzzy-select": [
+          "fuzzy-matcher"
+        ],
+        "history": [],
+        "password": [
+          "zeroize"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/dialoguer",
+      "repository_observation": {
+        "url": "https://github.com/console-rs/dialoguer",
+        "archived": false,
+        "pushed_at": "2026-07-08T13:22:29Z",
+        "head_commit_date": "2026-07-08T13:22:29Z",
+        "head_sha": "5dca7a725e4696aece1c905d7b5ee7dc3df7bf20",
+        "stars": 1611
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "directories",
+      "version": "6.0.0",
+      "released_at": "2025-01-12T17:19:05.177535Z",
+      "rust_version": null,
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/soc/directories-rs",
+      "recent_downloads": 12166658,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/directories",
+      "repository_observation": {
+        "url": "https://codeberg.org/dirs/directories-rs",
+        "archived": false,
+        "head_commit_date": "2026-03-20T22:17:57+01:00",
+        "head_sha": "1f285d9114176e7be8b85b354e3bfde7c3e6356e",
+        "note": "Source moved from GitHub to Codeberg; old archive is not abandonment evidence."
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "directories-next",
+      "version": "2.0.0",
+      "released_at": "2020-10-22T03:34:05.036126Z",
+      "rust_version": null,
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/xdg-rs/dirs/tree/master/directories",
+      "recent_downloads": 7069946,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/directories-next",
+      "repository_observation": {
+        "url": "https://github.com/xdg-rs/dirs",
+        "archived": false,
+        "pushed_at": "2023-04-08T14:57:53Z",
+        "head_commit_date": "2021-04-23T22:12:57Z",
+        "head_sha": "af4aa39daba0ac68e222962a5aca17360158b7cc",
+        "stars": 212
+      },
+      "recommendation_scope": "Situational library",
+      "maintenance_note": "Low recent observed activity; old release alone does not establish abandonment.",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "dirs",
+      "version": "7.0.0",
+      "released_at": "2026-09-05T17:32:15.811659Z",
+      "rust_version": null,
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://codeberg.org/dirs/dirs-rs",
+      "recent_downloads": 75466050,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/dirs",
+      "repository_observation": {
+        "url": "https://codeberg.org/dirs/dirs-rs",
+        "archived": false,
+        "head_commit_date": "2026-09-05T19:31:26+02:00",
+        "head_sha": "793c8a97bea55669a806499839abd7b1d844279f",
+        "note": "Source moved from GitHub to Codeberg; old archive is not abandonment evidence."
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "duct",
+      "version": "1.1.2",
+      "released_at": "2026-09-03T19:18:12.468738Z",
+      "rust_version": null,
+      "license": "MIT",
+      "repository": "https://github.com/oconnor663/duct.rs",
+      "recent_downloads": 7234248,
+      "features": {
+        "default": [
+          "timeout"
+        ],
+        "timeout": [
+          "shared_child/timeout"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/duct",
+      "repository_observation": {
+        "url": "https://github.com/oconnor663/duct.rs",
+        "archived": false,
+        "pushed_at": "2026-09-03T19:17:37Z",
+        "head_commit_date": "2026-09-03T19:14:25Z",
+        "head_sha": "0195544c9d963d94348e8bc94fc60b8519e5516b",
+        "stars": 1042
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "dunce",
+      "version": "1.0.5",
+      "released_at": "2024-08-04T01:36:46.487482Z",
+      "rust_version": null,
+      "license": "CC0-1.0 OR MIT-0 OR Apache-2.0",
+      "repository": "https://gitlab.com/kornelski/dunce",
+      "recent_downloads": 91462850,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/dunce",
+      "repository_observation": {
+        "url": "https://gitlab.com/kornelski/dunce",
+        "note": "Repository activity was not independently verified for this host."
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "encoding_rs",
+      "version": "0.8.40",
+      "released_at": "2026-09-07T09:50:30.533651Z",
+      "rust_version": "1.88",
+      "license": "(Apache-2.0 OR MIT) AND BSD-3-Clause",
+      "repository": "https://github.com/hsivonen/encoding_rs",
+      "recent_downloads": 102564608,
+      "features": {
+        "alloc": [],
+        "default": [
+          "alloc"
+        ],
+        "fast-big5-hanzi-encode": [],
+        "fast-gb-hanzi-encode": [],
+        "fast-hangul-encode": [],
+        "fast-hanja-encode": [],
+        "fast-kanji-encode": [],
+        "fast-legacy-encode": [
+          "fast-hangul-encode",
+          "fast-hanja-encode",
+          "fast-kanji-encode",
+          "fast-gb-hanzi-encode",
+          "fast-big5-hanzi-encode"
+        ],
+        "less-slow-big5-hanzi-encode": [],
+        "less-slow-gb-hanzi-encode": [],
+        "less-slow-kanji-encode": [],
+        "simd-accel": [
+          "any_all_workaround",
+          "rustversion"
+        ],
+        "std": [
+          "multiversion/std"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/encoding_rs",
+      "repository_observation": {
+        "url": "https://github.com/hsivonen/encoding_rs",
+        "archived": false,
+        "pushed_at": "2026-09-07T17:35:04Z",
+        "head_commit_date": "2026-09-07T17:35:04Z",
+        "head_sha": "6667988d019dce6434799bb7744f32c511b231ec",
+        "stars": 464
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": true
+    },
+    {
+      "name": "env_logger",
+      "version": "0.11.11",
+      "released_at": "2026-06-25T12:42:02.332351Z",
+      "rust_version": "1.71",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-cli/env_logger",
+      "recent_downloads": 74928497,
+      "features": {
+        "auto-color": [
+          "color",
+          "anstream/auto"
+        ],
+        "color": [
+          "dep:anstream",
+          "dep:anstyle"
+        ],
+        "default": [
+          "auto-color",
+          "humantime",
+          "regex"
+        ],
+        "humantime": [
+          "dep:jiff"
+        ],
+        "kv": [
+          "log/kv"
+        ],
+        "regex": [
+          "env_filter/regex"
+        ],
+        "unstable-kv": [
+          "kv"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/env_logger",
+      "repository_observation": {
+        "url": "https://github.com/rust-cli/env_logger",
+        "archived": false,
+        "pushed_at": "2026-09-01T12:04:32Z",
+        "head_commit_date": "2026-09-01T12:03:13Z",
+        "head_sha": "1b69aa2cc0a1e3b88ad53d1efbd3ab50a617e95a",
+        "stars": 1063
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "etcetera",
+      "version": "0.11.0",
+      "released_at": "2025-10-28T13:28:11.765603Z",
+      "rust_version": "1.87.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/lunacookies/etcetera",
+      "recent_downloads": 31601144,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/etcetera",
+      "repository_observation": {
+        "url": "https://github.com/lunacookies/etcetera",
+        "archived": false,
+        "pushed_at": "2026-08-04T20:53:17Z",
+        "head_commit_date": "2026-08-04T20:53:17Z",
+        "head_sha": "80592b7426676e98df57b82a5bbb028856e68281",
+        "stars": 150
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": true
+    },
+    {
+      "name": "figment",
+      "version": "0.10.19",
+      "released_at": "2024-05-17T02:54:57.543501Z",
+      "rust_version": null,
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/SergioBenitez/Figment",
+      "recent_downloads": 9331211,
+      "features": {
+        "env": [
+          "pear",
+          "parse-value"
+        ],
+        "json": [
+          "serde_json"
+        ],
+        "parse-value": [
+          "pear"
+        ],
+        "test": [
+          "tempfile",
+          "parking_lot"
+        ],
+        "yaml": [
+          "serde_yaml"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/figment",
+      "repository_observation": {
+        "url": "https://github.com/SergioBenitez/Figment",
+        "archived": false,
+        "pushed_at": "2024-09-13T04:51:49Z",
+        "head_commit_date": "2024-09-13T04:51:49Z",
+        "head_sha": "12dd1bc96bdd69417803bc794b6953d89c3a1af1",
+        "stars": 912
+      },
+      "recommendation_scope": "Situational library",
+      "maintenance_note": "Low recent observed activity; old release alone does not establish abandonment.",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "fs-err",
+      "version": "3.3.1",
+      "released_at": "2026-07-03T20:15:39.211067Z",
+      "rust_version": null,
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/andrewhickman/fs-err",
+      "recent_downloads": 28858897,
+      "features": {
+        "debug": [
+          "path_facts"
+        ],
+        "debug_tokio": [
+          "debug",
+          "tokio/rt-multi-thread"
+        ],
+        "expose_original_error": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/fs-err",
+      "repository_observation": {
+        "url": "https://github.com/andrewhickman/fs-err",
+        "archived": false,
+        "pushed_at": "2026-07-03T20:15:33Z",
+        "head_commit_date": "2026-07-03T20:15:00Z",
+        "head_sha": "b125cccd5f356ee44996f48e9ff9c412e429b466",
+        "stars": 176
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "fs4",
+      "version": "1.1.0",
+      "released_at": "2026-04-28T05:30:17.691355Z",
+      "rust_version": "1.75.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/al8n/fs4",
+      "recent_downloads": 17325071,
+      "features": {
+        "async-std": [
+          "dep:async-std"
+        ],
+        "default": [
+          "sync"
+        ],
+        "fs-err2": [
+          "dep:fs-err2",
+          "fs-err2/io_safety"
+        ],
+        "fs-err2-tokio": [
+          "fs-err2",
+          "fs-err2/tokio"
+        ],
+        "fs-err3": [
+          "dep:fs-err3"
+        ],
+        "fs-err3-tokio": [
+          "fs-err3",
+          "fs-err3/tokio"
+        ],
+        "smol": [
+          "dep:smol"
+        ],
+        "sync": [],
+        "tokio": [
+          "dep:tokio"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/fs4",
+      "repository_observation": {
+        "url": "https://github.com/al8n/fs4",
+        "archived": false,
+        "pushed_at": "2026-04-28T04:24:26Z",
+        "head_commit_date": "2026-04-28T04:15:09Z",
+        "head_sha": "5f81cf254d3e1db4a98a9a49723b7405a4d3e383",
+        "stars": 118
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "globset",
+      "version": "0.4.20",
+      "released_at": "2026-08-04T13:59:29.810360Z",
+      "rust_version": "1.88",
+      "license": "Unlicense OR MIT",
+      "repository": "https://github.com/BurntSushi/ripgrep/tree/master/crates/globset",
+      "recent_downloads": 48873944,
+      "features": {
+        "arbitrary": [
+          "dep:arbitrary"
+        ],
+        "default": [
+          "log"
+        ],
+        "serde1": [
+          "serde"
+        ],
+        "simd-accel": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/globset",
+      "repository_observation": {
+        "url": "https://github.com/BurntSushi/ripgrep",
+        "archived": false,
+        "pushed_at": "2026-08-04T13:59:44Z",
+        "head_commit_date": "2026-08-04T14:00:08Z",
+        "head_sha": "3fce3b5bb0236da2df6d99672afb8a719642eca7",
+        "stars": 68098
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": true
+    },
+    {
+      "name": "humantime",
+      "version": "2.4.0",
+      "released_at": "2026-07-02T11:38:57.566374Z",
+      "rust_version": "1.60",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/chronotope/humantime",
+      "recent_downloads": 60662350,
+      "features": {
+        "mu": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/humantime",
+      "repository_observation": {
+        "url": "https://github.com/chronotope/humantime",
+        "archived": false,
+        "pushed_at": "2026-07-13T13:51:00Z",
+        "head_commit_date": "2026-07-13T13:50:59Z",
+        "head_sha": "76c8929b4cc286f675322475a8e1841f35bafc57",
+        "stars": 394
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "ignore",
+      "version": "0.4.33",
+      "released_at": "2026-08-04T13:59:40.311767Z",
+      "rust_version": "1.88",
+      "license": "Unlicense OR MIT",
+      "repository": "https://github.com/BurntSushi/ripgrep/tree/master/crates/ignore",
+      "recent_downloads": 36389857,
+      "features": {
+        "simd-accel": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/ignore",
+      "repository_observation": {
+        "url": "https://github.com/BurntSushi/ripgrep",
+        "archived": false,
+        "pushed_at": "2026-08-04T13:59:44Z",
+        "head_commit_date": "2026-08-04T14:00:08Z",
+        "head_sha": "3fce3b5bb0236da2df6d99672afb8a719642eca7",
+        "stars": 68098
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": true
+    },
+    {
+      "name": "indexmap",
+      "version": "2.14.2",
+      "released_at": "2026-09-05T01:53:48.019655Z",
+      "rust_version": "1.85",
+      "license": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/indexmap-rs/indexmap",
+      "recent_downloads": 342268621,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "serde": [
+          "dep:serde_core",
+          "dep:serde"
+        ],
+        "std": [],
+        "test_debug": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/indexmap",
+      "repository_observation": {
+        "url": "https://github.com/indexmap-rs/indexmap",
+        "archived": false,
+        "pushed_at": "2026-09-05T01:53:57Z",
+        "head_commit_date": "2026-09-05T01:41:03Z",
+        "head_sha": "41a870887c4c77adf665886e63df08f406bfe37a",
+        "stars": 2424
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "indicatif",
+      "version": "0.18.6",
+      "released_at": "2026-07-01T13:45:24.733589Z",
+      "rust_version": "1.85",
+      "license": "MIT",
+      "repository": "https://github.com/console-rs/indicatif",
+      "recent_downloads": 47018310,
+      "features": {
+        "default": [
+          "unicode-width",
+          "wasmbind"
+        ],
+        "futures": [
+          "dep:futures-core"
+        ],
+        "improved_unicode": [
+          "unicode-segmentation",
+          "unicode-width"
+        ],
+        "in_memory": [
+          "vt100"
+        ],
+        "unicode-width": [
+          "dep:unicode-width",
+          "console/unicode-width"
+        ],
+        "wasmbind": [
+          "dep:web-time"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/indicatif",
+      "repository_observation": {
+        "url": "https://github.com/console-rs/indicatif",
+        "archived": false,
+        "pushed_at": "2026-09-07T15:20:41Z",
+        "head_commit_date": "2026-09-07T15:20:41Z",
+        "head_sha": "1d07e48aa863cd345d57c97b520aa7254625753d",
+        "stars": 5211
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "inquire",
+      "version": "0.9.4",
+      "released_at": "2026-02-24T17:21:33.418470Z",
+      "rust_version": "1.80.0",
+      "license": "MIT",
+      "repository": "https://github.com/mikaelmello/inquire",
+      "recent_downloads": 5157868,
+      "features": {
+        "date": [
+          "chrono"
+        ],
+        "default": [
+          "macros",
+          "crossterm",
+          "one-liners",
+          "fuzzy"
+        ],
+        "editor": [
+          "tempfile"
+        ],
+        "experimental-multiline-input": [],
+        "fuzzy": [
+          "fuzzy-matcher"
+        ],
+        "macros": [],
+        "one-liners": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/inquire",
+      "repository_observation": {
+        "url": "https://github.com/mikaelmello/inquire",
+        "archived": false,
+        "pushed_at": "2026-03-02T14:42:29Z",
+        "head_commit_date": "2026-02-24T17:21:29Z",
+        "head_sha": "3d5b65422a247acc773d767558e34fcb69ab04bf",
+        "stars": 2623
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "insta",
+      "version": "1.48.0",
+      "released_at": "2026-06-11T14:13:41.200726Z",
+      "rust_version": "1.66.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/mitsuhiko/insta",
+      "recent_downloads": 26196140,
+      "features": {
+        "_cargo_insta_internal": [
+          "clap"
+        ],
+        "colors": [
+          "console"
+        ],
+        "csv": [
+          "dep:csv",
+          "serde"
+        ],
+        "default": [
+          "colors"
+        ],
+        "filters": [
+          "regex",
+          "strip-ansi-escapes"
+        ],
+        "glob": [
+          "walkdir",
+          "globset"
+        ],
+        "json": [
+          "serde"
+        ],
+        "redactions": [
+          "pest",
+          "pest_derive",
+          "serde"
+        ],
+        "ron": [
+          "dep:ron",
+          "serde"
+        ],
+        "toml": [
+          "dep:toml_edit",
+          "dep:toml_writer",
+          "serde"
+        ],
+        "yaml": [
+          "serde"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/insta",
+      "repository_observation": {
+        "url": "https://github.com/mitsuhiko/insta",
+        "archived": false,
+        "pushed_at": "2026-09-06T23:26:22Z",
+        "head_commit_date": "2026-09-06T23:26:22Z",
+        "head_sha": "06858e1c92ceef33d90e642cfce6e2fd36fbd1e2",
+        "stars": 2957
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "itertools",
+      "version": "0.15.0",
+      "released_at": "2026-06-16T15:09:28.880416Z",
+      "rust_version": "1.63.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-itertools/itertools",
+      "recent_downloads": 318446523,
+      "features": {
+        "default": [
+          "use_std"
+        ],
+        "use_alloc": [],
+        "use_std": [
+          "use_alloc",
+          "either/use_std"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/itertools",
+      "repository_observation": {
+        "url": "https://github.com/rust-itertools/itertools",
+        "archived": false,
+        "pushed_at": "2026-09-05T05:34:56Z",
+        "head_commit_date": "2026-09-05T05:32:58Z",
+        "head_sha": "fd619332f002979c3d7958fe0fc45509f84fdb8d",
+        "stars": 3166
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "jiff",
+      "version": "0.2.35",
+      "released_at": "2026-07-25T23:45:35.679348Z",
+      "rust_version": "1.70",
+      "license": "Unlicense OR MIT",
+      "repository": "https://github.com/BurntSushi/jiff",
+      "recent_downloads": 61735235,
+      "features": {
+        "alloc": [
+          "jcore/alloc",
+          "serde_core?/alloc",
+          "portable-atomic-util/alloc",
+          "defmt?/alloc"
+        ],
+        "default": [
+          "std",
+          "tz-system",
+          "tz-fat",
+          "tzdb-bundle-platform",
+          "tzdb-zoneinfo",
+          "tzdb-concatenated",
+          "perf-inline"
+        ],
+        "defmt": [
+          "dep:defmt",
+          "jcore/defmt"
+        ],
+        "js": [
+          "dep:wasm-bindgen",
+          "dep:js-sys"
+        ],
+        "logging": [
+          "dep:log",
+          "jcore/logging"
+        ],
+        "perf-inline": [],
+        "serde": [
+          "dep:serde_core"
+        ],
+        "static": [
+          "static-tz",
+          "jiff-static?/tzdb"
+        ],
+        "static-tz": [
+          "dep:jiff-static"
+        ],
+        "std": [
+          "alloc",
+          "jcore/std",
+          "log?/std",
+          "serde_core?/std"
+        ],
+        "tz-fat": [
+          "jcore/tz-fat",
+          "jiff-static?/tz-fat"
+        ],
+        "tz-system": [
+          "std",
+          "dep:windows-link"
+        ],
+        "tzdb-bundle-always": [
+          "dep:jiff-tzdb",
+          "alloc"
+        ],
+        "tzdb-bundle-platform": [
+          "dep:jiff-tzdb-platform",
+          "alloc"
+        ],
+        "tzdb-concatenated": [
+          "std"
+        ],
+        "tzdb-zoneinfo": [
+          "std"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/jiff",
+      "repository_observation": {
+        "url": "https://github.com/BurntSushi/jiff",
+        "archived": false,
+        "pushed_at": "2026-08-07T18:00:58Z",
+        "head_commit_date": "2026-08-07T18:00:33Z",
+        "head_sha": "ab6e8c83462e9b6d0dfe33f9cb70583d3d82049b",
+        "stars": 2916
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "lexopt",
+      "version": "0.3.2",
+      "released_at": "2026-02-28T22:31:39.383874Z",
+      "rust_version": null,
+      "license": "MIT",
+      "repository": "https://github.com/blyxxyz/lexopt",
+      "recent_downloads": 2645282,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/lexopt",
+      "repository_observation": {
+        "url": "https://github.com/blyxxyz/lexopt",
+        "archived": false,
+        "pushed_at": "2026-02-28T22:40:58Z",
+        "head_commit_date": "2026-02-28T22:27:47Z",
+        "head_sha": "f52c6a620b59dcadb01701c039cd4b270e2d5966",
+        "stars": 420
+      },
+      "recommendation_scope": "Alternative framework or parser to evaluate",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "log",
+      "version": "0.4.34",
+      "released_at": "2026-08-22T11:44:27.941626Z",
+      "rust_version": "1.71.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-lang/log",
+      "recent_downloads": 270036168,
+      "features": {
+        "alloc": [],
+        "kv": [],
+        "kv_serde": [
+          "kv_std",
+          "value-bag/serde",
+          "serde"
+        ],
+        "kv_std": [
+          "std",
+          "kv",
+          "value-bag/error"
+        ],
+        "kv_sval": [
+          "kv",
+          "value-bag/sval",
+          "sval",
+          "sval_ref"
+        ],
+        "kv_unstable": [
+          "kv",
+          "value-bag"
+        ],
+        "kv_unstable_serde": [
+          "kv_serde",
+          "kv_unstable_std"
+        ],
+        "kv_unstable_std": [
+          "kv_std",
+          "kv_unstable"
+        ],
+        "kv_unstable_sval": [
+          "kv_sval",
+          "kv_unstable"
+        ],
+        "max_level_debug": [],
+        "max_level_error": [],
+        "max_level_info": [],
+        "max_level_off": [],
+        "max_level_trace": [],
+        "max_level_warn": [],
+        "release_max_level_debug": [],
+        "release_max_level_error": [],
+        "release_max_level_info": [],
+        "release_max_level_off": [],
+        "release_max_level_trace": [],
+        "release_max_level_warn": [],
+        "serde": [
+          "serde_core"
+        ],
+        "std": [
+          "alloc"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/log",
+      "repository_observation": {
+        "url": "https://github.com/rust-lang/log",
+        "archived": false,
+        "pushed_at": "2026-08-22T11:43:35Z",
+        "head_commit_date": "2026-08-22T11:43:01Z",
+        "head_sha": "8034743dd9d7f7583bd9a670271483d176130911",
+        "stars": 2545
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "memchr",
+      "version": "2.8.3",
+      "released_at": "2026-07-08T00:49:54.408285Z",
+      "rust_version": "1.61",
+      "license": "Unlicense OR MIT",
+      "repository": "https://github.com/BurntSushi/memchr",
+      "recent_downloads": 341500710,
+      "features": {
+        "alloc": [],
+        "default": [
+          "std"
+        ],
+        "libc": [],
+        "logging": [
+          "dep:log"
+        ],
+        "rustc-dep-of-std": [
+          "core"
+        ],
+        "std": [
+          "alloc"
+        ],
+        "use_std": [
+          "std"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/memchr",
+      "repository_observation": {
+        "url": "https://github.com/BurntSushi/memchr",
+        "archived": false,
+        "pushed_at": "2026-08-10T17:32:21Z",
+        "head_commit_date": "2026-08-10T17:32:08Z",
+        "head_sha": "bd6068c30e9074a90c285e47912fa0b047d07597",
+        "stars": 1550
+      },
+      "recommendation_scope": "Already in template runtime",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "miette",
+      "version": "7.6.0",
+      "released_at": "2025-04-27T04:53:40.567063Z",
+      "rust_version": "1.70.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/zkat/miette",
+      "recent_downloads": 16682535,
+      "features": {
+        "default": [
+          "derive"
+        ],
+        "derive": [
+          "dep:miette-derive"
+        ],
+        "fancy": [
+          "fancy-no-backtrace",
+          "dep:backtrace",
+          "dep:backtrace-ext"
+        ],
+        "fancy-base": [
+          "dep:owo-colors",
+          "dep:textwrap"
+        ],
+        "fancy-no-backtrace": [
+          "fancy-base",
+          "dep:terminal_size",
+          "dep:supports-hyperlinks",
+          "dep:supports-color",
+          "dep:supports-unicode"
+        ],
+        "fancy-no-syscall": [
+          "fancy-base"
+        ],
+        "no-format-args-capture": [],
+        "syntect-highlighter": [
+          "fancy-no-backtrace",
+          "dep:syntect"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/miette",
+      "repository_observation": {
+        "url": "https://github.com/zkat/miette",
+        "archived": false,
+        "pushed_at": "2026-06-25T18:33:54Z",
+        "head_commit_date": "2026-06-25T18:33:52Z",
+        "head_sha": "e853bbf9bc78bbe0b225995de54a3108d77dcaf8",
+        "stars": 2601
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "once_cell",
+      "version": "1.21.4",
+      "released_at": "2026-03-12T10:59:52.512992Z",
+      "rust_version": "1.65",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/matklad/once_cell",
+      "recent_downloads": 269262813,
+      "features": {
+        "alloc": [
+          "race"
+        ],
+        "atomic-polyfill": [
+          "critical-section"
+        ],
+        "critical-section": [
+          "dep:critical-section",
+          "portable-atomic"
+        ],
+        "default": [
+          "std"
+        ],
+        "parking_lot": [
+          "dep:parking_lot_core"
+        ],
+        "portable-atomic": [
+          "dep:portable-atomic"
+        ],
+        "race": [],
+        "std": [
+          "alloc"
+        ],
+        "unstable": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/once_cell",
+      "repository_observation": {
+        "url": "https://github.com/matklad/once_cell",
+        "archived": false,
+        "pushed_at": "2026-03-12T10:59:54Z",
+        "head_commit_date": "2026-03-12T10:48:25Z",
+        "head_sha": "80fe900b21f6d76c1a2ed74d3343e8a3a88c46d0",
+        "stars": 2092
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "pico-args",
+      "version": "0.5.0",
+      "released_at": "2022-06-04T12:11:35.198777Z",
+      "rust_version": null,
+      "license": "MIT",
+      "repository": "https://github.com/RazrFalcon/pico-args",
+      "recent_downloads": 17068770,
+      "features": {
+        "combined-flags": [],
+        "default": [],
+        "eq-separator": [],
+        "short-space-opt": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/pico-args",
+      "repository_observation": {
+        "url": "https://github.com/RazrFalcon/pico-args",
+        "archived": false,
+        "pushed_at": "2023-10-19T07:31:56Z",
+        "head_commit_date": "2023-10-19T07:31:52Z",
+        "head_sha": "ee9e334fdd5bd5dac16ec882ec4bced1d6c11bc9",
+        "stars": 648
+      },
+      "recommendation_scope": "Situational library",
+      "maintenance_note": "Low recent observed activity; old release alone does not establish abandonment.",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "predicates",
+      "version": "3.1.4",
+      "released_at": "2026-02-11T14:41:47.203240Z",
+      "rust_version": "1.74",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/assert-rs/predicates-rs",
+      "recent_downloads": 39239676,
+      "features": {
+        "color": [],
+        "default": [
+          "diff",
+          "regex",
+          "float-cmp",
+          "normalize-line-endings",
+          "color"
+        ],
+        "diff": [
+          "dep:difflib"
+        ],
+        "unstable": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/predicates",
+      "repository_observation": {
+        "url": "https://github.com/assert-rs/predicates-rs",
+        "archived": false,
+        "pushed_at": "2026-09-01T12:54:46Z",
+        "head_commit_date": "2026-09-01T12:54:43Z",
+        "head_sha": "919dd34e9259767b225ab8ae38b2df02658343e5",
+        "stars": 212
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "process-wrap",
+      "version": "10.0.0",
+      "released_at": "2026-08-24T14:52:10.448489Z",
+      "rust_version": "1.87.0",
+      "license": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/watchexec/process-wrap",
+      "recent_downloads": 5729031,
+      "features": {
+        "creation-flags": [
+          "dep:windows",
+          "windows/Win32_System_Threading"
+        ],
+        "default": [
+          "creation-flags",
+          "job-object",
+          "kill-on-drop",
+          "process-group",
+          "process-session",
+          "tracing"
+        ],
+        "job-object": [
+          "dep:windows",
+          "windows/Win32_Security",
+          "windows/Win32_System_Diagnostics_ToolHelp",
+          "windows/Win32_System_IO",
+          "windows/Win32_System_JobObjects",
+          "windows/Win32_System_Threading"
+        ],
+        "kill-on-drop": [],
+        "process-group": [],
+        "process-session": [
+          "process-group"
+        ],
+        "reset-sigmask": [],
+        "std": [
+          "dep:nix"
+        ],
+        "tokio1": [
+          "dep:nix",
+          "dep:futures",
+          "dep:tokio"
+        ],
+        "tracing": [
+          "dep:tracing"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/process-wrap",
+      "repository_observation": {
+        "url": "https://github.com/watchexec/process-wrap",
+        "archived": false,
+        "pushed_at": "2026-08-31T15:04:01Z",
+        "head_commit_date": "2026-08-24T15:23:50Z",
+        "head_sha": "1d1cc53c5c3f9c2e8bf4ae0459d780a616dc1015",
+        "stars": 45
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": true
+    },
+    {
+      "name": "proptest",
+      "version": "1.11.0",
+      "released_at": "2026-03-24T11:01:38.993611Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/proptest-rs/proptest",
+      "recent_downloads": 46247997,
+      "features": {
+        "alloc": [],
+        "atomic64bit": [],
+        "attr-macro": [
+          "proptest-macro"
+        ],
+        "bit-set": [
+          "dep:bit-set",
+          "dep:bit-vec"
+        ],
+        "default": [
+          "std",
+          "fork",
+          "timeout",
+          "bit-set"
+        ],
+        "default-code-coverage": [
+          "std",
+          "fork",
+          "timeout",
+          "bit-set"
+        ],
+        "f16": [],
+        "fork": [
+          "std",
+          "rusty-fork",
+          "tempfile"
+        ],
+        "handle-panics": [
+          "std"
+        ],
+        "hardware-rng": [
+          "x86"
+        ],
+        "no_std": [
+          "num-traits/libm"
+        ],
+        "std": [
+          "rand/std",
+          "rand/os_rng",
+          "regex-syntax",
+          "num-traits/std"
+        ],
+        "timeout": [
+          "fork",
+          "rusty-fork/timeout"
+        ],
+        "unstable": [
+          "f16"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/proptest",
+      "repository_observation": {
+        "url": "https://github.com/proptest-rs/proptest",
+        "archived": false,
+        "pushed_at": "2026-08-21T20:59:56Z",
+        "head_commit_date": "2026-08-21T20:59:56Z",
+        "head_sha": "a6f033cf83adfd55557b86e6065e6f4df054ec70",
+        "stars": 2229
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "ratatui",
+      "version": "0.30.2",
+      "released_at": "2026-06-19T08:56:46.628604Z",
+      "rust_version": "1.88.0",
+      "license": "MIT",
+      "repository": "https://github.com/ratatui/ratatui",
+      "recent_downloads": 17662590,
+      "features": {
+        "all-widgets": [
+          "widget-calendar"
+        ],
+        "crossterm": [
+          "dep:ratatui-crossterm",
+          "std"
+        ],
+        "crossterm_0_28": [
+          "crossterm",
+          "ratatui-crossterm/crossterm_0_28"
+        ],
+        "crossterm_0_29": [
+          "crossterm",
+          "ratatui-crossterm/crossterm_0_29"
+        ],
+        "default": [
+          "all-widgets",
+          "crossterm",
+          "layout-cache",
+          "macros",
+          "underline-color"
+        ],
+        "layout-cache": [
+          "ratatui-core/layout-cache"
+        ],
+        "macros": [
+          "dep:ratatui-macros"
+        ],
+        "palette": [
+          "dep:palette",
+          "ratatui-core/palette"
+        ],
+        "portable-atomic": [
+          "ratatui-core/portable-atomic"
+        ],
+        "scrolling-regions": [
+          "ratatui-core/scrolling-regions",
+          "ratatui-crossterm?/scrolling-regions",
+          "ratatui-termina?/scrolling-regions",
+          "ratatui-termion?/scrolling-regions",
+          "ratatui-termwiz?/scrolling-regions"
+        ],
+        "serde": [
+          "dep:serde",
+          "ratatui-core/serde",
+          "ratatui-crossterm?/serde",
+          "ratatui-termina?/serde",
+          "ratatui-termion?/serde",
+          "ratatui-termwiz?/serde",
+          "ratatui-widgets/serde"
+        ],
+        "std": [
+          "ratatui-core/std",
+          "ratatui-widgets/std",
+          "serde?/std"
+        ],
+        "termina": [
+          "dep:ratatui-termina",
+          "std"
+        ],
+        "termion": [
+          "dep:ratatui-termion",
+          "std"
+        ],
+        "termwiz": [
+          "dep:ratatui-termwiz",
+          "std"
+        ],
+        "underline-color": [
+          "ratatui-core/underline-color",
+          "ratatui-crossterm?/underline-color",
+          "ratatui-termina?/underline-color",
+          "ratatui-termwiz?/underline-color"
+        ],
+        "unstable": [
+          "unstable-backend-writer",
+          "unstable-rendered-line-info",
+          "unstable-widget-ref"
+        ],
+        "unstable-backend-writer": [
+          "ratatui-crossterm?/unstable-backend-writer",
+          "ratatui-termina?/unstable-backend-writer",
+          "ratatui-termion?/unstable-backend-writer"
+        ],
+        "unstable-rendered-line-info": [
+          "ratatui-widgets/unstable-rendered-line-info"
+        ],
+        "unstable-widget-ref": [],
+        "widget-calendar": [
+          "ratatui-widgets/calendar"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/ratatui",
+      "repository_observation": {
+        "url": "https://github.com/ratatui/ratatui",
+        "archived": false,
+        "pushed_at": "2026-09-07T15:43:36Z",
+        "head_commit_date": "2026-09-06T21:34:41Z",
+        "head_sha": "99168f8afa2d75f89beeee17f0d15835010177c4",
+        "stars": 22525
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": true
+    },
+    {
+      "name": "rayon",
+      "version": "1.12.0",
+      "released_at": "2026-04-14T00:56:56.454086Z",
+      "rust_version": "1.80",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rayon-rs/rayon",
+      "recent_downloads": 118839696,
+      "features": {
+        "web_spin_lock": [
+          "dep:wasm_sync",
+          "rayon-core/web_spin_lock"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/rayon",
+      "repository_observation": {
+        "url": "https://github.com/rayon-rs/rayon",
+        "archived": false,
+        "pushed_at": "2026-08-28T23:03:55Z",
+        "head_commit_date": "2026-08-28T23:00:32Z",
+        "head_sha": "ee0a00bdb1ab039e178a215ad5712fb7fa58e58f",
+        "stars": 13300
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "regex",
+      "version": "1.13.1",
+      "released_at": "2026-07-15T20:19:35.162139Z",
+      "rust_version": "1.65",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-lang/regex",
+      "recent_downloads": 240473978,
+      "features": {
+        "default": [
+          "std",
+          "perf",
+          "unicode",
+          "regex-syntax/default"
+        ],
+        "logging": [
+          "aho-corasick?/logging",
+          "memchr?/logging",
+          "regex-automata/logging"
+        ],
+        "pattern": [],
+        "perf": [
+          "perf-cache",
+          "perf-dfa",
+          "perf-onepass",
+          "perf-backtrack",
+          "perf-inline",
+          "perf-literal"
+        ],
+        "perf-backtrack": [
+          "regex-automata/nfa-backtrack"
+        ],
+        "perf-cache": [],
+        "perf-dfa": [
+          "regex-automata/hybrid"
+        ],
+        "perf-dfa-full": [
+          "regex-automata/dfa-build",
+          "regex-automata/dfa-search"
+        ],
+        "perf-inline": [
+          "regex-automata/perf-inline"
+        ],
+        "perf-literal": [
+          "dep:aho-corasick",
+          "dep:memchr",
+          "regex-automata/perf-literal"
+        ],
+        "perf-onepass": [
+          "regex-automata/dfa-onepass"
+        ],
+        "std": [
+          "aho-corasick?/std",
+          "memchr?/std",
+          "regex-automata/std",
+          "regex-syntax/std"
+        ],
+        "unicode": [
+          "unicode-age",
+          "unicode-bool",
+          "unicode-case",
+          "unicode-gencat",
+          "unicode-perl",
+          "unicode-script",
+          "unicode-segment",
+          "regex-automata/unicode",
+          "regex-syntax/unicode"
+        ],
+        "unicode-age": [
+          "regex-automata/unicode-age",
+          "regex-syntax/unicode-age"
+        ],
+        "unicode-bool": [
+          "regex-automata/unicode-bool",
+          "regex-syntax/unicode-bool"
+        ],
+        "unicode-case": [
+          "regex-automata/unicode-case",
+          "regex-syntax/unicode-case"
+        ],
+        "unicode-gencat": [
+          "regex-automata/unicode-gencat",
+          "regex-syntax/unicode-gencat"
+        ],
+        "unicode-perl": [
+          "regex-automata/unicode-perl",
+          "regex-automata/unicode-word-boundary",
+          "regex-syntax/unicode-perl"
+        ],
+        "unicode-script": [
+          "regex-automata/unicode-script",
+          "regex-syntax/unicode-script"
+        ],
+        "unicode-segment": [
+          "regex-automata/unicode-segment",
+          "regex-syntax/unicode-segment"
+        ],
+        "unstable": [
+          "pattern"
+        ],
+        "use_std": [
+          "std"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/regex",
+      "repository_observation": {
+        "url": "https://github.com/rust-lang/regex",
+        "archived": false,
+        "pushed_at": "2026-08-10T16:19:27Z",
+        "head_commit_date": "2026-08-10T12:02:10Z",
+        "head_sha": "72d650cb0a880a01ab6dc2137c0888e8f89740f7",
+        "stars": 4019
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "regex-lite",
+      "version": "0.1.9",
+      "released_at": "2026-02-03T13:47:43.407798Z",
+      "rust_version": "1.65",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-lang/regex",
+      "recent_downloads": 47595184,
+      "features": {
+        "default": [
+          "std",
+          "string"
+        ],
+        "std": [],
+        "string": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/regex-lite",
+      "repository_observation": {
+        "url": "https://github.com/rust-lang/regex",
+        "archived": false,
+        "pushed_at": "2026-08-10T16:19:27Z",
+        "head_commit_date": "2026-08-10T12:02:10Z",
+        "head_sha": "72d650cb0a880a01ab6dc2137c0888e8f89740f7",
+        "stars": 4019
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "reqwest",
+      "version": "0.13.4",
+      "released_at": "2026-05-25T17:12:48.317444Z",
+      "rust_version": "1.85.0",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/seanmonstar/reqwest",
+      "recent_downloads": 176549169,
+      "features": {
+        "__native-tls": [
+          "dep:hyper-tls",
+          "dep:native-tls-crate",
+          "__tls",
+          "dep:tokio-native-tls"
+        ],
+        "__native-tls-alpn": [
+          "native-tls-crate?/alpn",
+          "hyper-tls?/alpn"
+        ],
+        "__rustls": [
+          "dep:hyper-rustls",
+          "dep:tokio-rustls",
+          "dep:rustls",
+          "__tls"
+        ],
+        "__rustls-aws-lc-rs": [
+          "hyper-rustls?/aws-lc-rs",
+          "tokio-rustls?/aws-lc-rs",
+          "rustls?/aws-lc-rs",
+          "quinn?/rustls-aws-lc-rs"
+        ],
+        "__tls": [
+          "dep:rustls-pki-types",
+          "tokio/io-util"
+        ],
+        "blocking": [
+          "dep:futures-channel",
+          "futures-channel?/sink",
+          "dep:futures-util",
+          "futures-util?/io",
+          "futures-util?/sink",
+          "tokio/sync"
+        ],
+        "brotli": [
+          "tower-http/decompression-br"
+        ],
+        "charset": [
+          "dep:encoding_rs",
+          "dep:mime"
+        ],
+        "cookies": [
+          "dep:cookie_crate",
+          "dep:cookie_store"
+        ],
+        "default": [
+          "default-tls",
+          "charset",
+          "http2",
+          "system-proxy"
+        ],
+        "default-tls": [
+          "rustls"
+        ],
+        "deflate": [
+          "tower-http/decompression-deflate"
+        ],
+        "form": [
+          "dep:serde",
+          "dep:serde_urlencoded"
+        ],
+        "gzip": [
+          "tower-http/decompression-gzip"
+        ],
+        "hickory-dns": [
+          "dep:hickory-resolver",
+          "dep:once_cell"
+        ],
+        "http2": [
+          "dep:h2",
+          "hyper/http2",
+          "hyper-util/http2",
+          "hyper-rustls?/http2"
+        ],
+        "http3": [
+          "rustls",
+          "dep:h3",
+          "dep:h3-quinn",
+          "dep:quinn",
+          "tokio/macros"
+        ],
+        "json": [
+          "dep:serde",
+          "dep:serde_json"
+        ],
+        "multipart": [
+          "dep:mime_guess",
+          "dep:futures-util"
+        ],
+        "native-tls": [
+          "__native-tls",
+          "__native-tls-alpn"
+        ],
+        "native-tls-no-alpn": [
+          "__native-tls"
+        ],
+        "native-tls-vendored": [
+          "__native-tls",
+          "native-tls-crate?/vendored",
+          "__native-tls-alpn"
+        ],
+        "native-tls-vendored-no-alpn": [
+          "__native-tls",
+          "native-tls-crate?/vendored"
+        ],
+        "query": [
+          "dep:serde",
+          "dep:serde_urlencoded"
+        ],
+        "rustls": [
+          "__rustls-aws-lc-rs",
+          "dep:rustls-platform-verifier",
+          "__rustls"
+        ],
+        "rustls-no-provider": [
+          "dep:rustls-platform-verifier",
+          "__rustls"
+        ],
+        "socks": [],
+        "stream": [
+          "tokio/fs",
+          "dep:futures-util",
+          "dep:tokio-util",
+          "dep:wasm-streams"
+        ],
+        "system-proxy": [
+          "hyper-util/client-proxy-system"
+        ],
+        "zstd": [
+          "tower-http/decompression-zstd"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/reqwest",
+      "repository_observation": {
+        "url": "https://github.com/seanmonstar/reqwest",
+        "archived": false,
+        "pushed_at": "2026-09-07T12:37:52Z",
+        "head_commit_date": "2026-09-07T12:37:51Z",
+        "head_sha": "4d3fe121f99f74f912b9a39d789f06f13688c8c8",
+        "stars": 11813
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "semver",
+      "version": "1.0.28",
+      "released_at": "2026-04-04T00:25:14.379075Z",
+      "rust_version": "1.68",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/semver",
+      "recent_downloads": 201327500,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "serde": [
+          "dep:serde"
+        ],
+        "std": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/semver",
+      "repository_observation": {
+        "url": "https://github.com/dtolnay/semver",
+        "archived": false,
+        "pushed_at": "2026-06-24T03:05:25Z",
+        "head_commit_date": "2026-06-24T03:02:34Z",
+        "head_sha": "280ebcb6edac3aa4cdc545dbff8a26c5ac4861fe",
+        "stars": 668
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "serde",
+      "version": "1.0.229",
+      "released_at": "2026-07-18T23:05:13.266456Z",
+      "rust_version": "1.56",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/serde-rs/serde",
+      "recent_downloads": 296770868,
+      "features": {
+        "alloc": [
+          "serde_core/alloc"
+        ],
+        "default": [
+          "std"
+        ],
+        "derive": [
+          "serde_derive"
+        ],
+        "rc": [
+          "serde_core/rc"
+        ],
+        "std": [
+          "serde_core/std"
+        ],
+        "unstable": [
+          "serde_core/unstable"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/serde",
+      "repository_observation": {
+        "url": "https://github.com/serde-rs/serde",
+        "archived": false,
+        "pushed_at": "2026-08-25T03:53:14Z",
+        "head_commit_date": "2026-08-25T03:52:55Z",
+        "head_sha": "a874a1b1bb1cc16cf5ee3b1b7b527af5705742bb",
+        "stars": 10808
+      },
+      "recommendation_scope": "Already in template runtime",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "serde_json",
+      "version": "1.0.151",
+      "released_at": "2026-07-20T05:54:44.078083Z",
+      "rust_version": "1.71",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/serde-rs/json",
+      "recent_downloads": 300577384,
+      "features": {
+        "alloc": [
+          "serde_core/alloc"
+        ],
+        "arbitrary_precision": [],
+        "default": [
+          "std"
+        ],
+        "float_roundtrip": [],
+        "preserve_order": [
+          "indexmap",
+          "std"
+        ],
+        "raw_value": [],
+        "std": [
+          "memchr/std",
+          "serde_core/std"
+        ],
+        "unbounded_depth": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/serde_json",
+      "repository_observation": {
+        "url": "https://github.com/serde-rs/json",
+        "archived": false,
+        "pushed_at": "2026-08-08T06:50:26Z",
+        "head_commit_date": "2026-08-08T06:50:03Z",
+        "head_sha": "afdf6fc67247dd7fa4fcde1381e6ecc6bcc7a30e",
+        "stars": 5634
+      },
+      "recommendation_scope": "Already in template runtime",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "signal-hook",
+      "version": "0.4.4",
+      "released_at": "2026-04-04T08:08:58.259635Z",
+      "rust_version": "1.66",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/vorner/signal-hook",
+      "recent_downloads": 52642825,
+      "features": {
+        "channel": [],
+        "default": [
+          "channel",
+          "iterator"
+        ],
+        "extended-siginfo": [
+          "channel",
+          "iterator",
+          "extended-siginfo-raw"
+        ],
+        "extended-siginfo-raw": [
+          "cc"
+        ],
+        "iterator": [
+          "channel"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/signal-hook",
+      "repository_observation": {
+        "url": "https://github.com/vorner/signal-hook",
+        "archived": false,
+        "pushed_at": "2026-04-04T08:10:09Z",
+        "head_commit_date": "2026-04-04T08:08:49Z",
+        "head_sha": "f37a7b5918830009c83f5e17fd5a533f2dfd7f82",
+        "stars": 866
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "smallvec",
+      "version": "1.16.0",
+      "released_at": "2026-09-01T15:26:29.894397Z",
+      "rust_version": null,
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/servo/rust-smallvec",
+      "recent_downloads": 268853054,
+      "features": {
+        "const_generics": [],
+        "const_new": [
+          "const_generics"
+        ],
+        "drain_filter": [],
+        "drain_keep_rest": [
+          "drain_filter"
+        ],
+        "impl_bincode": [
+          "bincode",
+          "unty"
+        ],
+        "may_dangle": [],
+        "specialization": [],
+        "union": [],
+        "write": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/smallvec",
+      "repository_observation": {
+        "url": "https://github.com/servo/rust-smallvec",
+        "archived": false,
+        "pushed_at": "2026-09-08T16:06:24Z",
+        "head_commit_date": "2026-09-08T16:06:06Z",
+        "head_sha": "7388c93917de018fc52f4cb062323e6d82119953",
+        "stars": 1721
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "snapbox",
+      "version": "1.2.2",
+      "released_at": "2026-05-26T16:30:09.105602Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/assert-rs/snapbox/",
+      "recent_downloads": 3177211,
+      "features": {
+        "cmd": [
+          "dep:os_pipe",
+          "dep:wait-timeout",
+          "dep:libc",
+          "dep:windows-sys"
+        ],
+        "color": [
+          "dep:anstream",
+          "snapbox-macros/color"
+        ],
+        "color-auto": [
+          "color"
+        ],
+        "debug": [
+          "snapbox-macros/debug",
+          "dep:backtrace"
+        ],
+        "default": [
+          "color-auto",
+          "diff"
+        ],
+        "detect-encoding": [
+          "dep:content_inspector"
+        ],
+        "diff": [
+          "dep:similar"
+        ],
+        "dir": [
+          "dep:tempfile",
+          "dep:walkdir",
+          "dep:dunce",
+          "detect-encoding",
+          "dep:filetime"
+        ],
+        "examples": [
+          "dep:escargot"
+        ],
+        "json": [
+          "structured-data",
+          "dep:serde_json",
+          "dep:serde"
+        ],
+        "path": [
+          "dir"
+        ],
+        "regex": [
+          "dep:regex"
+        ],
+        "structured-data": [
+          "dep:serde_json"
+        ],
+        "term-svg": [
+          "structured-data",
+          "dep:anstyle-svg"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/snapbox",
+      "repository_observation": {
+        "url": "https://github.com/assert-rs/snapbox",
+        "archived": false,
+        "pushed_at": "2026-09-01T12:11:04Z",
+        "head_commit_date": "2026-09-01T12:11:01Z",
+        "head_sha": "bff6faf6983718ff4c7ab851acce5ea9cb594d2b",
+        "stars": 183
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "strum",
+      "version": "0.28.0",
+      "released_at": "2026-02-22T15:46:16.247520Z",
+      "rust_version": "1.71",
+      "license": "MIT",
+      "repository": "https://github.com/Peternator7/strum",
+      "recent_downloads": 133577249,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "derive": [
+          "strum_macros"
+        ],
+        "std": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/strum",
+      "repository_observation": {
+        "url": "https://github.com/Peternator7/strum",
+        "archived": false,
+        "pushed_at": "2026-03-07T01:28:08Z",
+        "head_commit_date": "2026-03-07T01:28:08Z",
+        "head_sha": "90775661c7710b546e25af5e044dc687f1df0e7d",
+        "stars": 2438
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "tabled",
+      "version": "0.22.0",
+      "released_at": "2026-09-05T13:27:35.669751Z",
+      "rust_version": null,
+      "license": "MIT",
+      "repository": "https://github.com/zhiburt/tabled",
+      "recent_downloads": 8700398,
+      "features": {
+        "ansi": [
+          "papergrid/ansi",
+          "testing_table?/ansi",
+          "ansi-str",
+          "ansitok",
+          "std"
+        ],
+        "assert": [
+          "testing_table"
+        ],
+        "default": [
+          "derive",
+          "macros",
+          "assert"
+        ],
+        "derive": [
+          "tabled_derive",
+          "std"
+        ],
+        "macros": [
+          "std"
+        ],
+        "std": [
+          "papergrid/std",
+          "testing_table?/std"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/tabled",
+      "repository_observation": {
+        "url": "https://github.com/zhiburt/tabled",
+        "archived": false,
+        "pushed_at": "2026-09-05T13:32:36Z",
+        "head_commit_date": "2026-09-05T13:30:39Z",
+        "head_sha": "6f40434650aa0c8a27ecb243d42af605b4206b73",
+        "stars": 2362
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "tap",
+      "version": "1.0.1",
+      "released_at": "2021-02-13T02:43:25.525644Z",
+      "rust_version": null,
+      "license": "MIT",
+      "repository": "https://github.com/myrrlyn/tap",
+      "recent_downloads": 57367323,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/tap",
+      "repository_observation": {
+        "url": "https://github.com/myrrlyn/tap",
+        "archived": false,
+        "pushed_at": "2023-09-29T17:27:36Z",
+        "head_commit_date": "2021-02-13T02:39:21Z",
+        "head_sha": "f5315f0f5ca90ce6399daac76c1fe3ba645a4e4e",
+        "stars": 508
+      },
+      "recommendation_scope": "Situational library",
+      "maintenance_note": "Low recent observed activity; old release alone does not establish abandonment.",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "tempfile",
+      "version": "3.27.0",
+      "released_at": "2026-03-11T00:20:04.812840Z",
+      "rust_version": "1.63",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/Stebalien/tempfile",
+      "recent_downloads": 176376722,
+      "features": {
+        "default": [
+          "getrandom"
+        ],
+        "nightly": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/tempfile",
+      "repository_observation": {
+        "url": "https://github.com/Stebalien/tempfile",
+        "archived": false,
+        "pushed_at": "2026-09-05T17:21:42Z",
+        "head_commit_date": "2026-09-05T17:21:40Z",
+        "head_sha": "6a094dcce1cd51d1cbb065af8ecf92de39b11a05",
+        "stars": 1460
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "thiserror",
+      "version": "2.0.20",
+      "released_at": "2026-08-08T06:22:23.795550Z",
+      "rust_version": "1.71",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/thiserror",
+      "recent_downloads": 349536342,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "std": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/thiserror",
+      "repository_observation": {
+        "url": "https://github.com/dtolnay/thiserror",
+        "archived": false,
+        "pushed_at": "2026-09-05T05:32:25Z",
+        "head_commit_date": "2026-09-05T05:32:19Z",
+        "head_sha": "5a306c7d0a8588caaaaa6a7567aeb25c1c10719b",
+        "stars": 5538
+      },
+      "recommendation_scope": "Already in template runtime",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "tokio",
+      "version": "1.53.1",
+      "released_at": "2026-07-20T17:06:09.996426Z",
+      "rust_version": "1.71",
+      "license": "MIT",
+      "repository": "https://github.com/tokio-rs/tokio",
+      "recent_downloads": 218139283,
+      "features": {
+        "default": [],
+        "fs": [],
+        "full": [
+          "fs",
+          "io-util",
+          "io-std",
+          "macros",
+          "net",
+          "parking_lot",
+          "process",
+          "rt",
+          "rt-multi-thread",
+          "signal",
+          "sync",
+          "time"
+        ],
+        "io-std": [],
+        "io-uring": [
+          "dep:io-uring",
+          "libc",
+          "mio/os-poll",
+          "mio/os-ext",
+          "dep:slab"
+        ],
+        "io-util": [
+          "bytes"
+        ],
+        "macros": [
+          "tokio-macros"
+        ],
+        "net": [
+          "libc",
+          "mio/os-poll",
+          "mio/os-ext",
+          "mio/net",
+          "socket2",
+          "windows-sys/Win32_Foundation",
+          "windows-sys/Win32_Security",
+          "windows-sys/Win32_Storage_FileSystem",
+          "windows-sys/Win32_System_Pipes",
+          "windows-sys/Win32_System_SystemServices"
+        ],
+        "process": [
+          "bytes",
+          "libc",
+          "mio/os-poll",
+          "mio/os-ext",
+          "mio/net",
+          "signal-hook-registry",
+          "windows-sys/Win32_Foundation",
+          "windows-sys/Win32_System_Threading",
+          "windows-sys/Win32_System_WindowsProgramming"
+        ],
+        "rt": [],
+        "rt-multi-thread": [
+          "rt"
+        ],
+        "schedule-latency": [],
+        "signal": [
+          "libc",
+          "mio/os-poll",
+          "mio/net",
+          "mio/os-ext",
+          "signal-hook-registry",
+          "windows-sys/Win32_Foundation",
+          "windows-sys/Win32_System_Console"
+        ],
+        "sync": [],
+        "taskdump": [
+          "dep:backtrace"
+        ],
+        "test-util": [
+          "rt",
+          "sync",
+          "time"
+        ],
+        "time": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/tokio",
+      "repository_observation": {
+        "url": "https://github.com/tokio-rs/tokio",
+        "archived": false,
+        "pushed_at": "2026-09-08T11:11:14Z",
+        "head_commit_date": "2026-09-08T11:11:14Z",
+        "head_sha": "d6bf379eba23fbe2dc334b2da4e3d28ee65e5ffd",
+        "stars": 33094
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "toml",
+      "version": "1.1.5+spec-1.1.0",
+      "released_at": "2026-09-02T13:52:08.284086Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/toml-rs/toml",
+      "recent_downloads": 209210732,
+      "features": {
+        "debug": [
+          "std",
+          "toml_parser?/debug",
+          "dep:anstream",
+          "dep:anstyle"
+        ],
+        "default": [
+          "std",
+          "serde",
+          "parse",
+          "display"
+        ],
+        "display": [
+          "dep:toml_writer"
+        ],
+        "fast_hash": [
+          "preserve_order",
+          "dep:foldhash"
+        ],
+        "parse": [
+          "dep:toml_parser",
+          "dep:winnow"
+        ],
+        "preserve_order": [
+          "dep:indexmap",
+          "std"
+        ],
+        "serde": [
+          "dep:serde_core",
+          "toml_datetime/serde",
+          "serde_spanned/serde"
+        ],
+        "std": [
+          "indexmap?/std",
+          "serde_core?/std",
+          "toml_parser?/std",
+          "toml_writer?/std",
+          "toml_datetime/std",
+          "serde_spanned/std"
+        ],
+        "unbounded": []
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/toml",
+      "repository_observation": {
+        "url": "https://github.com/toml-rs/toml",
+        "archived": false,
+        "pushed_at": "2026-09-03T01:03:49Z",
+        "head_commit_date": "2026-09-03T01:03:48Z",
+        "head_sha": "1189a129ba8c672708f555c855561dc65edffdda",
+        "stars": 1072
+      },
+      "recommendation_scope": "Already in template runtime",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "tracing",
+      "version": "0.1.44",
+      "released_at": "2025-12-18T14:26:12.360139Z",
+      "rust_version": "1.65.0",
+      "license": "MIT",
+      "repository": "https://github.com/tokio-rs/tracing",
+      "recent_downloads": 184751115,
+      "features": {
+        "async-await": [],
+        "attributes": [
+          "tracing-attributes"
+        ],
+        "default": [
+          "std",
+          "attributes"
+        ],
+        "log-always": [
+          "log"
+        ],
+        "max_level_debug": [],
+        "max_level_error": [],
+        "max_level_info": [],
+        "max_level_off": [],
+        "max_level_trace": [],
+        "max_level_warn": [],
+        "release_max_level_debug": [],
+        "release_max_level_error": [],
+        "release_max_level_info": [],
+        "release_max_level_off": [],
+        "release_max_level_trace": [],
+        "release_max_level_warn": [],
+        "std": [
+          "tracing-core/std"
+        ],
+        "valuable": [
+          "tracing-core/valuable"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/tracing",
+      "repository_observation": {
+        "url": "https://github.com/tokio-rs/tracing",
+        "archived": false,
+        "pushed_at": "2026-05-30T06:42:00Z",
+        "head_commit_date": "2026-05-30T06:42:00Z",
+        "head_sha": "d9d4c542de10f5d3a711b7a45ffe450fd0666437",
+        "stars": 6867
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "tracing-subscriber",
+      "version": "0.3.23",
+      "released_at": "2026-03-13T10:04:15.571048Z",
+      "rust_version": "1.65.0",
+      "license": "MIT",
+      "repository": "https://github.com/tokio-rs/tracing",
+      "recent_downloads": 138756753,
+      "features": {
+        "alloc": [],
+        "ansi": [
+          "fmt",
+          "nu-ansi-term"
+        ],
+        "default": [
+          "smallvec",
+          "fmt",
+          "ansi",
+          "tracing-log",
+          "std"
+        ],
+        "env-filter": [
+          "matchers",
+          "once_cell",
+          "tracing",
+          "std",
+          "thread_local",
+          "dep:regex-automata"
+        ],
+        "fmt": [
+          "registry",
+          "std"
+        ],
+        "json": [
+          "tracing-serde",
+          "serde",
+          "serde_json"
+        ],
+        "local-time": [
+          "time/local-offset"
+        ],
+        "nu-ansi-term": [
+          "dep:nu-ansi-term"
+        ],
+        "regex": [],
+        "registry": [
+          "sharded-slab",
+          "thread_local",
+          "std"
+        ],
+        "std": [
+          "alloc",
+          "tracing-core/std"
+        ],
+        "valuable": [
+          "tracing-core/valuable",
+          "valuable_crate",
+          "valuable-serde",
+          "tracing-serde/valuable"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/tracing-subscriber",
+      "repository_observation": {
+        "url": "https://github.com/tokio-rs/tracing",
+        "archived": false,
+        "pushed_at": "2026-05-30T06:42:00Z",
+        "head_commit_date": "2026-05-30T06:42:00Z",
+        "head_sha": "d9d4c542de10f5d3a711b7a45ffe450fd0666437",
+        "stars": 6867
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "trycmd",
+      "version": "1.2.1",
+      "released_at": "2026-07-21T21:48:51.170946Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/assert-rs/snapbox/",
+      "recent_downloads": 1686806,
+      "features": {
+        "color": [
+          "snapbox/color",
+          "dep:anstream"
+        ],
+        "color-auto": [
+          "color",
+          "snapbox/color-auto"
+        ],
+        "debug": [
+          "snapbox/debug"
+        ],
+        "default": [
+          "color-auto",
+          "filesystem",
+          "diff"
+        ],
+        "diff": [
+          "snapbox/diff"
+        ],
+        "examples": [
+          "snapbox/examples"
+        ],
+        "filesystem": [
+          "snapbox/dir"
+        ],
+        "schema": [
+          "dep:schemars",
+          "dep:serde_json"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/trycmd",
+      "repository_observation": {
+        "url": "https://github.com/assert-rs/snapbox",
+        "archived": false,
+        "pushed_at": "2026-09-01T12:11:04Z",
+        "head_commit_date": "2026-09-01T12:11:01Z",
+        "head_sha": "bff6faf6983718ff4c7ab851acce5ea9cb594d2b",
+        "stars": 183
+      },
+      "recommendation_scope": "Development/test dependency when needed",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "ureq",
+      "version": "3.4.1",
+      "released_at": "2026-09-06T10:07:56.416828Z",
+      "rust_version": "1.85",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/algesten/ureq",
+      "recent_downloads": 56463154,
+      "features": {
+        "_doc": [
+          "rustls?/aws-lc-rs"
+        ],
+        "_ring": [
+          "rustls?/ring"
+        ],
+        "_rustls": [],
+        "_test": [],
+        "_tls": [
+          "dep:rustls-pki-types"
+        ],
+        "_url": [
+          "dep:url"
+        ],
+        "brotli": [
+          "dep:brotli-decompressor"
+        ],
+        "charset": [
+          "dep:encoding_rs"
+        ],
+        "cookies": [
+          "dep:cookie_store",
+          "_url"
+        ],
+        "default": [
+          "rustls",
+          "gzip"
+        ],
+        "gzip": [
+          "dep:flate2"
+        ],
+        "json": [
+          "dep:serde",
+          "dep:serde_json",
+          "cookie_store?/serde_json"
+        ],
+        "multipart": [
+          "dep:mime_guess",
+          "dep:getrandom"
+        ],
+        "native-tls": [
+          "native-tls-no-default",
+          "dep:der",
+          "_tls",
+          "native-tls-webpki-roots"
+        ],
+        "native-tls-no-default": [
+          "dep:native-tls",
+          "dep:der",
+          "_tls"
+        ],
+        "native-tls-webpki-roots": [
+          "dep:webpki-root-certs"
+        ],
+        "platform-verifier": [
+          "dep:rustls-platform-verifier"
+        ],
+        "rustls": [
+          "rustls-no-provider",
+          "_ring",
+          "rustls-webpki-roots"
+        ],
+        "rustls-no-provider": [
+          "dep:rustls",
+          "_tls",
+          "_rustls"
+        ],
+        "rustls-webpki-roots": [
+          "dep:webpki-roots"
+        ],
+        "socks-proxy": [
+          "dep:socks"
+        ],
+        "vendored": [
+          "native-tls?/vendored"
+        ],
+        "win-system-proxy": [
+          "dep:winreg"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/ureq",
+      "repository_observation": {
+        "url": "https://github.com/algesten/ureq",
+        "archived": false,
+        "pushed_at": "2026-09-06T10:03:44Z",
+        "head_commit_date": "2026-09-06T10:03:32Z",
+        "head_sha": "cf4a3cda7ad6fd6804f05d5f275e54eaa3814ec4",
+        "stars": 2183
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "url",
+      "version": "2.5.8",
+      "released_at": "2026-01-05T22:14:31.414927Z",
+      "rust_version": "1.63",
+      "license": "MIT OR Apache-2.0",
+      "repository": "https://github.com/servo/rust-url",
+      "recent_downloads": 179851300,
+      "features": {
+        "debugger_visualizer": [],
+        "default": [
+          "std"
+        ],
+        "expose_internals": [],
+        "serde": [
+          "dep:serde",
+          "dep:serde_derive"
+        ],
+        "std": [
+          "idna/std",
+          "percent-encoding/std",
+          "form_urlencoded/std",
+          "serde?/std"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/url",
+      "repository_observation": {
+        "url": "https://github.com/servo/rust-url",
+        "archived": false,
+        "pushed_at": "2026-07-31T14:14:29Z",
+        "head_commit_date": "2026-07-31T14:05:16Z",
+        "head_sha": "00a6ce58d02f4e0d43c5ca0702c0bedb8b1ebf3a",
+        "stars": 1573
+      },
+      "recommendation_scope": "Preferred helper candidate for matching work",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "walkdir",
+      "version": "2.5.0",
+      "released_at": "2024-03-01T17:55:09.221032Z",
+      "rust_version": null,
+      "license": "Unlicense/MIT",
+      "repository": "https://github.com/BurntSushi/walkdir",
+      "recent_downloads": 141566276,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/walkdir",
+      "repository_observation": {
+        "url": "https://github.com/BurntSushi/walkdir",
+        "archived": false,
+        "pushed_at": "2026-06-23T00:21:46Z",
+        "head_commit_date": "2024-12-31T13:29:38Z",
+        "head_sha": "6fd031c82ba5a4204b4ce6eae73dacb00dc072ec",
+        "stars": 1538
+      },
+      "recommendation_scope": "Situational library",
+      "maintenance_note": "Low recent observed activity; old release alone does not establish abandonment.",
+      "declared_msrv_exceeds_template": null
+    },
+    {
+      "name": "which",
+      "version": "8.0.6",
+      "released_at": "2026-08-26T18:06:08.860806Z",
+      "rust_version": "1.70",
+      "license": "MIT",
+      "repository": "https://github.com/harryfei/which-rs.git",
+      "recent_downloads": 59205516,
+      "features": {
+        "default": [
+          "real-sys"
+        ],
+        "real-sys": [
+          "dep:libc"
+        ],
+        "regex": [
+          "dep:regex"
+        ],
+        "tracing": [
+          "dep:tracing"
+        ]
+      },
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/which",
+      "repository_observation": {
+        "url": "https://github.com/harryfei/which-rs",
+        "archived": false,
+        "pushed_at": "2026-09-01T08:02:05Z",
+        "head_commit_date": "2026-09-01T08:02:05Z",
+        "head_sha": "8e84cb67761b6e19d2cfa512c5d55cbe5fd9e8bc",
+        "stars": 268
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    },
+    {
+      "name": "xdg",
+      "version": "3.0.0",
+      "released_at": "2025-05-04T10:42:18.850350Z",
+      "rust_version": "1.60.0",
+      "license": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/whitequark/rust-xdg",
+      "recent_downloads": 3744188,
+      "features": {},
+      "yanked": false,
+      "registry_url": "https://crates.io/crates/xdg",
+      "repository_observation": {
+        "url": "https://github.com/whitequark/rust-xdg",
+        "archived": false,
+        "pushed_at": "2025-05-04T10:42:14Z",
+        "head_commit_date": "2025-05-04T10:41:35Z",
+        "head_sha": "c0f6bc329b0fd92b015a55bcbbee72b2864fae4b",
+        "stars": 197
+      },
+      "recommendation_scope": "Situational library",
+      "declared_msrv_exceeds_template": false
+    }
+  ],
+  "historical_msrv_candidates": [
+    {
+      "name": "ignore",
+      "latest_declared_compatible": null
+    },
+    {
+      "name": "globset",
+      "latest_declared_compatible": null
+    },
+    {
+      "name": "process-wrap",
+      "latest_declared_compatible": {
+        "version": "8.2.1",
+        "rust_version": "1.77.0",
+        "released_at": "2025-05-15T03:55:58.672785Z"
+      }
+    },
+    {
+      "name": "ratatui",
+      "latest_declared_compatible": {
+        "version": "0.29.0",
+        "rust_version": "1.74.0",
+        "released_at": "2024-10-21T10:40:01.266205Z"
+      }
+    },
+    {
+      "name": "etcetera",
+      "latest_declared_compatible": {
+        "version": "0.10.0",
+        "rust_version": "1.70.0",
+        "released_at": "2025-03-03T15:59:48.972603Z"
+      }
+    },
+    {
+      "name": "encoding_rs",
+      "latest_declared_compatible": {
+        "version": "0.8.35",
+        "rust_version": "1.36",
+        "released_at": "2024-10-24T09:22:44.123986Z"
+      }
+    }
+  ]
+}
