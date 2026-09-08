@@ -1,0 +1,25 @@
+name: Bug report
+description: Report a reproducible CLI or template defect.
+body:
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and input
+      description: Include a minimal reproducible command and safe sample input. Remove secrets and private file contents.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Include stdout, stderr, and exit status when relevant.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and environment
+      description: CLI version or commit, operating system, architecture, and Rust version if building from source.
+    validations:
+      required: true

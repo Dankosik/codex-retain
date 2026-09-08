@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Package (${{ matrix.target }})
+    needs: ci
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+      RELEASE_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Read pinned toolchain
+        id: rust
+        run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+          targets: ${{ matrix.target }}
+      - name: Validate tag and source identity
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: python scripts/release.py check-tag --tag "$RELEASE_TAG" --repository "$RELEASE_REPOSITORY"
+      - run: cargo build --release --locked --target "$RELEASE_TARGET"
+      - name: Package and smoke-test the extracted binary
+        run: python scripts/release.py package --target "$RELEASE_TARGET" --dist dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    name: Publish complete release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Read pinned toolchain
+        id: rust
+        run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Validate source and complete artifact set
+        run: |
+          python scripts/release.py check-tag --tag "$RELEASE_TAG" --repository "$RELEASE_REPOSITORY"
+          python scripts/release.py checksums --dist dist
+      - name: Create release with every archive and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          extra=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            extra+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" dist/* --repo "$RELEASE_REPOSITORY" --verify-tag --generate-notes "${extra[@]}"

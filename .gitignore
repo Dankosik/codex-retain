@@ -1,0 +1,14 @@
+/target/
+/.codegraph/
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+*.profraw
+*.profdata
+.DS_Store
+__pycache__/
+*.pyc
+/coverage/
+/dist/
+/benchmark-results/

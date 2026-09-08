@@ -1,0 +1,15 @@
+name: Feature request
+description: Describe a concrete command-line use case.
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should a user be able to do? Include an example invocation or workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and alternatives
+      description: Note relevant input size, platforms, compatibility, memory or time budgets, and current workarounds.

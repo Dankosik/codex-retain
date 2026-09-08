@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    name: Quality and template adoption
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Read pinned toolchain
+        id: rust
+        run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: python scripts/check_template.py
+      - run: python -m unittest discover -s scripts/tests
+      - name: Test a renamed consumer
+        run: python scripts/check_template.py --consumer
+
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Read pinned toolchain
+        id: rust
+        run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+        with:
+          toolchain: ${{ steps.rust.outputs.version }}
+      - run: cargo test --locked --all-targets
+      - run: cargo test --locked --doc
+      - run: python -m unittest discover -s scripts/tests
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+        with:
+          toolchain: '1.85.1'
+      - run: cargo +1.85.1 test --locked --all-targets
+      - run: cargo +1.85.1 test --locked --doc
+
+  dependencies:
+    name: Dependency policy
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          arguments: --locked
+          command: check advisories bans licenses sources
+
+  required:
+    name: required
+    if: always()
+    needs: [quality, test, msrv, dependencies]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    env:
+      RESULTS: ${{ toJSON(needs) }}
+    steps:
+      - name: Require every check to succeed
+        run: python3 -c 'import json,os,sys; results=json.loads(os.environ["RESULTS"]); failed=[name for name,item in results.items() if item["result"] != "success"]; print("Failed or incomplete checks:", failed); sys.exit(bool(failed))'

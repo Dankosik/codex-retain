@@ -1,0 +1,3 @@
+# Used only with --config PATH or RUST_CLI_TEMPLATE_CONFIG=PATH.
+# Precedence: --format, RUST_CLI_TEMPLATE_FORMAT, this file, then text.
+format = "json"
