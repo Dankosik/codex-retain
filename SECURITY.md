@@ -1,8 +1,8 @@
 # Security policy
 
-Security fixes target the current development branch and latest release. There
-is no promised backport or response-time commitment. Codex Retain supports only
-the explicitly reviewed Codex storage and writer versions in its documentation.
+Security fixes target the current development branch. There are no official
+releases or promised backport or response-time commitments. Codex Retain supports
+only the explicitly reviewed Codex storage and writer versions in its documentation.
 
 ## Reporting a vulnerability
 
@@ -27,6 +27,7 @@ real conversations for destructive reproductions. Do not scan third-party
 systems or include their private data in a reproduction.
 
 Keep dependency and workflow updates reviewable, and publish artifacts only from
-the candidate covered by the release checks. The initial local source delivery
-has no published release or active private-reporting channel configured by this
-development session; maintainers must configure those before public release.
+the candidate covered by the release checks. This repository publishes source
+only. No release, registry distribution or deployment is configured. Use the
+reporting options described above; do not
+assume a private reporting channel is available until GitHub shows it.

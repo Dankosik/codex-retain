@@ -13,7 +13,8 @@ its tests, template-consumer setup checks, product docs, and unused runtime
 dependencies. Windows releases were removed; local destructive validation is
 macOS-first. Linux CI checks portable core logic and non-mutating CLI paths.
 
-The initialized repository URL is an intended project identity, not evidence of
-a created remote repository or published release. Original Git history remains
-available locally for provenance; the upstream remote is named `template` to
-avoid an accidental push to the template repository.
+The project is published at [Dankosik/codex-retain](https://github.com/Dankosik/codex-retain)
+as unreleased source. No version tags, public binary releases, registry packages
+or deployments are part of the initial publication. Original Git history is
+retained for provenance; the local upstream remote is named `template` to avoid
+an accidental push to the template repository.

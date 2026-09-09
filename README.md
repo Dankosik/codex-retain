@@ -5,14 +5,14 @@ archives automatically. A short hourly macOS job does the work; nothing stays
 running between checks. No cloud service, subscription, account, or LLM is used
 by the utility.
 
-**v0.1 has a deliberately narrow compatibility boundary:** macOS and Codex CLI
-**0.153.4**, with the reviewed local `state_5.sqlite` schema and legacy JSONL or
+**The current development build has a deliberately narrow compatibility boundary:**
+macOS and Codex CLI **0.153.4**, with the reviewed local `state_5.sqlite` schema and legacy JSONL or
 zstd rollouts. Every Codex client writing the selected profile must use the
 supported locking protocol. The version of a PATH CLI does **not** certify the
 desktop app's embedded server. Paginated/shared histories and threads with
 spawn relationships are skipped. [Compatibility evidence](docs/compatibility-research.md).
 
-[Русская инструкция](README.ru.md) · [Design](docs/architecture.md) ·
+[Design](docs/architecture.md) ·
 [Competitors](docs/competitors.md) · [Measurements](docs/performance.md)
 
 Measured on macOS 26.4 / Apple M5: previewing 10,000 synthetic 4 KiB archives
@@ -26,17 +26,20 @@ untested platforms and publication.
 
 ## Install and enable
 
-From this checkout, with the pinned Rust toolchain installed:
+Clone the repository and install from source with the pinned Rust toolchain:
 
 ```sh
+git clone https://github.com/Dankosik/codex-retain.git
+cd codex-retain
 cargo install --path . --locked
 codex-retain enable --days 30 --yes
 ```
 
-The native utility is one executable; Rust is needed only to build it. Local
-release archives can also be extracted and their executable installed on PATH.
-This source delivery does not imply that a GitHub release or crates.io package
-has been published. [Building and packaging](docs/releasing.md).
+The native utility is one executable; Rust is needed only to build it. This
+repository is currently published as **unreleased source**: no version tags,
+GitHub Releases, registry packages, or deployments are published. The version
+field required by Cargo identifies development builds and is not an official
+release designation. [Local building and packaging](docs/releasing.md).
 
 `enable --yes` is the one-time consent to permanent local deletion after the
 selected retention period. It also installs a small, explicitly owned SQLite

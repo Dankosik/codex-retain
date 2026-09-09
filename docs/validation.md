@@ -31,13 +31,14 @@ authorizes operating on a user's real history.
 | Surface | Status |
 | --- | --- |
 | macOS 26.4, ARM64, Codex CLI 0.153.4 local legacy JSONL/zstd | Implemented and locally exercised |
-| Intel macOS | Native CI/release job configured; not executed in this local session |
+| Intel macOS | Native packaging helper retained; no Intel runner or official release is claimed |
 | Linux | Core/preview/doctor code and CI configured; destructive CLI and scheduler disabled; no local Linux run |
 | Windows | Deferred; no release or compatibility claim |
 | Codex desktop embedded server | Not certified by the installed PATH CLI version; all writers need the reviewed version/protocol |
 | Paginated/shared histories and spawn-related threads | Deliberately skipped |
 | Future Codex versions or schema changes | Rejected; disable Retain before upgrading Codex, then review the new adapter |
-| Remote CI, signed/notarized distribution, GitHub publication | Not performed by this local delivery |
+| Original local validation | The records above predate GitHub publication; they do not claim remote CI results |
+| Public distribution | GitHub source only; no tags, Releases, registry packages, signed/notarized distribution or deployments |
 
 The recorder is a private-schema extension, so future migrations require review.
 Some Codex metadata operations can republish a file outside the cooperative

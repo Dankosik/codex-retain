@@ -19,7 +19,6 @@ TARGETS = (
     "x86_64-apple-darwin",
 )
 OPTIONAL_NOTICES = ("NOTICE", "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.md", "RUST_STDLIB_NOTICES.html")
-OPTIONAL_DOCS = ("README.ru.md",)
 
 
 @dataclass(frozen=True)
@@ -131,7 +130,7 @@ def inspect_archive(archive, info, target, destination=None):
     prefix = info.archive_root(target) + "/"
     executable = prefix + info.executable(target)
     required = {executable, prefix + "README.md", prefix + "LICENSE"}
-    allowed = required | {prefix + item for item in (*OPTIONAL_NOTICES, *OPTIONAL_DOCS)}
+    allowed = required | {prefix + item for item in OPTIONAL_NOTICES}
 
     def check_members(members):
         names = [name for name, _, _ in members]
@@ -174,7 +173,7 @@ def package(info, target, dist):
         # packaging remains forbidden by the native_target check above.
         binary = info.target_directory / "release" / info.executable(target)
     files = [(binary, info.executable(target)), (ROOT / "README.md", "README.md"), (ROOT / "LICENSE", "LICENSE")]
-    files.extend((ROOT / name, name) for name in (*OPTIONAL_NOTICES, *OPTIONAL_DOCS) if (ROOT / name).exists())
+    files.extend((ROOT / name, name) for name in OPTIONAL_NOTICES if (ROOT / name).exists())
     if any(path.is_symlink() or not path.is_file() for path, _ in files):
         raise ValueError("release binary, README, and license must be regular files")
     dist.mkdir(parents=True, exist_ok=True)
