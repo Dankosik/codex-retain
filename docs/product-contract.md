@@ -61,3 +61,13 @@ one durable journal and one atomic SQLite commit. A group-wide directory flush
 preserves durability while reducing repeated flushes. Legacy single-file
 recovery and partial-group crash tests are retained. The acceptance targets
 above are unchanged; initial failed scale evidence is preserved.
+
+## Cleanup profiling amendment
+
+A subsequent paired experiment raised the bounded group size to 128, buffered
+JSON writes, and limited the global coordinator lock to UUID acquisition and
+cleanup. Per-thread ownership and eligibility checks, synchronization ordering,
+the 1 MiB journal limit, and legacy recovery remain in effect. At 10,000 chats,
+median cleanup fell from 14.35 to 7.76 seconds in that experiment. The additional
+2x median speedup hypothesis was not met. The [profiling report](cleanup-performance.md)
+records the evidence, concurrency tradeoffs, and downgrade boundary.

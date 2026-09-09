@@ -1,0 +1,21 @@
+{
+  "recorded_at": "2026-09-09T18:21:28Z",
+  "baseline_commit": "25b42c1e4f18741bc163b5a49de006be8f413ce0",
+  "baseline_binary_sha256": "af2aeb726b92d273c5e30b2e242264e6dde2fd73cd067ca7a5f37771130040f2",
+  "workload": "1000 and10000 indexed expired archived JSONL files of4096bytes; sameCodex0.153.4 schema and32maxgroup; syntheticonly",
+  "target": "atleast2x lower 10000 cleanup median than frozenbaseline; keepeligibility,fsync/recoverysemantics,batchbound32,zeroresidency; no materialpreviewregression",
+  "sampling": "optimized CLI direct; warm cache; hyperfine3warmups+5timed samples each baseline/candidate sameexecutionwindow; repeatfreshfixture+postconditions; nativeRSS/CPU separate",
+  "diagnostics": "external CPU/sample + instrumented phases ifneeded; diagnosticmeasurementsneverreportedasequivalentperformance",
+  "amendment": {
+    "time": "2026-09-09T18:31:15Z",
+    "reason": "Baseline sample found about52% of stacks in full disk sync and13% in unbuffered JSON writes; buffered32 pilot11.56s did not achieve 2x target. Reopen self-imposed32-item implementation choice, not user safety requirements.",
+    "candidates": "Retain buffered32 pilot as evidence; evaluate buffered128 with identical barriers and checks, no unsafe modes.",
+    "acceptance": "Same five-run direct-CLI comparison; inspect coordinated lock hold p95/max on synthetic4KiB and bounded large/compressed metadata; keep 1MiBjournal limit and fail-closed downgrade; record any larger lock window."
+  },
+  "coordination_refinement": {
+    "time": "2026-09-09T18:52:50Z",
+    "reason": "Early128 diagnostic preserved correctness but heldglobalcoord forp95~179ms vs49ms. Match native acquisition protocol to avoid holdingglobalcoord through I/O, retainingUUIDlocks andSQLiteguards.",
+    "implementation": "Release coordination after acquiring all UUIDlocks; reacquire for cleanup, or closewithoutunlink on contention. Partialfailure reuses heldcoord.",
+    "qualification": "This does not remove SQLite write serialization or weaken durability. Empty stale lockfiles may remain until a freshCodexcoordinator cleans them."
+  }
+}

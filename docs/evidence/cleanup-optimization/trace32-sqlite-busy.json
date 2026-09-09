@@ -1,0 +1,19 @@
+{
+  "label": "trace32-sqlite-busy",
+  "count": 128,
+  "header_payload_bytes": "small normal metadata",
+  "sqlite_writer_contention": true,
+  "compressed": false,
+  "instrumented": true,
+  "elapsed_seconds": 0.28999895899323747,
+  "coordination_hold_ms": {
+    "count": 1,
+    "median": 232.741,
+    "p95": 232.741,
+    "max": 232.741,
+    "samples": [
+      232.741
+    ]
+  },
+  "limitation": "Instant instrumentation excludes final field close and one diagnostic stderr write; no hard latency guarantee for slower storage"
+}

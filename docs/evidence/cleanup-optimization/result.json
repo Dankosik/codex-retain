@@ -1,0 +1,34 @@
+{
+  "baseline_sha256": "af2aeb726b92d273c5e30b2e242264e6dde2fd73cd067ca7a5f37771130040f2",
+  "candidate_sha256": "8fcb4959a9b2df1864e100a8af05f8fec9fb631b6b4d1dafc3a42068e117a649",
+  "cleanup": {
+    "1000": {
+      "baseline_median_s": 1.196091542,
+      "candidate_median_s": 0.522773958,
+      "janitor_median_s": 0.30817625000000004,
+      "speedup": 2.2879707829669664
+    },
+    "10000": {
+      "baseline_median_s": 14.347019208,
+      "candidate_median_s": 7.761506791,
+      "janitor_median_s": 3.122945208,
+      "speedup": 1.8484837537778558
+    }
+  },
+  "preview": {
+    "baseline": {
+      "median_ms": 312.44633300000004,
+      "max_rss_mib": 50.515625
+    },
+    "retain": {
+      "median_ms": 275.66058300000003,
+      "max_rss_mib": 50.5625
+    },
+    "janitor": {
+      "median_ms": 797.312417,
+      "max_rss_mib": 187.78125
+    }
+  },
+  "target_2x_median_10000_met": false,
+  "rust_tests_passed": 74
+}

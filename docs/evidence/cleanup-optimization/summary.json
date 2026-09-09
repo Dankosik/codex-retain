@@ -1,0 +1,223 @@
+{
+  "macos_process_accounting": [
+    {
+      "maximum_resident_set_size_bytes": 53067776,
+      "source": "baselinecleanup-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 52936704,
+      "source": "baselinecleanup-10000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 168067072,
+      "source": "janitorcleanup-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 243859456,
+      "source": "janitorcleanup-10000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 52969472,
+      "source": "retaincleanup-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 53051392,
+      "source": "retaincleanup-10000-time.txt"
+    }
+  ],
+  "measurements": [
+    {
+      "command": "baselinecleanup-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 1.2107815,
+      "mean": 1.1813951500000002,
+      "median": 1.196091542,
+      "memory_usage_byte": [
+        53067776,
+        53100544,
+        53100544,
+        53100544,
+        53100544
+      ],
+      "min": 1.137744333,
+      "source": "baselinecleanup-1000-hyperfine.json",
+      "stddev": 0.029886657652624708,
+      "system": 0.46952879999999997,
+      "times": [
+        1.2107815,
+        1.164035375,
+        1.196091542,
+        1.198323,
+        1.137744333
+      ],
+      "user": 0.09016039999999999
+    },
+    {
+      "command": "baselinecleanup-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 23.726967917,
+      "mean": 16.674493166799998,
+      "median": 14.347019208,
+      "memory_usage_byte": [
+        54362112,
+        60014592,
+        60014592,
+        60014592,
+        60014592
+      ],
+      "min": 13.0491065,
+      "source": "baselinecleanup-10000-hyperfine.json",
+      "stddev": 4.426250217482538,
+      "system": 6.4849344,
+      "times": [
+        23.726967917,
+        14.347019208,
+        18.300028,
+        13.949344209,
+        13.0491065
+      ],
+      "user": 1.1625878
+    },
+    {
+      "command": "janitorcleanup-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.31937725,
+      "mean": 0.30978870840000006,
+      "median": 0.30817625000000004,
+      "memory_usage_byte": [
+        169639936,
+        169639936,
+        169639936,
+        169639936,
+        169639936
+      ],
+      "min": 0.302966458,
+      "source": "janitorcleanup-1000-hyperfine.json",
+      "stddev": 0.006258170918355237,
+      "system": 0.14215459999999996,
+      "times": [
+        0.30817625000000004,
+        0.30648141700000003,
+        0.31937725,
+        0.311942167,
+        0.302966458
+      ],
+      "user": 0.25456639999999997
+    },
+    {
+      "command": "janitorcleanup-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 3.424214167,
+      "mean": 3.1681909584000003,
+      "median": 3.122945208,
+      "memory_usage_byte": [
+        252493824,
+        252493824,
+        254705664,
+        254705664,
+        254705664
+      ],
+      "min": 2.978455125,
+      "source": "janitorcleanup-10000-hyperfine.json",
+      "stddev": 0.17700156995706123,
+      "system": 1.7908285999999998,
+      "times": [
+        2.978455125,
+        3.122945208,
+        3.053982875,
+        3.424214167,
+        3.261357417
+      ],
+      "user": 1.9136744
+    },
+    {
+      "command": "retaincleanup-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.5633731670000001,
+      "mean": 0.5241769416000002,
+      "median": 0.522773958,
+      "memory_usage_byte": [
+        53051392,
+        53100544,
+        53100544,
+        53100544,
+        53100544
+      ],
+      "min": 0.500734667,
+      "source": "retaincleanup-1000-hyperfine.json",
+      "stddev": 0.024770607954372036,
+      "system": 0.27141960000000004,
+      "times": [
+        0.5633731670000001,
+        0.5055231250000001,
+        0.500734667,
+        0.522773958,
+        0.5284797910000001
+      ],
+      "user": 0.0633296
+    },
+    {
+      "command": "retaincleanup-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 7.96376625,
+      "mean": 7.198349850000001,
+      "median": 7.761506791,
+      "memory_usage_byte": [
+        57933824,
+        58097664,
+        58097664,
+        58097664,
+        59867136
+      ],
+      "min": 5.70314475,
+      "source": "retaincleanup-10000-hyperfine.json",
+      "stddev": 1.0068771904834395,
+      "system": 3.2233384000000003,
+      "times": [
+        5.70314475,
+        7.953483167,
+        7.96376625,
+        7.761506791,
+        6.609848292
+      ],
+      "user": 0.5790986
+    }
+  ],
+  "physical_disk_reads": null
+}

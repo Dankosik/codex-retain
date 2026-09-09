@@ -1,0 +1,17 @@
+{
+  "label": "trace128-large",
+  "count": 128,
+  "header_payload_bytes": 900000,
+  "instrumented": true,
+  "elapsed_seconds": 0.1506138329859823,
+  "coordination_hold_ms": {
+    "count": 1,
+    "median": 73.233,
+    "p95": 73.233,
+    "max": 73.233,
+    "samples": [
+      73.233
+    ]
+  },
+  "limitation": "Instant instrumentation excludes final field close and one diagnostic stderr write; no hard latency guarantee for slower storage"
+}

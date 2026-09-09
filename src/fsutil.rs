@@ -7,7 +7,7 @@ use std::os::unix::{
 };
 use std::{
     fs::{self, File, Metadata, OpenOptions},
-    io::{Read, Write},
+    io::{BufWriter, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -107,8 +107,15 @@ pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
         regular(path, false, false)?;
     }
     let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
-    serde_json::to_writer_pretty(tmp.as_file_mut(), value)?;
-    tmp.write_all(b"\n")?;
+    {
+        // JSON serialization emits many small writes. Flush the buffer before
+        // checking length or syncing so neither errors nor bytes are hidden
+        // in BufWriter::drop while publishing the replacement file.
+        let mut writer = BufWriter::with_capacity(64 * 1024, tmp.as_file_mut());
+        serde_json::to_writer_pretty(&mut writer, value)?;
+        writer.write_all(b"\n")?;
+        writer.flush()?;
+    }
     ensure!(
         tmp.as_file().metadata()?.len() <= 1024 * 1024,
         "state would exceed 1 MiB; previous state was preserved"
@@ -141,15 +148,17 @@ pub fn try_lock(path: &Path) -> Result<File> {
     Ok(f)
 }
 
-pub const MAX_BATCH_THREADS: usize = 32;
+pub const MAX_BATCH_THREADS: usize = 128;
 
 /// Own all requested thread locks or none, with one coordination lock.
 ///
-/// Codex removes stale UUID lock paths while holding coordination. Retain that
-/// same lock until every owned file has been closed and its path cleaned up.
+/// Codex removes stale UUID lock paths while holding coordination. Match its
+/// protocol: coordinate acquisition and cleanup, but retain only the UUID locks
+/// while doing filesystem and SQLite work so unrelated writers can start.
 pub struct ThreadLocks {
     files: Vec<(PathBuf, File)>,
-    _coordination: File,
+    coordination_path: PathBuf,
+    acquisition_guard: Option<File>,
 }
 impl ThreadLocks {
     pub fn acquire(home: &Path, ids: &[&str]) -> Result<Self> {
@@ -171,10 +180,12 @@ impl ThreadLocks {
         );
         let dir = home.join("thread-writer-locks");
         private_dir(&dir)?;
-        let coordination = try_lock(&dir.join(".coordination.lock"))?;
+        let coordination_path = dir.join(".coordination.lock");
+        let coordination = try_lock(&coordination_path)?;
         let mut owned = Self {
             files: Vec::with_capacity(ordered.len()),
-            _coordination: coordination,
+            coordination_path,
+            acquisition_guard: Some(coordination),
         };
         for id in ordered {
             let path = dir.join(format!("{id}.lock"));
@@ -183,16 +194,24 @@ impl ThreadLocks {
             // pathname belongs to another writer and must never be unlinked.
             owned.files.push((path, file));
         }
+        drop(owned.acquisition_guard.take());
         Ok(owned)
     }
 }
 impl Drop for ThreadLocks {
     fn drop(&mut self) {
-        // Coordination is still held. A leftover empty lock is safe: Codex
-        // removes it during its next coordinated stale-lock cleanup.
+        // A partial acquisition already owns coordination. Successful guards
+        // reacquire it only for cleanup, as Codex does. If it is busy, close
+        // without unlinking: a stale empty file is safe, an inode race is not.
+        let coordination = self
+            .acquisition_guard
+            .take()
+            .or_else(|| try_lock(&self.coordination_path).ok());
         while let Some((path, file)) = self.files.pop() {
             drop(file);
-            let _ = fs::remove_file(path);
+            if coordination.is_some() {
+                let _ = fs::remove_file(path);
+            }
         }
     }
 }
@@ -253,6 +272,47 @@ pub fn rename_without_overwrite_unsynced(source: &Path, destination: &Path) -> R
 mod tests {
     use super::*;
 
+    #[test]
+    fn atomic_json_publishes_complete_payload_across_buffer_boundaries() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let value = serde_json::json!({"message": "x".repeat(96 * 1024), "tail": "complete"});
+        atomic_json(&path, &value).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        assert_eq!(bytes.last(), Some(&b'\n'));
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+            value
+        );
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn atomic_json_oversize_and_serialization_failure_preserve_previous_state() {
+        struct Fails;
+        impl Serialize for Fails {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                use serde::ser::{Error, SerializeMap};
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("partial", "must not replace previous state")?;
+                Err(S::Error::custom("deliberate serialization failure"))
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let original = b"{\"kept\":true}\n";
+        fs::write(&path, original).unwrap();
+        assert!(atomic_json(&path, &"x".repeat(1024 * 1024 + 128)).is_err());
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert!(atomic_json(&path, &Fails).is_err());
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
     fn id(number: u128) -> String {
         uuid::Uuid::from_u128(number).to_string()
     }
@@ -292,22 +352,53 @@ mod tests {
     }
 
     #[test]
-    fn a_batch_keeps_one_coordination_lock_until_all_thread_locks_close() {
+    fn a_batch_releases_coordination_but_keeps_all_thread_locks() {
         let home = tempfile::tempdir().unwrap();
         let first = id(4);
         let second = id(5);
         let owned = ThreadLocks::acquire(home.path(), &[&second, &first]).unwrap();
         let directory = home.path().join("thread-writer-locks");
-        assert!(try_lock(&directory.join(".coordination.lock")).is_err());
+        let coordination = try_lock(&directory.join(".coordination.lock")).unwrap();
         for thread_id in [&first, &second] {
             assert!(try_lock(&directory.join(format!("{thread_id}.lock"))).is_err());
         }
+        // Unrelated thread acquisition can proceed while the batch is live.
+        let unrelated = try_lock(&directory.join(format!("{}.lock", id(6)))).unwrap();
+        drop(unrelated);
+        fs::remove_file(directory.join(format!("{}.lock", id(6)))).unwrap();
+        drop(coordination);
         drop(owned);
         let coordination = try_lock(&directory.join(".coordination.lock")).unwrap();
         for thread_id in [&first, &second] {
             assert!(!directory.join(format!("{thread_id}.lock")).exists());
         }
         drop(coordination);
+    }
+
+    #[test]
+    fn busy_coordination_during_drop_closes_without_unlinking_a_reusable_inode() {
+        let home = tempfile::tempdir().unwrap();
+        let thread_id = id(7);
+        let owned = ThreadLocks::acquire(home.path(), &[&thread_id]).unwrap();
+        let directory = home.path().join("thread-writer-locks");
+        let path = directory.join(format!("{thread_id}.lock"));
+        let original = Identity::of(&fs::metadata(&path).unwrap());
+        let coordinator = try_lock(&directory.join(".coordination.lock")).unwrap();
+        let successor = regular(&path, true, false).unwrap();
+        assert!(successor.try_lock().is_err());
+        drop(owned);
+        // A native writer holding coordination can now reuse the same inode.
+        successor.try_lock().unwrap();
+        assert_eq!(Identity::of(&successor.metadata().unwrap()), original);
+        assert_eq!(Identity::of(&fs::metadata(&path).unwrap()), original);
+        assert!(try_lock(&path).is_err());
+        drop(coordinator);
+        assert!(ThreadLocks::acquire(home.path(), &[&thread_id]).is_err());
+        assert_eq!(Identity::of(&fs::metadata(&path).unwrap()), original);
+        let coordinator = try_lock(&directory.join(".coordination.lock")).unwrap();
+        drop(successor);
+        fs::remove_file(&path).unwrap();
+        drop(coordinator);
     }
 
     #[test]

@@ -1,0 +1,38 @@
+{
+  "label": "split128-sqlite-busy",
+  "count": 128,
+  "header_payload_bytes": "small normal metadata",
+  "sqlite_writer_contention": true,
+  "compressed": false,
+  "instrumented": true,
+  "elapsed_seconds": 0.3114877920015715,
+  "coordination_hold_ms": null,
+  "uuid_lock_lifetime_ms": {
+    "count": 1,
+    "median": 249.63,
+    "p95": 249.63,
+    "max": 249.63,
+    "samples": [
+      249.63
+    ]
+  },
+  "coordination_acquisition_phase_ms": {
+    "count": 1,
+    "median": 4.489,
+    "p95": 4.489,
+    "max": 4.489,
+    "samples": [
+      4.489
+    ]
+  },
+  "coordination_cleanup_phase_ms": {
+    "count": 1,
+    "median": 10.82,
+    "p95": 10.82,
+    "max": 10.82,
+    "samples": [
+      10.82
+    ]
+  },
+  "limitation": "Instant instrumentation excludes final field close and diagnostic stderr writes; no hard latency guarantee for slower storage"
+}

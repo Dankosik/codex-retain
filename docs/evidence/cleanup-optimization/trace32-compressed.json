@@ -1,0 +1,21 @@
+{
+  "label": "trace32-compressed",
+  "count": 128,
+  "header_payload_bytes": 900000,
+  "compressed": true,
+  "instrumented": true,
+  "elapsed_seconds": 0.2434163749567233,
+  "coordination_hold_ms": {
+    "count": 4,
+    "median": 37.5925,
+    "p95": 47.752,
+    "max": 47.752,
+    "samples": [
+      34.151,
+      36.601,
+      38.584,
+      47.752
+    ]
+  },
+  "limitation": "Instant instrumentation excludes final field close and one diagnostic stderr write; no hard latency guarantee for slower storage"
+}

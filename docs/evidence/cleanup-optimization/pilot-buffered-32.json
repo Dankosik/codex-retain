@@ -1,0 +1,7 @@
+{
+  "variant": "buffered JSON;32threadgroups;otherwisebaseline",
+  "elapsed_seconds": 11.558351166022476,
+  "pilot_only": true,
+  "binary_sha256": "13b36f2947918c90015074bcc2dcc06385fd2428ee6ff5c9089bdac2c23d2d3d",
+  "deleted": 10000
+}

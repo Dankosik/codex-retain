@@ -1,5 +1,10 @@
 # Performance and benchmark evidence
 
+This document preserves the **original 32-chat-group measurements**. The current
+implementation uses buffered JSON and groups of up to 128 chats; see the
+[subsequent cleanup investigation and paired before/after results](cleanup-performance.md).
+The original samples and failed targets below remain unchanged.
+
 Status: completed native measurements and source-pinned comparison. The target
 table below records the original hypotheses; measured acceptance appears at the end. The
 [competitor source review](competitors.md) explains selection and effect

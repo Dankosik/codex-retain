@@ -64,17 +64,19 @@ contract does not establish support for a differently versioned desktop client.
 ## Mutation and crash protocol
 
 The policy directory has a nonblocking operation lock shared by policy changes,
-manual and scheduled runs. For each group of at most 32 eligible threads:
+manual and scheduled runs. For each group of at most 128 eligible threads:
 
 1. Acquire Codex's `.tmp/rollout-maintenance.lock`, excluding supported
    compression and rollout migration. Busy means skip.
 2. Acquire `thread-writer-locks/.coordination.lock`, then each UUID writer lock.
-   Coordination stays held until all thread locks close, preventing Codex's
-   stale-lock cleanup from replacing its inode during this operation.
+   Release coordination once all UUID locks are owned, matching Codex's native
+   acquisition protocol. Those UUID locks remain held through finalization;
+   unrelated writers can acquire their own locks while cleanup does I/O.
 3. Begin an immediate SQLite transaction. Verify schema, recorder, current row,
    epoch, native pin, exclusion, history mode, path and file identity for every
    member again.
-4. Atomically write and fsync a single `pending.json` intent naming every member.
+4. Serialize the intent through a 64 KiB buffer, explicitly flush it, then
+   atomically write and fsync a single `pending.json` naming every member.
    Rename those exact rollouts to fixed hidden staging filenames in the same
    archive directory; fsync the directory once for the group.
 5. Conditionally delete only those individually checked rows and commit the
@@ -82,15 +84,25 @@ manual and scheduled runs. For each group of at most 32 eligible threads:
 6. Verify each staged inode and unlink it, fsync the archive once, then durably
    remove the intent. No long-term backup is created.
 
+Thread-lock cleanup reacquires coordination before closing and unlinking owned
+lock files. If coordination is busy or unavailable, it closes the UUID handles
+without unlinking their paths. This avoids a stale-inode race and an unbounded
+wait in a destructor. Empty stale lock files can remain until a fresh Codex
+coordinator performs its cleanup; they contain no conversation data. Partial
+acquisition failure still uses the original coordination guard to remove only
+successfully owned lock files.
+
 A pre-effect group conflict falls back to individual attempts, so a busy writer
 does not strand its unrelated neighbors. A pending intent stops new deletion;
 global SQLite write contention stops the run instead of retrying every archive.
 Directory barriers cover the whole group, preserving ordering while avoiding
 six flushes for every individual chat. The rollout-owner alias check also
 scans the metadata table once per group, including logical and compressed
-representations; it no longer performs one full scan per thread. A measured first implementation required
+representations; it no longer performs one full scan per thread. The earlier
+32-item implementation replaced a one-thread implementation that required
 about 25 seconds for a 1,000-chat preflight and exceeded a 300-second test limit
-at 10,000; those failed scale observations motivated this bounded grouping.
+at 10,000. The subsequent profiling and 128-item optimization are documented
+in [the cleanup performance report](cleanup-performance.md).
 
 After interruption, recovery obtains the same locks before doing new cleanup.
 The complete journal's thread IDs and paths are validated before touching any
@@ -100,9 +112,12 @@ If a staged file remains and its row exists, restore it without overwriting
 an existing destination. If the row is absent, finish removal of the already
 authorized staged file. If the intent preceded the rename or cleanup completed,
 clear the receipt. Partial staging, restore and unlink prefixes are restartable.
-Legacy single-file journals are also recognized. Identity conflict, access failure or an occupied restore
-destination preserves the receipt and data for inspection. Only `NotFound`
-means absence. Config cannot switch profiles over a pending receipt.
+Legacy single-file journals and earlier 32-item group journals are also recognized.
+Before downgrading to a build limited to 32 items, finish recovery or disable
+with the newer executable. The old reader rejects larger pending groups before
+mutation; it cannot finish their recovery. Identity conflict, access failure or
+an occupied restore destination preserves the receipt and data for inspection.
+Only `NotFound` means absence. Config cannot switch profiles over a pending receipt.
 
 The policy is saved disabled before scheduler installation and enabled only
 after successful registration. A failed or interrupted automatic setup must be
@@ -134,12 +149,11 @@ process termination and filesystem errors are expected and fail closed.
 The metadata query caps the archive at 100,000 rows; an expired-file inventory
 caps directory entries at 500,000. No transcript is read for unexpired threads.
 Due files read at most a 1 MiB first record, with 16 KiB read-ahead and an 8 MiB
-maximum zstd decoder window. At most 32 deletions are staged under one intent.
+maximum zstd decoder window. At most 128 deletions are staged under one intent.
 Reported deletion counts cover fully completed groups; recovery reports
 interrupted finalization separately and does not invent lost byte accounting.
-JSON preview retains
-one compact result per indexed archive; this is O(number of archives), not an
-unbounded streaming claim. Only ten diagnostic examples are saved in the
+JSON preview retains one compact result per indexed archive; this is O(number
+of archives), not an unbounded streaming claim. Only ten diagnostic examples are saved in the
 replace-in-place last-run report.
 
 No SQLite VACUUM, global-index rewrite, snapshot deletion, or Trash accumulation

@@ -687,9 +687,9 @@ mod tests {
     #[test]
     fn journal_unlink_sync_failure_never_retries_an_effectful_group() {
         let mut fixture = test_support::Fixture::new();
-        let ids: Vec<_> = (1..=33)
+        let ids: Vec<_> = (1..=fsutil::MAX_BATCH_THREADS + 1)
             .map(|n| {
-                let id = fixture.add(n, 1);
+                let id = fixture.add(n as u128, 1);
                 fixture.age(&id);
                 id
             })
@@ -707,15 +707,15 @@ mod tests {
                 .any(|v| v.contains("finalization failed"))
         );
         assert!(!fixture.store.root.join("pending.json").exists());
-        for id in &ids[..32] {
+        for id in &ids[..fsutil::MAX_BATCH_THREADS] {
             assert!(!fixture.exists(id));
             assert!(!fixture.path(id, true).exists());
         }
         assert!(
-            fixture.exists(&ids[32]),
+            fixture.exists(&ids[fsutil::MAX_BATCH_THREADS]),
             "later groups must not continue after post-effect failure"
         );
-        assert!(fixture.path(&ids[32], true).exists());
+        assert!(fixture.path(&ids[fsutil::MAX_BATCH_THREADS], true).exists());
         assert_eq!(fixture.run(true).unwrap().deleted, 1);
     }
 }

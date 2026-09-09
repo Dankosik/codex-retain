@@ -3,7 +3,28 @@
 Local validation on 2026-09-09, Apple M5 / 16 GiB / macOS 26.4 ARM64.
 Rust 1.98.1, Codex CLI 0.153.4, Codex Retain 0.1.0.
 
-Final measured executable SHA-256:
+## Cleanup optimization follow-up
+
+The updated executable has SHA-256
+`8fcb4959a9b2df1864e100a8af05f8fec9fb631b6b4d1dafc3a42068e117a649`.
+
+| Check | Evidence and scope |
+| --- | --- |
+| Rust formatting and diagnostics | Formatting check and Clippy for all targets with warnings denied passed |
+| Rust behavior tests | 74 passed: 26 library, 14 batch, 9 CLI, 25 lifecycle; includes one subprocess fixture entry point |
+| New failure coverage | Buffered JSON completeness and failure preservation; 128-member partial staging/unlink recovery; legacy 32-member recovery; oversized valid journal refusal; lock ownership during partial acquisition and contended cleanup |
+| Native Codex conformance | [10 checks passed for the updated executable](evidence/cleanup-optimization/native-codex-final.json) |
+| Native scheduling | [Temporary launchd job passed and was removed](evidence/cleanup-optimization/native-launchd-final.json); production label untouched |
+| Cleanup comparison | [Baseline, candidate and Janitor](cleanup-performance.md), five samples plus three warmups at 1,000 and 10,000 chats, fresh synthetic fixtures and exact postconditions |
+| Preview regression | Identical Retain JSON excluding only `started_at`; [unchanged fixture and SQLite integrity verified](evidence/cleanup-optimization/preview-postconditions.json) |
+
+The dependency set and lockfile are unchanged. Current source checks and GitHub
+CI supplement the original evidence below; the original binary's receipts are
+not used as proof for the updated executable.
+
+## Original implementation validation
+
+Original measured executable SHA-256:
 `af2aeb726b92d273c5e30b2e242264e6dde2fd73cd067ca7a5f37771130040f2`.
 
 | Check | Evidence and scope |

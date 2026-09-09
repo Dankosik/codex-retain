@@ -66,7 +66,7 @@ def read_case(path):
     case_root = root / "fixtures" / name
     if Path(case["fixture_root"]) != case_root:
         raise ValueError("case fixture path does not match its descriptor")
-    if case["operation"] not in {"preview", "cleanup"} or case["tool"] not in {"retain", "janitor"}:
+    if case["operation"] not in {"preview", "cleanup"} or case["tool"] not in {"retain", "baseline", "janitor"}:
         raise ValueError("unknown benchmark operation")
     fixture.no_symlinks(case_root)
     return case
@@ -89,8 +89,8 @@ def environment(case):
 
 def command(case):
     root = Path(case["fixture_root"])
-    if case["tool"] == "retain":
-        return [case["retain"], "--state-dir", str(root / "state"), "--json",
+    if case["tool"] in {"retain", "baseline"}:
+        return [case[case["tool"]], "--state-dir", str(root / "state"), "--json",
                 "run" if case["operation"] == "cleanup" else "preview"]
     result = [case["node"], str(Path(case["janitor"]) / "dist/cli.js"),
               "clean" if case["operation"] == "cleanup" else "scan",
@@ -107,9 +107,9 @@ def prepare(case_path):
     if root.exists():
         fixture.remove_owned(root)
     fixture.create(root, case["count"], case["rollout_bytes"], case["now"])
-    if case["tool"] == "retain":
+    if case["tool"] in {"retain", "baseline"}:
         output = execute(
-            [case["retain"], "--state-dir", str(root / "state"), "--json", "enable",
+            [case[case["tool"]], "--state-dir", str(root / "state"), "--json", "enable",
              "--codex-home", str(root / "codex"), "--codex-bin", case["codex_bin"],
              "--days", "30", "--no-schedule", "--yes"], env=environment(case),
         )
@@ -137,7 +137,7 @@ def prepare(case_path):
 def validate(case_path):
     case = read_case(case_path)
     removed = case["operation"] == "cleanup"
-    expected_rows = 0 if removed and case["tool"] == "retain" else case["count"]
+    expected_rows = 0 if removed and case["tool"] in {"retain", "baseline"} else case["count"]
     return fixture.verify(case["fixture_root"], expect_removed=removed,
                           expect_thread_rows=expected_rows)
 
@@ -147,7 +147,7 @@ def preflight(case_path):
     case = read_case(case_path)
     output = execute(command(case), env=environment(case))
     result = validate(case_path)
-    if case["tool"] == "retain":
+    if case["tool"] in {"retain", "baseline"}:
         report = json.loads(output)
         count_key = "deleted" if case["operation"] == "cleanup" else "eligible"
         if report.get(count_key) != case["count"] or report.get("skipped") != 0:
@@ -233,6 +233,7 @@ def setup(args):
     if root.exists():
         raise ValueError("benchmark output directory must not exist: " + str(root))
     retain, codex_bin, node = map(executable, (args.retain, args.codex_bin, args.node))
+    baseline = executable(args.baseline) if args.baseline else None
     hyperfine = executable(args.hyperfine)
     janitor = Path(args.janitor).resolve(strict=True)
     if not (janitor / "dist/cli.js").is_file():
@@ -254,7 +255,7 @@ def setup(args):
     (root / "fixtures").mkdir()
     now = int(time.time())
     common = {"benchmark_root": str(root), "retain": retain, "codex_bin": codex_bin,
-              "node": node, "janitor": str(janitor), "rollout_bytes": args.rollout_bytes, "now": now}
+              "node": node, "janitor": str(janitor), "rollout_bytes": args.rollout_bytes, "now": now, "baseline": baseline}
     cases = []
     operations = ["preview", "cleanup"] if args.only == "all" else [args.only]
     for count in args.counts:
@@ -262,6 +263,8 @@ def setup(args):
             # Alternate order across fixture sizes; report each sample set,
             # including variance, instead of choosing the fastest trial.
             tool_order = ("retain", "janitor") if args.counts.index(count) % 2 == 0 else ("janitor", "retain")
+            if baseline:
+                tool_order = ("baseline", "retain", "janitor") if args.counts.index(count) % 2 == 0 else ("retain", "baseline", "janitor")
             for tool in tool_order:
                 name = tool + operation + "-" + str(count)
                 case = dict(common, tool=tool, operation=operation, count=count,
@@ -280,6 +283,8 @@ def setup(args):
         "codex": codex_version, "retain": version([retain, "--version"]),
         "retain_sha256": hashlib.sha256(Path(retain).read_bytes()).hexdigest(),
         "retain_binary_bytes": Path(retain).stat().st_size,
+        "baseline_sha256": hashlib.sha256(Path(baseline).read_bytes()).hexdigest() if baseline else None,
+        "baseline_version": version([baseline, "--version"]) if baseline else None,
         "janitor_revision": revision,
         "janitor_package": json.loads((janitor / "package.json").read_text(encoding="utf-8")),
         "janitor_lock_sha256": hashlib.sha256((janitor / "package-lock.json").read_bytes()).hexdigest(),
@@ -307,6 +312,7 @@ def main():
     run.add_argument("--root", required=True, type=Path, help="new scratch/output directory")
     run.add_argument("--retain", required=True, help="already built release codex-retain executable")
     run.add_argument("--codex-bin", required=True, help="real compatible Codex executable")
+    run.add_argument("--baseline", help="optional earlier Retain executable; same fixtures and policy as --retain")
     run.add_argument("--janitor", required=True, help="pristine built checkout at the documented baseline commit")
     run.add_argument("--node", default="node")
     run.add_argument("--hyperfine", default="hyperfine")

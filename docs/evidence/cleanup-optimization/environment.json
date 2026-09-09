@@ -1,0 +1,77 @@
+{
+  "architecture": "arm64",
+  "background_services_installed": false,
+  "baseline_sha256": "af2aeb726b92d273c5e30b2e242264e6dde2fd73cd067ca7a5f37771130040f2",
+  "baseline_version": "codex-retain 0.1.0",
+  "cache": "warm filesystem cache; fixtures freshly generated before each sample",
+  "codex": "codex-cli 0.153.4",
+  "counts": [
+    1000,
+    10000
+  ],
+  "cpu": "Apple M5",
+  "date_utc": "2026-09-09T18:58:25Z",
+  "hyperfine": "hyperfine 1.20.0",
+  "janitor_cli_sha256": "4ed37e99fd797de718dc7654faa958dda1039b774ee061b5380896fcedded226",
+  "janitor_lock_sha256": "521d168bac8bed19f352e829116e22e9f114159a08af396d5cc99199409c6be8",
+  "janitor_package": {
+    "bin": {
+      "codex-session-janitor": "./dist/cli.js"
+    },
+    "dependencies": {
+      "commander": "^14.0.2",
+      "ink": "^6.5.1",
+      "pretty-bytes": "^7.1.0",
+      "react": "^19.1.1",
+      "trash": "^10.0.0"
+    },
+    "description": "A small Codex session retention module with CLI and TUI cleanup workflows.",
+    "devDependencies": {
+      "@types/node": "^24.10.2",
+      "@types/react": "^19.2.7",
+      "tsx": "^4.21.0",
+      "typescript": "^5.9.3",
+      "vitest": "^4.0.16"
+    },
+    "engines": {
+      "node": ">=20"
+    },
+    "keywords": [
+      "codex",
+      "session",
+      "cleanup",
+      "retention",
+      "tui"
+    ],
+    "license": "MIT",
+    "name": "codex-session-janitor",
+    "scripts": {
+      "build": "tsc -p tsconfig.json",
+      "dev": "tsx src/cli.ts",
+      "lint": "tsc -p tsconfig.json --noEmit",
+      "test": "vitest run"
+    },
+    "type": "module",
+    "version": "0.1.0"
+  },
+  "janitor_revision": "32737c7cc68a74a63a21e5b8a403e92f4f1398e6",
+  "limits": [
+    "Janitor deletes rollout files; Retain also maintains verified SQLite thread state.",
+    "Neither measured cleanup mode retains backup or Trash copies.",
+    "All fixture threads are expired archives; correctness edge cases require separate tests.",
+    "macOS time maximum RSS is not summed simultaneous process-tree RSS."
+  ],
+  "macos": "ProductName:\t\tmacOS\nProductVersion:\t\t26.4\nBuildVersion:\t\t25E246",
+  "node": "v25.8.2",
+  "physical_disk_reads": "not measured",
+  "physical_memory_bytes": "17179869184",
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "python": "3.14.3",
+  "retain": "codex-retain 0.1.0",
+  "retain_binary_bytes": 4019904,
+  "retain_sha256": "8fcb4959a9b2df1864e100a8af05f8fec9fb631b6b4d1dafc3a42068e117a649",
+  "rollout_bytes": 4096,
+  "runs": 5,
+  "schema": 1,
+  "warmups": 3
+}

@@ -169,7 +169,7 @@ memory and queue databases, exports, and disk snapshots remain. Cleanup does not
 erase every conversation trace or run `VACUUM` against a live SQLite profile.
 
 The utility keeps no growing Trash or backup archive. A durable journal covers
-at most 32 temporarily staged rollouts; interrupted operations recover before
+at most 128 temporarily staged rollouts; interrupted operations recover before
 new deletion. Unresolved recovery stops the run. Some Codex metadata operations
 can republish a rollout outside the shared locks; Retain preserves those new
 objects and reports them when observed. [Coordination limits](docs/architecture.md#limits-of-coordination).
@@ -210,20 +210,27 @@ chats of 4 KiB each:
 
 | Measurement | Codex Retain | codex-session-janitor |
 | --- | --- | --- |
-| Preview, median | **521 ms** | 1,368 ms |
-| Recorded maximum RSS during preview | **50.56 MiB** | 180.14 MiB |
-| Permanent cleanup, median | 19.35 s | **2.88 s** |
+| Preview, median | **276 ms** | 797 ms |
+| Recorded maximum RSS during preview | **50.56 MiB** | 187.78 MiB |
+| Permanent cleanup, median | 7.76 s | **3.12 s** |
 
-Preview was 2.62 times faster, with a 3.56 times lower recorded RSS. Cleanup was
-slower. Retain performs fresh eligibility checks, updates SQLite, and synchronizes
+Preview was 2.89 times faster, with a 3.71 times lower recorded RSS. Cleanup
+remains slower: Retain rechecks eligibility, updates SQLite, and synchronizes
 its recovery journal; the compared Janitor mode deletes files and leaves SQLite
 rows. Neither measured mode makes a backup or uses Trash.
 
-The comparison used a pinned Janitor revision, ten timed runs, three warmups,
-and fresh equivalent fixtures before each run. These are warm-cache measurements
+Profiling led to buffered JSON writes, larger bounded deletion groups, and
+shorter global coordination. In a comparison against the previous Retain build,
+10,000-chat cleanup fell from **14.35 to 7.76 seconds**, a **1.85x speedup**.
+Archive timing, pin protection, and recovery checks remain in effect.
+
+The updated comparison used a pinned Janitor revision, five timed runs and three
+warmups. Cleanup regenerated equivalent fixtures before each run; read-only
+preview reused one verified, unchanged fixture. These are warm-cache measurements
 on a shared desktop. RSS is one separate native accounting observation per case,
 not a measured peak for the combined process tree. The Retain executable was
-3.84 MiB. [All samples, methodology, failed targets, and unmeasured metrics](docs/performance.md).
+3.83 MiB. [Current samples, causes, tradeoffs, and the missed 2x cleanup target](docs/cleanup-performance.md).
+The [original ten-run benchmark](docs/performance.md) remains available separately.
 
 We also [reviewed five existing Codex cleanup tools](docs/competitors.md) and
 [compared seven retention scenarios](docs/evidence/semantic-comparison.json).
@@ -243,6 +250,10 @@ Your policy and exclusions persist. If you move the executable or its Node.js
 launcher runtime, disable the schedule and re-enable from the new location.
 **Disable Retain before upgrading Codex** so the next storage version can be
 reviewed before the SQLite extension is used with it.
+
+Before downgrading Retain to an older build with 32-chat groups, finish pending
+recovery or disable using the newer executable. Older builds safely reject
+pending journals containing more than 32 chats and cannot recover them.
 
 To remove the utility:
 
@@ -269,7 +280,7 @@ make maintenance-check
 cargo build --release --locked
 ```
 
-The [validation record](docs/validation.md) covers 66 Rust tests, native Codex
+The [validation record](docs/validation.md) covers 74 Rust tests, native Codex
 conformance, interruption recovery, and a temporary launchd integration test.
 All destructive tests use synthetic profiles.
 

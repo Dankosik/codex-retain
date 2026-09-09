@@ -1,0 +1,11 @@
+{
+  "elapsed_seconds_with_sampling": 13.023463874997105,
+  "profile_overhead_included": true,
+  "deleted": 10000,
+  "verified": {
+    "verified": true,
+    "count": 10000,
+    "removed": true,
+    "remaining_thread_rows": 0
+  }
+}

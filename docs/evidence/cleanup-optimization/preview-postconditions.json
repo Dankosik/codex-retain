@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "count": 10000,
+  "baseline_and_candidate_json_equal_ignoring_started_at": true,
+  "fixture_intact": true,
+  "same_read_only_fixture_for_all_samples": true
+}

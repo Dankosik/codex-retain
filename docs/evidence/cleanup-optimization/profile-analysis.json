@@ -1,0 +1,22 @@
+{
+  "sample_duration_seconds": 5,
+  "sample_interval_ms": 1,
+  "total_thread_samples": 4311,
+  "leaf_samples": {
+    "__fcntl": 2244,
+    "write": 550,
+    "__unlink": 352,
+    "__open": 270,
+    "__rename": 245,
+    "pread": 113,
+    "pwrite": 96,
+    "lstat": 89,
+    "fsync": 81
+  },
+  "interpretation": "The dominant fcntl stacks come from Rust File::sync_all on Apple (F_FULLFSYNC); write stacks are JSON serialization directly to File. Sample percentages do not establish exact wall-time fractions or syscall counts.",
+  "profiled_run_elapsed_seconds": 13.023463874997105,
+  "references": [
+    "https://doc.rust-lang.org/src/std/sys/fs/unix.rs.html",
+    "https://doc.rust-lang.org/std/io/struct.BufWriter.html"
+  ]
+}
