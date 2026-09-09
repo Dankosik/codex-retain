@@ -1,91 +1,83 @@
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum, ValueHint};
-use clap_complete::Shell;
-use serde::Deserialize;
-
 #[derive(Debug, Parser)]
-#[command(version, about, arg_required_else_help = true)]
-pub(crate) struct Cli {
-    /// Output format (precedence: flag, environment, config, text)
-    #[arg(
-        long,
-        global = true,
-        env = "RUST_CLI_TEMPLATE_FORMAT",
-        hide_env_values = true,
-        value_enum
-    )]
-    pub format: Option<Format>,
-
-    /// Read this TOML configuration file; no files are loaded automatically
-    #[arg(long, global = true, env = "RUST_CLI_TEMPLATE_CONFIG", hide_env_values = true, value_hint = ValueHint::FilePath)]
-    pub config: Option<PathBuf>,
-
+#[command(
+    version,
+    about = "Predictable retention for local archived Codex chats",
+    long_about = "Keep archived local Codex chats for a chosen number of days. Start with enable --days 30 --yes. Every existing archive receives a full grace period. Only reviewed Codex versions are supported."
+)]
+pub struct Cli {
+    /// Directory containing this utility's policy and bounded last-run report
+    #[arg(long, global = true, env = "CODEX_RETAIN_STATE_DIR")]
+    pub state_dir: Option<PathBuf>,
+    /// Emit versioned machine-readable JSON
+    #[arg(long, global = true)]
+    pub json: bool,
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Action,
 }
 
 #[derive(Debug, Subcommand)]
-pub(crate) enum Command {
-    /// Count bytes and LF newline terminators, using bounded memory
-    #[command(
-        long_about = "Count bytes and LF (0x0A) newline terminators, like wc -l.\nA final unterminated fragment adds bytes but no line. Input need not be UTF-8."
-    )]
-    Stats {
-        /// Input file, or - for standard input
-        #[arg(default_value = "-", value_hint = ValueHint::FilePath)]
-        input: PathBuf,
+pub enum Action {
+    /// Enable retention with a fresh grace period for the existing archive
+    Enable {
+        #[arg(long,default_value_t=30,value_parser=clap::value_parser!(u32).range(1..=36500))]
+        days: u32,
+        /// Profile to manage (default: CODEX_HOME or ~/.codex)
+        #[arg(long)]
+        codex_home: Option<PathBuf>,
+        /// Executable used by the supported Codex client
+        #[arg(long, default_value = "codex")]
+        codex_bin: PathBuf,
+        /// Enable manual runs without installing the macOS hourly LaunchAgent
+        #[arg(long)]
+        no_schedule: bool,
+        /// Consent to permanent local deletion after retention; no later prompts
+        #[arg(long)]
+        yes: bool,
     },
-    /// Write a shell completion script to stdout
-    Completions {
-        #[arg(value_enum)]
-        shell: Shell,
+    /// Show the current policy, compatibility, scheduler, and last run
+    Status,
+    /// Explain due and skipped archives without changing Codex data
+    Preview,
+    /// Perform one cleanup under the enabled policy
+    Run {
+        /// Quiet scheduler entry point; still saves the bounded last-run result
+        #[arg(long, hide = true)]
+        scheduled: bool,
     },
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, ValueEnum)]
-#[serde(rename_all = "lowercase")]
-pub(crate) enum Format {
-    #[default]
-    Text,
-    Json,
-}
-
-#[cfg(test)]
-mod tests {
-    use clap::CommandFactory;
-
-    use super::Cli;
-
-    #[test]
-    fn command_definition_is_consistent() {
-        Cli::command().debug_assert();
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn parser_preserves_non_utf8_paths_without_filesystem_assumptions() {
-        use std::{ffi::OsString, os::unix::ffi::OsStringExt};
-
-        use clap::Parser;
-
-        use super::Command;
-
-        let path = OsString::from_vec(b"input-\xff".to_vec());
-        let cli = Cli::try_parse_from([
-            OsString::from("rust-cli-template"),
-            OsString::from("--format"),
-            OsString::from("text"),
-            OsString::from("--config"),
-            path.clone(),
-            OsString::from("stats"),
-            path.clone(),
-        ])
-        .unwrap();
-        assert_eq!(cli.config.unwrap().into_os_string(), path);
-        match cli.command {
-            Command::Stats { input } => assert_eq!(input.into_os_string(), path),
-            Command::Completions { .. } => panic!("expected stats command"),
-        }
-    }
+    /// Suspend deletion while preserving transition capture and scheduling
+    Pause,
+    /// Resume the existing policy (time in the archive continues during a pause)
+    Resume,
+    /// Change retention; shortening can make existing archives immediately due
+    Policy {
+        #[arg(long,value_parser=clap::value_parser!(u32).range(1..=36500))]
+        days: u32,
+        /// Acknowledge the effect of a shorter retention period
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Permanently protect a thread ID from this policy
+    Exclude { id: String },
+    /// Remove an explicit protection; the original archive period still applies
+    Include {
+        id: String,
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Disable deletion, unregister the LaunchAgent, and remove transition capture
+    Disable,
+    /// Disable safely before removing the executable with your package manager
+    Uninstall,
+    /// Inspect a Codex profile without enabling or modifying it
+    Doctor {
+        #[arg(long)]
+        codex_home: Option<PathBuf>,
+        #[arg(long, default_value = "codex")]
+        codex_bin: PathBuf,
+    },
+    /// Generate shell completions
+    Completions { shell: clap_complete::Shell },
 }

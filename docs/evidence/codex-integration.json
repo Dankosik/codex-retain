@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "passed": true,
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "codex_version": "codex-cli 0.153.4",
+  "retain_version": "codex-retain 0.1.0",
+  "retain_sha256": "af2aeb726b92d273c5e30b2e242264e6dde2fd73cd067ca7a5f37771130040f2",
+  "codex_launcher_sha256": "61b0194f3bb6534439c8d26a3ed57d0805f84b884588b761795323eeb92fcf70",
+  "fixture": "new isolated HOME and CODEX_HOME; native schema and native legacy threads",
+  "model_turns_submitted": 0,
+  "launchagents_installed": 0,
+  "checks": [
+    {
+      "name": "actual_utility_enable_full_grace",
+      "passed": true,
+      "eligible": 0,
+      "archived": 2
+    },
+    {
+      "name": "native_unarchive_clears_capture",
+      "passed": true
+    },
+    {
+      "name": "native_rearchive_between_utility_runs_resets_capture",
+      "passed": true
+    },
+    {
+      "name": "native_pinned_section_is_protected",
+      "passed": true,
+      "native_legacy_pin_bit": 0,
+      "reason": "pinned_or_unknown_pin"
+    },
+    {
+      "name": "native_resume_rejects_archived_threads",
+      "passed": true
+    },
+    {
+      "name": "native_live_active_thread_is_ignored",
+      "passed": true
+    },
+    {
+      "name": "live_codex_writer_blocks_actual_utility_cleanup",
+      "passed": true,
+      "reason": "changed_busy_or_error",
+      "detail": "busy or unavailable lock $FIXTURE/codex/thread-writer-locks/01a08725-16dc-7d03-891b-9a8a3f9d2f5b.lock: lock acquisition failed because the operation would block"
+    },
+    {
+      "name": "native_shutdown_allows_only_due_unpinned_archive_deletion",
+      "passed": true,
+      "deleted": 1,
+      "skipped": 1,
+      "logical_bytes_removed": 21815,
+      "actual_reclaimed_bytes": null
+    },
+    {
+      "name": "repeat_actual_cleanup_is_idempotent",
+      "passed": true
+    },
+    {
+      "name": "disable_removes_capture_and_installs_no_agent",
+      "passed": true
+    }
+  ],
+  "test_only_mutation": "age capture epochs; adversarially mark a native-loaded synthetic thread archived while its native writer lock remains held",
+  "app_server_user_agent": "codex-retain-conformance/0.153.4 (Mac OS 26.4.0; arm64) dumb (codex-retain-conformance; 1)",
+  "native_methods": [
+    "initialize",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/archive",
+    "thread/archive",
+    "thread/unarchive",
+    "thread/archive",
+    "thread/section/move",
+    "thread/unarchive",
+    "thread/resume"
+  ],
+  "native_stderr_tail": "",
+  "finished_at_utc": "2026-09-09T17:09:11Z"
+}

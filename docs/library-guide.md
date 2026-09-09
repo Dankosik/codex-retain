@@ -6,12 +6,12 @@ crate below. A listed library can be added for the requested capability; it need
 not already appear in Cargo.toml to be a valid choice. Use its API directly and
 keep local code for the command's actual policy or a demonstrated semantic gap.
 
-The template baseline is Rust **1.98.1**, edition 2024. The predeclared toolbox is
-intentional: it is ready for product commands even when the small `stats` example
-does not use every dependency. No usage percentage is claimed. Import only what
-the implementation needs, and keep runtime initialization out of help/version.
+The product baseline is Rust **1.98.1**, edition 2024. This guide preserves the
+template's toolbox choices as a reference; Cargo.toml is authoritative for what
+this product actually declares. The example command and unused dependencies
+were removed during adoption. Keep initialization out of help/version.
 
-## Already available
+## Template toolbox reference
 
 | Need | Crate/API | Use and important boundary |
 | --- | --- | --- |

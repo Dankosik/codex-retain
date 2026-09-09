@@ -1,0 +1,9 @@
+{
+  "binary_sha256": "af87e5f928bc8363260b1c700c5fa8436ad9516fbab251b39d5181eb5032bfda",
+  "observations": {
+    "1000_cleanup_preflight_seconds_approx": 25.29,
+    "10000_cleanup_preflight": "timed out after300seconds",
+    "benchmark_root": "work/benchmark-final"
+  },
+  "measurement_caveat": "preflight observations, not repeated timing samples"
+}

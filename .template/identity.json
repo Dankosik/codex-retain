@@ -1,8 +1,0 @@
-{
-  "schema": 1,
-  "name": "rust-cli-template",
-  "repository": "https://github.com/Dankosik/rust-cli-template",
-  "description": "A fast, small Rust command-line utility.",
-  "environment_prefix": "RUST_CLI_TEMPLATE",
-  "initialized": false
-}

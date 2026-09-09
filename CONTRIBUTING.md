@@ -26,9 +26,10 @@ make check
 
 The [Makefile](Makefile) runs formatting, Clippy, all-target tests, and doctests.
 Those Cargo commands can also be run individually for focused development.
-Use `make verify` when changing template initialization or maintenance scripts;
-it adds the template checks and Python tests. Use `make template-smoke` to
-initialize, build, and test a disposable consumer after identity changes.
+Use `make maintenance-check` when changing release or skill-maintenance scripts;
+it adds their Python tests. All deletion reproductions must use synthetic
+profiles. Capture and writer-lock changes also require the supported real-Codex
+integration probe; a fake version command does not prove compatibility.
 Explain any check you could not run and retain required CI gates.
 Do not broaden a documentation-only edit into an unrelated runtime test campaign.
 

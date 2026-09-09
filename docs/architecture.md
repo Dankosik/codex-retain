@@ -1,74 +1,149 @@
-# Architecture
+# Architecture and failure model
 
-The template is one synchronous command-line program. Its example command
-counts a file or stdin incrementally. Dependencies support a concrete CLI
-capability; there is no service container, network client, database, or background
-runtime to initialize before a command can run.
+## Decisions
 
-## Responsibility boundaries
+One synchronous Rust CLI, an hourly macOS LaunchAgent, and a small transactional
+extension to Codex's existing SQLite database. No async runtime, polling daemon,
+model calls or app-server startup in a normal cleanup. The executable checks
+`codex --version` but does not initialize the model or read credentials.
 
-| File | Owns |
-| --- | --- |
-| `src/main.rs` | Thin executable entry point |
-| `src/lib.rs` | Argument parsing, dispatch, process I/O, and final exit status |
-| `src/cli.rs` | Subcommands, flags, help, and the source for completions |
-| `src/config.rs` | Explicit file input, format precedence, and validation |
-| `src/stats.rs` | Streaming computation and its result type |
-| `src/output.rs` | Human or machine representation and output-write failures |
-| `src/error.rs` | Error types, diagnostic rendering, and closed-stdout classification |
-| `tests/cli.rs` | Actual executable arguments, streams, status, and effects |
+App-server `thread/delete` cannot express a conditional archived-only deletion
+and cascades to spawned descendants. A separate read followed by that RPC races
+with restore. The supported local storage adapter therefore deletes one reviewed
+legacy thread under the locks that supported Codex writers already honor.
 
-The parser is the authority for accepted command syntax. Cargo owns package
-identity, dependencies, and build settings. Generated output has a declared
-source and regeneration path. Add modules when their responsibilities differ;
-do not reproduce backend layers merely to arrange a small command.
+## Capture instead of inferred timestamps
 
-## Input and resource ownership
+`compatibility/capture.sql` owns exactly two tables and three triggers, with a
+reserved `codex_retain_` prefix. `codex_retain_owner` binds the extension to one
+canonical policy directory. `codex_retain_epochs` holds one row per archived
+thread: ID, archive transition epoch, and the corresponding Codex timestamp.
 
-Use native path types for filesystem operations. File and stdin handles belong
-to the command invocation; the operation consumes a reader and retains only
-the state required by its algorithm. Keep input-dependent memory growth visible
-when extending that algorithm. A bounded read buffer does not bound a collection
-of every record.
+Activation occurs in `BEGIN IMMEDIATE`: create/verify the extension and seed all
+current archives with the database's current UTC second. No historical timestamp
+is used to backdate their expiration. Native insertion of an already archived
+thread also starts at its insertion time. Updates changing archive state,
+archive timestamp or identity replace the epoch; unarchive/delete removes it.
+Unrelated updates do not restart retention. Archive timestamp repairs restart
+conservatively, addressing Codex's mtime-based backfill behavior.
 
-The statistics operation uses a 64 KiB read buffer and two counters. It counts
-bytes exactly and counts LF bytes as lines, without decoding UTF-8 or retaining
-whole lines. An unterminated final fragment adds bytes only. A read failure
-returns an error before the summary is written. This bounds the operation's
-input buffer, not the whole process's resident memory.
+The triggers are durable and execute in the writer's transaction, so even
+restore/rearchive entirely between runs is captured. No append-only event log
+is retained. The recorder adds a small indexed write to relevant transitions;
+paused policies retain capture, disabled policies remove it. The capture schema,
+owner, source timestamp, base schema and migration checksums are revalidated.
+Missing/altered capture never becomes an inferred permission to delete.
 
-Configuration files are explicit: `--config PATH` overrides
-`RUST_CLI_TEMPLATE_CONFIG`. Output format is selected by `--format`, then
-`RUST_CLI_TEMPLATE_FORMAT`, then the selected TOML file, then `text`.
-Unknown config fields and files larger than 64 KiB are rejected. An explicitly
-selected invalid file still fails even when a flag overrides its format.
+Expiration requires `now > archived_since + days * 86400`, avoiding an early
+deletion at the timestamp's one-second precision boundary. A backwards clock
+before activation/last run is rejected; future epochs are skipped. The operating
+system's wall clock must be correct: there is no independent offline time oracle
+that could detect every forward clock adjustment.
 
-Keep startup paths cheap. Help, version, and completion generation should be
-available without reading the data stream or validating an unrelated config
-file. Resolve configuration only for operations that need it.
+## Adapter boundary
 
-## Output and failure
+The immutable `compatibility/schema.json` and `migrations.json` were captured
+from a new synthetic profile initialized by the actual supported CLI. Runtime
+schema comparison includes tables, indexes and triggers, plus migration version,
+success and checksum. This deliberately rejects unknown schema extensions and
+future databases. No automatic SQL migration guesses are made.
 
-Result data goes to stdout; diagnostics go to stderr. The JSON summary is
-`{"bytes":N,"lines":N}` followed by one newline. Keep JSON free of human
-decoration and treat its fields and framing as a public contract. Successful
-commands return status 0; parser misuse returns 2; runtime failures return 1.
-A closed stdout pipe is a quiet success. Other input or output failures remain
-errors, including a broken pipe while reading input. Process exit and
-broken-pipe policy have one owner so individual commands cannot silently disagree.
+Deletion supports only flat archived JSONL and zstd files with matching canonical
+UUID filename and first-record identity and legacy history mode. A database
+logical `.jsonl` path may resolve to its sole `.jsonl.zst` physical file, matching
+Codex compression behavior. Multiple versions/locations, hardlinks, symlinks,
+outside paths, absent/unreadable/invalid metadata and shared history markers are
+skipped. Native pins use the current pinned-section ID as well as the legacy
+pin flag. Every thread participating in a spawn edge is conservatively retained.
 
-The template supplies a working baseline. Add file mutation, subprocesses,
-network access, or concurrency when a command requires them, and give each
-effect a clear failure and cleanup policy. Do not infer permission to publish
-or change external state from the presence of a library or credential.
+No active file or child is recursively removed. Other local stores and global
+indexes are deliberately retained; deleting a selected row may cascade only
+the reviewed foreign-key metadata owned by that same thread. The migration
+contract does not establish support for a differently versioned desktop client.
 
-## Extending the repository
+## Mutation and crash protocol
 
-Keep a useful operation callable independently of process setup. Reuse the
-existing parser and output path when adding a subcommand. Add tests at the
-boundary that can observe the promised behavior. See [first command](first-command.md)
-for the development path and [agent workflow](agent-workflow.md) for coordination.
+The policy directory has a nonblocking operation lock shared by policy changes,
+manual and scheduled runs. For each group of at most 32 eligible threads:
 
-Repository instructions are shared through `AGENTS.md`. The vendored Rust CLI
-skills provide task-specific methods. Provider instruction files point to that
-shared source; they do not define competing project policies.
+1. Acquire Codex's `.tmp/rollout-maintenance.lock`, excluding supported
+   compression and rollout migration. Busy means skip.
+2. Acquire `thread-writer-locks/.coordination.lock`, then each UUID writer lock.
+   Coordination stays held until all thread locks close, preventing Codex's
+   stale-lock cleanup from replacing its inode during this operation.
+3. Begin an immediate SQLite transaction. Verify schema, recorder, current row,
+   epoch, native pin, exclusion, history mode, path and file identity for every
+   member again.
+4. Atomically write and fsync a single `pending.json` intent naming every member.
+   Rename those exact rollouts to fixed hidden staging filenames in the same
+   archive directory; fsync the directory once for the group.
+5. Conditionally delete only those individually checked rows and commit the
+   group atomically with synchronous FULL.
+6. Verify each staged inode and unlink it, fsync the archive once, then durably
+   remove the intent. No long-term backup is created.
+
+A pre-effect group conflict falls back to individual attempts, so a busy writer
+does not strand its unrelated neighbors. A pending intent stops new deletion;
+global SQLite write contention stops the run instead of retrying every archive.
+Directory barriers cover the whole group, preserving ordering while avoiding
+six flushes for every individual chat. The rollout-owner alias check also
+scans the metadata table once per group, including logical and compressed
+representations; it no longer performs one full scan per thread. A measured first implementation required
+about 25 seconds for a 1,000-chat preflight and exceeded a 300-second test limit
+at 10,000; those failed scale observations motivated this bounded grouping.
+
+After interruption, recovery obtains the same locks before doing new cleanup.
+The complete journal's thread IDs and paths are validated before touching any
+member. Each physical inode is checked before its own operation; a later inode
+conflict can leave an already recovered prefix, which is safe to revisit.
+If a staged file remains and its row exists, restore it without overwriting
+an existing destination. If the row is absent, finish removal of the already
+authorized staged file. If the intent preceded the rename or cleanup completed,
+clear the receipt. Partial staging, restore and unlink prefixes are restartable.
+Legacy single-file journals are also recognized. Identity conflict, access failure or an occupied restore
+destination preserves the receipt and data for inspection. Only `NotFound`
+means absence. Config cannot switch profiles over a pending receipt.
+
+The policy is saved disabled before scheduler installation and enabled only
+after successful registration. A failed or interrupted automatic setup must be
+disabled before retrying, preventing an old LaunchAgent from activating a new
+manual-only policy. Disable saves `enabled=false` first, then unregisters and
+removes capture; failed later steps cannot reauthorize deletion.
+
+## Limits of coordination
+
+Supported Codex archive/unarchive and live resume honor the writer lock. Tests
+exercise both the real binary and independent OS locks. SQLite serializes pin
+and index writes against final eligibility checks. However, some unloaded
+metadata appends/materializations bypass those locks after their SQL update.
+They can append to an open inode or republish a compressed rollout's plain
+sibling. The cleaner does not delete a new object based on an old file identity.
+Observed republishing is reported; future republishing cannot be ruled out.
+This is a remaining upstream coordination limitation, not a reason to cascade
+through more files or claim complete erasure.
+
+The filesystem threat model is a user-owned local profile operated by supported
+Codex clients. Arbitrary same-user hostile filesystem/SQL manipulation, foreign
+writers, network filesystems, clock tampering and hardware that lies about fsync
+are outside the tested contract. They are not silently treated as supported
+concurrent Codex behavior. Ordinary unavailable data, recognized contention,
+process termination and filesystem errors are expected and fail closed.
+
+## Resources and reporting
+
+The metadata query caps the archive at 100,000 rows; an expired-file inventory
+caps directory entries at 500,000. No transcript is read for unexpired threads.
+Due files read at most a 1 MiB first record, with 16 KiB read-ahead and an 8 MiB
+maximum zstd decoder window. At most 32 deletions are staged under one intent.
+Reported deletion counts cover fully completed groups; recovery reports
+interrupted finalization separately and does not invent lost byte accounting.
+JSON preview retains
+one compact result per indexed archive; this is O(number of archives), not an
+unbounded streaming claim. Only ten diagnostic examples are saved in the
+replace-in-place last-run report.
+
+No SQLite VACUUM, global-index rewrite, snapshot deletion, or Trash accumulation
+is used. File length, allocated blocks and volume free-space delta have separate
+JSON fields; exact attributable physical reclamation remains null. Exit codes:
+0 completed command (including ordinary policy skips), 1 operational failure,
+2 CLI usage error, 3 cleanup completed with artifact errors or recovery warnings.

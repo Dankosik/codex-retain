@@ -1,86 +1,34 @@
-# Releases
+# Native releases
 
-The template builds native executable archives for Linux x86_64, macOS Apple
-Silicon, macOS Intel, and Windows x86_64. A `v` tag starts the release workflow.
-It runs the same required CI as a pull request, validates the tag and repository
-against Cargo metadata, builds on each native runner, and tests the executable
-after extracting it from its final archive. A single final job publishes the
-complete set and SHA-256 checksums as a GitHub Release.
+The adapted template produces native macOS archives for
+`aarch64-apple-darwin` and `x86_64-apple-darwin`. Native CI runners build and test
+their own target. Linux is a core-test/preview experiment, not a deletion release;
+Windows is deferred because the current filesystem adapter is Unix-specific.
 
-To verify the native packaging pipeline before making a release, open the
-**Release** workflow in GitHub Actions and choose **Run workflow** on a branch.
-This runs CI, builds and tests all four native archives at the selected commit,
-and uploads them as workflow artifacts. Branch dispatches do not validate a
-version tag or create a GitHub Release. The publication job runs only for
-`refs/tags/v...`; use a branch when requesting verification without publication.
-
-The workflow uses the repository's `GITHUB_TOKEN`; no personal token, crates.io
-credentials, package manager account, or signing service is required. Creating a
-tag is an intentional publication action. Nothing publishes from ordinary
-branch commits, branch dispatches, or pull requests. `publish = false` prevents accidental registry
-publication and does not prevent binary releases.
-
-## Before tagging
-
-Initialize the repository's package name and repository URL. Update
-`package.version` in `Cargo.toml` and let Cargo refresh the root package entry in
-`Cargo.lock`. Run the documented validation commands and review compatibility
-changes to arguments, stdout, stderr, exit status, and configuration. Commit
-the release changes, wait for required CI, then create and push the matching
-tag, such as `v0.1.0`. The tag must identify the exact checked-out commit and
-its version must equal Cargo's version.
-
-The publication step refuses to overwrite an existing release. If a run fails
-before publication, repair the cause and rerun it where appropriate. If a
-release already exists or publication partly succeeded, inspect its assets and
-the run before deciding whether to finish that release or issue a new version.
-Do not move a tag that users may already have downloaded.
-
-## Local packaging
-
-Rust and Python 3.9+ are sufficient for packaging on a supported host. Replace
-the target below with the `host` reported by `rustc -vV`:
+Build and package locally:
 
 ```sh
-cargo build --release --locked --target aarch64-apple-darwin
+cargo build --release --locked
 python3 scripts/release.py package --target aarch64-apple-darwin --dist dist
 ```
 
-Packaging derives the binary name and version from `cargo metadata`. It
-includes the binary, `README.md`, and `LICENSE`, plus `NOTICE`,
-`THIRD_PARTY_NOTICES`, and `THIRD_PARTY_NOTICES.md` when present. Keep required dependency notices current
-when changing the distribution's dependencies. The default smoke test runs
-`--version` and the sample `stats` command against bytes containing both
-terminated and unterminated lines. Replace that smoke case when replacing the
-sample command; retain a deterministic check of the real packaged command.
+Packaging validates the exact archive inventory and executes the extracted
+binary's version, help and Bash completions in an isolated environment. These
+commands must not read Codex state or create policy state. The archive contains
+the executable, README, MIT license and available third-party notices.
 
-Packaging never cross-compiles or claims to test a foreign executable.
-`checksums` validates the full four-target inventory before writing
-`SHA256SUMS`; individual local packages do not satisfy that release inventory.
+The release workflow requires all applicable CI jobs, exact tag/version/source
+identity, both native archives and a SHA256SUMS manifest before publication.
+It uses pinned action revisions and no release authority from a local test.
+A local archive smoke test establishes only that target's covered behavior;
+an unrun remote job or unpublished GitHub release must not be reported as passed.
 
-## Supported artifacts
+Package-source publication to crates.io is disabled. A maintainer should first
+create/configure the intended repository, review reporting channels and release
+ownership, then push an authorized tag only after its exact candidate is green.
 
-| Target | Build runner | Archive |
-| --- | --- | --- |
-| `x86_64-unknown-linux-gnu` | Ubuntu 22.04 x86_64 | `.tar.gz` |
-| `aarch64-apple-darwin` | macOS 15 Apple Silicon | `.tar.gz` |
-| `x86_64-apple-darwin` | macOS 15 Intel | `.tar.gz` |
-| `x86_64-pc-windows-msvc` | Windows 2025 x86_64 | `.zip` |
-
-Linux output dynamically links the GNU C runtime and requires glibc 2.35 or
-newer with the default build. It is not a musl/static build. The initial macOS
-compatibility claim is the native runner version, macOS 15; test any older
-deployment target before promising it. macOS binaries are not signed or
-notarized, and Windows binaries are not Authenticode signed. Owners can add
-signing when their distribution requirements and credentials are known.
-
-Verify a downloaded archive before extracting it. On Linux, run
-`sha256sum --check --ignore-missing SHA256SUMS`; on macOS, run
-`shasum -a 256 --check --ignore-missing SHA256SUMS`. On Windows, compare
-`Get-FileHash -Algorithm SHA256 <archive.zip>` with the matching checksum line.
-Checksums detect download corruption; they are not an independent publisher
-signature. The initial workflow does not claim signed provenance.
-
-When changing a target, update the release workflow matrix, `TARGETS` in
-`scripts/release.py`, this table, and the corresponding verification evidence.
-Keep the aggregate `required` CI check as the branch protection target.
+Installed users update at the existing executable path. `cargo install --path .
+--locked --force` replaces the utility without changing its policy. Before
+uninstalling, run `codex-retain uninstall`; then use the package manager or remove
+the installed binary. There is no hidden copied worker executable and no
+self-updating network process.

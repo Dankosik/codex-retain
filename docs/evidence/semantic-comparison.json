@@ -1,0 +1,171 @@
+{
+  "schema": 1,
+  "retention_days": 30,
+  "fixture_kind": "synthetic only",
+  "retain_sha256": "af2aeb726b92d273c5e30b2e242264e6dde2fd73cd067ca7a5f37771130040f2",
+  "janitor_revision": "32737c7cc68a74a63a21e5b8a403e92f4f1398e6",
+  "reports": {
+    "retain": {
+      "cases": [
+        {
+          "scenario": "old_chat_archived_today",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": false,
+          "thread_id": "5930e4f4-94c5-58d6-aadf-f86fcb03684b"
+        },
+        {
+          "scenario": "old_active_chat",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": false,
+          "thread_id": "9e5484ff-c96d-5e0a-a2a1-28849b341c44"
+        },
+        {
+          "scenario": "restored_then_rearchived",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": false,
+          "thread_id": "ccf6c2d0-ac0d-50d3-a00c-1ed80bd73729"
+        },
+        {
+          "scenario": "unknown_archive_time",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": false,
+          "thread_id": "9ec6fa46-0b8c-5b05-b85b-c06d356150d0"
+        },
+        {
+          "scenario": "native_pinned",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": false,
+          "thread_id": "cb892d85-e86a-5f7d-a09c-4ee0d2059494"
+        },
+        {
+          "scenario": "explicitly_excluded",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": false,
+          "thread_id": "c2a3ec13-1f55-569b-b8ce-99df29f82c76"
+        },
+        {
+          "scenario": "due_archive",
+          "expected_deleted_by_requested_contract": true,
+          "actually_deleted": true,
+          "thread_id": "ec0f5fd9-9091-599c-b4a4-429061f69298"
+        }
+      ],
+      "remaining_sqlite_threads": 6,
+      "output": {
+        "schema": 1,
+        "mode": "run",
+        "started_at": 1788975270,
+        "examined": 6,
+        "eligible": 1,
+        "deleted": 1,
+        "skipped": 5,
+        "selected_bytes": 4096,
+        "logical_bytes_removed": 4096,
+        "allocated_bytes_unlinked": 4096,
+        "observed_free_space_delta_bytes": -258048,
+        "actual_reclaimed_bytes": null,
+        "entries": [
+          {
+            "id": "5930e4f4-94c5-58d6-aadf-f86fcb03684b",
+            "title": "Fixture 0",
+            "reason": "within_retention",
+            "eligible_at": 1791567270,
+            "bytes": null,
+            "detail": null
+          },
+          {
+            "id": "9ec6fa46-0b8c-5b05-b85b-c06d356150d0",
+            "title": "Fixture 3",
+            "reason": "unknown_archive_time",
+            "eligible_at": 1788111270,
+            "bytes": null,
+            "detail": null
+          },
+          {
+            "id": "c2a3ec13-1f55-569b-b8ce-99df29f82c76",
+            "title": "Fixture 5",
+            "reason": "excluded",
+            "eligible_at": 1788111270,
+            "bytes": null,
+            "detail": null
+          },
+          {
+            "id": "cb892d85-e86a-5f7d-a09c-4ee0d2059494",
+            "title": "Fixture 4",
+            "reason": "pinned_or_unknown_pin",
+            "eligible_at": 1788111270,
+            "bytes": null,
+            "detail": null
+          },
+          {
+            "id": "ccf6c2d0-ac0d-50d3-a00c-1ed80bd73729",
+            "title": "Fixture 2",
+            "reason": "within_retention",
+            "eligible_at": 1791567270,
+            "bytes": null,
+            "detail": null
+          },
+          {
+            "id": "ec0f5fd9-9091-599c-b4a4-429061f69298",
+            "title": "Fixture 6",
+            "reason": "deleted",
+            "eligible_at": 1788111270,
+            "bytes": 4096,
+            "detail": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    "janitor": {
+      "cases": [
+        {
+          "scenario": "old_chat_archived_today",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": true,
+          "thread_id": "5930e4f4-94c5-58d6-aadf-f86fcb03684b"
+        },
+        {
+          "scenario": "old_active_chat",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": true,
+          "thread_id": "9e5484ff-c96d-5e0a-a2a1-28849b341c44"
+        },
+        {
+          "scenario": "restored_then_rearchived",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": true,
+          "thread_id": "ccf6c2d0-ac0d-50d3-a00c-1ed80bd73729"
+        },
+        {
+          "scenario": "unknown_archive_time",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": true,
+          "thread_id": "9ec6fa46-0b8c-5b05-b85b-c06d356150d0"
+        },
+        {
+          "scenario": "native_pinned",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": true,
+          "thread_id": "cb892d85-e86a-5f7d-a09c-4ee0d2059494"
+        },
+        {
+          "scenario": "explicitly_excluded",
+          "expected_deleted_by_requested_contract": false,
+          "actually_deleted": true,
+          "thread_id": "c2a3ec13-1f55-569b-b8ce-99df29f82c76"
+        },
+        {
+          "scenario": "due_archive",
+          "expected_deleted_by_requested_contract": true,
+          "actually_deleted": true,
+          "thread_id": "ec0f5fd9-9091-599c-b4a4-429061f69298"
+        }
+      ],
+      "remaining_sqlite_threads": 7,
+      "output": "Scanned 7 session file(s).\nMatched 7 expired file(s), reclaimable 28 KiB.\nRemoved 7 file(s), freed 28 KiB.\n"
+    }
+  },
+  "interpretation": "Agreement with this product's requested archive-retention contract; alternatives have different advertised scopes. No timing claim.",
+  "test_only_mutations": "Backdate generated capture epochs; native-shaped SQLite transitions and pin update; no real profiles."
+}

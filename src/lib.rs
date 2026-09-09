@@ -1,109 +1,466 @@
-//! CLI composition and a small reusable streaming core.
+pub mod cli;
+pub mod config;
+pub mod database;
+pub mod engine;
+pub mod fsutil;
+pub mod scheduler;
 
-mod cli;
-mod config;
-mod error;
-mod output;
-pub mod stats;
+#[cfg(test)]
+extern crate self as codex_retain;
 
-use std::{fs::File, io, io::Write, path::Path, process::ExitCode};
-
+use anyhow::{Context, Result, ensure};
 use clap::{CommandFactory, Parser};
+use cli::{Action, Cli};
+use config::{Policy, Store};
+use serde_json::{Value, json};
+use std::{
+    collections::BTreeSet,
+    io::{self, Write},
+    path::Path,
+    process::ExitCode,
+};
 
-use crate::{cli::Cli, error::AppError};
-
-/// Parse process arguments, perform the requested command, and report once.
 pub fn run() -> ExitCode {
     let cli = match Cli::try_parse() {
-        Ok(cli) => cli,
-        Err(error) => return report_parser_error(error),
+        Ok(c) => c,
+        Err(e) => {
+            let code = e.exit_code();
+            let _ = e.print();
+            return ExitCode::from(code as u8);
+        }
     };
+    let scheduled = matches!(cli.command, Action::Run { scheduled: true });
+    let state = cli
+        .state_dir
+        .clone()
+        .or_else(|| config::default_state().ok());
     match execute(cli, &mut io::stdout().lock()) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) if error.is_stdout_closed() => ExitCode::SUCCESS,
+        Ok(code) => ExitCode::from(code),
+        Err(e)
+            if e.downcast_ref::<io::Error>()
+                .is_some_and(|e| e.kind() == io::ErrorKind::BrokenPipe) =>
+        {
+            ExitCode::SUCCESS
+        }
         Err(error) => {
-            let mut stderr = io::stderr().lock();
-            // Reporting failure cannot turn an already failed operation into success.
-            let _ = writeln!(stderr, "error: {}", error::diagnostic(&error));
-            let _ = stderr.flush();
+            if scheduled {
+                if let Some(state) = state {
+                    // Never create an unbounded log. A failed acquisition must
+                    // not overwrite the running owner's last-run receipt.
+                    if let Ok(store) = Store::open(state) {
+                        let _ = fsutil::atomic_json(
+                            &store.root.join("last-run.json"),
+                            &json!({"schema":1,"status":"error","at":config::now().ok(),"error":format!("{error:#}")}),
+                        );
+                    }
+                }
+            } else {
+                let _ = writeln!(
+                    io::stderr().lock(),
+                    "error: {}",
+                    safe_text(&format!("{error:#}"))
+                );
+            }
             ExitCode::FAILURE
         }
     }
 }
 
-fn execute(cli: Cli, stdout: &mut impl Write) -> Result<(), AppError> {
-    match cli.command {
-        cli::Command::Completions { shell } => {
-            let mut command = Cli::command();
-            let name = command.get_name().to_owned();
-            // The generator's writer API is infallible. Generate this bounded,
-            // known command definition in memory, then handle stdout ourselves.
-            let mut bytes = Vec::new();
-            clap_complete::generate(shell, &mut command, name, &mut bytes);
-            output::write_bytes(stdout, &bytes)
-        }
-        cli::Command::Stats { input } => {
-            let format = config::resolve_format(cli.format, cli.config.as_deref())?;
-            let stats = if input == Path::new("-") {
-                stats::count(&mut io::stdin().lock()).map_err(AppError::Stdin)?
+fn safe_text(value: &str) -> String {
+    value
+        .chars()
+        .flat_map(|c| {
+            if c.is_control() {
+                c.escape_default().collect::<Vec<_>>()
             } else {
-                let read_error = |source| AppError::Input {
-                    path: input.clone(),
-                    source,
-                };
-                let mut file = File::open(&input).map_err(read_error)?;
-                stats::count(&mut file).map_err(read_error)?
-            };
-            output::summary(stdout, &stats, format)
-        }
+                vec![c]
+            }
+        })
+        .collect()
+}
+fn date(value: Option<i64>) -> String {
+    value
+        .and_then(|v| jiff::Timestamp::from_second(v).ok())
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "unknown".into())
+}
+fn emit(out: &mut impl Write, json_mode: bool, value: &Value, message: &str) -> Result<()> {
+    if json_mode {
+        serde_json::to_writer(&mut *out, value)?;
+        writeln!(out)?;
+    } else {
+        writeln!(out, "{message}")?;
     }
+    out.flush()?;
+    Ok(())
+}
+fn native_mutations() -> Result<()> {
+    ensure!(
+        cfg!(target_os = "macos"),
+        "automatic and destructive operations are supported on macOS only in v0.1"
+    );
+    Ok(())
+}
+fn profile(
+    home: Option<std::path::PathBuf>,
+    binary: &Path,
+) -> Result<(std::path::PathBuf, std::path::PathBuf)> {
+    let home = fsutil::checked_absolute(&home.map(Ok).unwrap_or_else(config::default_home)?)?;
+    let binary = config::resolve_executable(binary)?;
+    database::verify_binary(&binary)?;
+    Ok((home, binary))
+}
+fn enabled(store: &Store) -> Result<Policy> {
+    let p = store.policy()?;
+    ensure!(p.enabled, "policy is disabled; run enable first");
+    Ok(p)
 }
 
-fn report_parser_error(mut error: clap::Error) -> ExitCode {
-    let to_stderr = error.use_stderr();
-    if to_stderr {
-        use clap::error::{ContextKind, ContextValue};
-
-        // Escape user-provided fragments before clap adds trusted styling and
-        // layout. Sanitizing the finished message would also damage its help.
-        let replacements: Vec<_> = error
-            .context()
-            .filter_map(|(kind, value)| {
-                let sanitized = match value {
-                    ContextValue::String(value) if value.chars().any(char::is_control) => {
-                        ContextValue::String(error::diagnostic(value))
-                    }
-                    ContextValue::Strings(values)
-                        if values
-                            .iter()
-                            .any(|value| value.chars().any(char::is_control)) =>
-                    {
-                        ContextValue::Strings(values.iter().map(error::diagnostic).collect())
-                    }
-                    _ => return None,
-                };
-                Some((kind, sanitized))
-            })
-            .collect();
-        if !replacements.is_empty() {
-            // clap's preformatted suggestions can repeat the original fragment.
-            // Keep the escaped error and usage, without that unsafe duplicate.
-            error.remove(ContextKind::Suggested);
-            for (kind, value) in replacements {
-                error.insert(kind, value);
+pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+    if let Action::Completions { shell } = cli.command {
+        let mut command = Cli::command();
+        let mut bytes = Vec::new();
+        clap_complete::generate(shell, &mut command, "codex-retain", &mut bytes);
+        out.write_all(&bytes)?;
+        out.flush()?;
+        return Ok(0);
+    }
+    if let Action::Doctor {
+        codex_home,
+        codex_bin,
+    } = cli.command
+    {
+        let (home, binary) = profile(codex_home, &codex_bin)?;
+        let db = database::open(&home, false)?;
+        let archived: i64 =
+            db.query_row("SELECT count(*) FROM threads WHERE archived=1", [], |r| {
+                r.get(0)
+            })?;
+        emit(
+            out,
+            cli.json,
+            &json!({"schema":1,"compatible":true,"codex_version":database::CODEX_VERSION,"codex_home":home,"codex_bin":binary,"archived_threads":archived,"mutation_platform_supported":cfg!(target_os="macos")}),
+            &format!(
+                "Compatible schema for {}. {archived} archived threads.\nThis checks the selected executable; every writer of this profile must use the supported version.",
+                database::CODEX_VERSION
+            ),
+        )?;
+        return Ok(0);
+    }
+    let root = cli
+        .state_dir
+        .map(Ok)
+        .unwrap_or_else(config::default_state)?;
+    if matches!(cli.command, Action::Status) && !root.join("policy.json").exists() {
+        emit(
+            out,
+            cli.json,
+            &json!({"schema":1,"enabled":false,"configured":false,"scheduler":scheduler::status()?}),
+            "No policy configured. Run codex-retain enable --days 30 --yes to start with a full grace period.",
+        )?;
+        return Ok(0);
+    }
+    let store = Store::open(root)?;
+    match cli.command {
+        Action::Enable {
+            days,
+            codex_home,
+            codex_bin,
+            no_schedule,
+            yes,
+        } => {
+            native_mutations()?;
+            ensure!(
+                yes,
+                "enable permanently deletes eligible local archives without later prompts. Existing archives get {days} full days; transition capture adds a small SQLite table and triggers. Review doctor first, then repeat with --yes"
+            );
+            let existing = if store.root.join("policy.json").exists() {
+                Some(store.policy()?)
+            } else {
+                None
+            };
+            ensure!(
+                existing.as_ref().is_none_or(|p| !p.enabled),
+                "policy is already enabled; use policy --days, pause, resume, or disable first"
+            );
+            ensure!(
+                existing.as_ref().is_none_or(|p| !p.automatic),
+                "an earlier automatic installation is incomplete; run disable before re-enabling"
+            );
+            ensure!(
+                !fsutil::path_exists(&store.root.join("pending.json"))?,
+                "an interrupted deletion needs recovery; run disable before re-enabling"
+            );
+            let (home, binary) = profile(codex_home, &codex_bin)?;
+            if let Some(previous) = existing.as_ref().filter(|p| p.codex_home != home) {
+                let mut old_db = database::open(&previous.codex_home, true).context(
+                    "finish disabling the previous Codex profile before changing profiles",
+                )?;
+                database::uninstall_capture(&mut old_db, previous).context(
+                    "finish removing the previous capture extension before changing profiles",
+                )?;
             }
+            ensure!(
+                !store.root.starts_with(&home) && !home.starts_with(&store.root),
+                "policy directory and Codex home must be separate, non-nested directories"
+            );
+            let mut db = database::open(&home, true)?;
+            let identity = database::identity(&home)?;
+            let mut policy = Policy {
+                schema: 1,
+                codex_home: home,
+                codex_bin: binary,
+                database: identity,
+                retention_days: days,
+                enabled: false,
+                automatic: !no_schedule,
+                paused: false,
+                enabled_at: config::now()?,
+                owner: store
+                    .root
+                    .to_str()
+                    .context("state directory must be UTF-8")?
+                    .into(),
+                exclusions: existing.map(|p| p.exclusions).unwrap_or_else(BTreeSet::new),
+            };
+            store.save(&policy)?;
+            let count = database::install_capture(&mut db, &policy.owner)?;
+            if !no_schedule {
+                scheduler::install(&store.root, &std::env::current_exe()?)?;
+            }
+            policy.enabled = true;
+            store.save(&policy)?;
+            emit(
+                out,
+                cli.json,
+                &json!({"schema":1,"enabled":true,"retention_days":days,"existing_archives_given_grace":count,"automatic":!no_schedule,"earliest_existing_deletion_after":policy.enabled_at+policy.duration(),"policy":store.root.join("policy.json")}),
+                &format!(
+                    "Enabled: keep archives for {days} days. {count} existing archives received a full grace period.\n{}\nUse preview to inspect candidates; pause or disable to stop cleanup.",
+                    if no_schedule {
+                        "Manual runs enabled; automatic scheduling is off."
+                    } else {
+                        "Automatic cleanup: hourly macOS LaunchAgent; no resident process."
+                    }
+                ),
+            )?;
         }
-    }
-    let result = error.print().and_then(|()| {
-        if to_stderr {
-            io::stderr().lock().flush()
-        } else {
-            io::stdout().lock().flush()
+        Action::Status => {
+            let p = store.policy()?;
+            let scheduler = scheduler::status()?;
+            let compatibility = database::verify_binary(&p.codex_bin)
+                .and_then(|()| database::open(&p.codex_home, false))
+                .and_then(|c| {
+                    if p.enabled {
+                        database::verify_policy(&c, &p)
+                    } else {
+                        Ok(())
+                    }
+                });
+            let error = compatibility.err().map(|e| format!("{e:#}"));
+            let last: Option<Value> = if store.root.join("last-run.json").exists() {
+                Some(fsutil::read_json(&store.root.join("last-run.json"))?)
+            } else {
+                None
+            };
+            let message = format!(
+                "Policy: {}{}; {} days.\nScheduler: {:?}; plist {}.\nCompatibility: {}.\nExclusions: {}. Pending recovery: {}.\nLast run: {}",
+                if p.enabled { "enabled" } else { "disabled" },
+                if p.paused { " (paused)" } else { "" },
+                p.retention_days,
+                scheduler.registration,
+                if scheduler.plist_present {
+                    "present"
+                } else {
+                    "absent"
+                },
+                error
+                    .as_deref()
+                    .map(safe_text)
+                    .unwrap_or_else(|| "verified".into()),
+                p.exclusions.len(),
+                store.root.join("pending.json").exists(),
+                last.as_ref()
+                    .map(|v| safe_text(&v.to_string()))
+                    .unwrap_or_else(|| "not run yet".into())
+            );
+            emit(
+                out,
+                cli.json,
+                &json!({"schema":1,"policy":p,"scheduler":scheduler,"compatibility_error":error,"last_run":last,"pending_recovery":store.root.join("pending.json").exists()}),
+                &message,
+            )?;
         }
-    });
-    match result {
-        Ok(()) => ExitCode::from(error.exit_code() as u8),
-        Err(error) if !to_stderr && error.kind() == io::ErrorKind::BrokenPipe => ExitCode::SUCCESS,
-        Err(_) => ExitCode::FAILURE,
+        Action::Preview | Action::Run { .. } => {
+            let apply = matches!(cli.command, Action::Run { .. });
+            let quiet = matches!(cli.command, Action::Run { scheduled: true });
+            let p = enabled(&store)?;
+            if quiet && p.paused {
+                return Ok(0);
+            }
+            if apply {
+                native_mutations()?;
+            }
+            database::verify_binary(&p.codex_bin)?;
+            let mut db = database::open(&p.codex_home, apply)?;
+            let now = config::now()?;
+            if apply && store.root.join("last-run.json").exists() {
+                let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
+                ensure!(
+                    last["started_at"].as_i64().is_none_or(|t| now >= t),
+                    "system clock moved backwards since the last run"
+                );
+            }
+            let report = engine::execute(&mut db, &p, &store, now, apply)?;
+            let incomplete = report.entries.iter().any(|e| {
+                matches!(
+                    e.reason.as_str(),
+                    "changed_busy_or_error" | "unsafe_or_unavailable_artifact"
+                )
+            }) || !report.warnings.is_empty();
+            if apply {
+                fsutil::atomic_json(
+                    &store.root.join("last-run.json"),
+                    &json!({"schema":1,"started_at":now,"status":if incomplete{"attention"}else{"ok"},"examined":report.examined,"deleted":report.deleted,"skipped":report.skipped,"logical_bytes_removed":report.logical_bytes_removed,"allocated_bytes_unlinked":report.allocated_bytes_unlinked,"observed_free_space_delta_bytes":report.observed_free_space_delta_bytes,"actual_reclaimed_bytes":null,"warnings":report.warnings.iter().take(10).collect::<Vec<_>>(),"skips":report.entries.iter().filter(|e|e.detail.is_some()).take(10).collect::<Vec<_>>() }),
+                )?;
+            }
+            if !quiet {
+                if cli.json {
+                    serde_json::to_writer(&mut *out, &report)?;
+                    writeln!(out)?;
+                } else {
+                    writeln!(
+                        out,
+                        "{}: {} examined, {} eligible, {} deleted, {} skipped.",
+                        report.mode,
+                        report.examined,
+                        report.eligible,
+                        report.deleted,
+                        report.skipped
+                    )?;
+                    for e in report.entries.iter().take(30) {
+                        writeln!(
+                            out,
+                            "{}  {}  due={}  {}{}",
+                            safe_text(&e.id),
+                            e.reason,
+                            date(e.eligible_at),
+                            safe_text(&e.title),
+                            e.detail
+                                .as_ref()
+                                .map(|d| format!("  {}", safe_text(d)))
+                                .unwrap_or_default()
+                        )?;
+                    }
+                    if report.entries.len() > 30 {
+                        writeln!(
+                            out,
+                            "Showing 30 entries; use --json for all {}.",
+                            report.entries.len()
+                        )?;
+                    }
+                    if apply {
+                        writeln!(
+                            out,
+                            "Removed {} logical bytes; unlinked {} allocated bytes (estimate).\nObserved volume free-space change: {} bytes. Exact reclaimed space is unknown (snapshots/shared blocks/other activity).",
+                            report.logical_bytes_removed,
+                            report.allocated_bytes_unlinked,
+                            report
+                                .observed_free_space_delta_bytes
+                                .map(|v| v.to_string())
+                                .unwrap_or_else(|| "unknown".into())
+                        )?;
+                    }
+                    for warning in &report.warnings {
+                        writeln!(out, "Note: {}", safe_text(warning))?;
+                    }
+                }
+                out.flush()?;
+            }
+            return Ok(if apply && incomplete { 3 } else { 0 });
+        }
+        Action::Pause | Action::Resume => {
+            let mut p = enabled(&store)?;
+            let pause = matches!(cli.command, Action::Pause);
+            p.paused = pause;
+            store.save(&p)?;
+            emit(
+                out,
+                cli.json,
+                &json!({"schema":1,"paused":pause}),
+                if pause {
+                    "Paused. No deletion; archive transition capture continues."
+                } else {
+                    "Resumed. Time already spent in the archive still counts; inspect preview before the next run."
+                },
+            )?;
+        }
+        Action::Policy { days, yes } => {
+            let mut p = enabled(&store)?;
+            ensure!(
+                days >= p.retention_days || yes,
+                "a shorter policy can make archives immediately due; repeat with --yes after preview"
+            );
+            p.retention_days = days;
+            store.save(&p)?;
+            emit(
+                out,
+                cli.json,
+                &json!({"schema":1,"retention_days":days}),
+                &format!("Retention set to {days} days. Existing archive periods are preserved."),
+            )?;
+        }
+        Action::Exclude { ref id } | Action::Include { ref id, .. } => {
+            let include = matches!(cli.command, Action::Include { .. });
+            if let Action::Include { yes, .. } = cli.command {
+                ensure!(
+                    yes,
+                    "removing protection may make this chat immediately due; repeat with --yes"
+                );
+            }
+            let id = uuid::Uuid::parse_str(id)
+                .context("expected a UUID thread ID")?
+                .to_string();
+            let mut p = store.policy()?;
+            if include {
+                p.exclusions.remove(&id);
+            } else {
+                p.exclusions.insert(id.clone());
+            }
+            store.save(&p)?;
+            emit(
+                out,
+                cli.json,
+                &json!({"schema":1,"id":id,"excluded":!include}),
+                if include {
+                    "Protection removed; the existing archive period still applies."
+                } else {
+                    "Thread excluded from automatic and manual cleanup under this policy."
+                },
+            )?;
+        }
+        Action::Disable | Action::Uninstall => {
+            native_mutations()?;
+            let mut p = store.policy()?;
+            p.enabled = false;
+            store.save(&p)?; // fail closed even if launchctl or Codex is unavailable
+            if p.automatic {
+                scheduler::disable(&store.root)?;
+                p.automatic = false;
+                store.save(&p)?;
+            }
+            let mut db = database::open(&p.codex_home, true)?;
+            if store.root.join("pending.json").exists() {
+                engine::recover(&mut db, &p, &store)?;
+            }
+            database::uninstall_capture(&mut db, &p)?;
+            emit(
+                out,
+                cli.json,
+                &json!({"schema":1,"enabled":false,"scheduler_removed":true,"capture_removed":true}),
+                "Disabled. LaunchAgent and transition capture removed.\nYou can now remove the executable (for Cargo: cargo uninstall codex-retain). Policy and last-run report remain for inspection.",
+            )?;
+        }
+        Action::Doctor { .. } | Action::Completions { .. } => unreachable!("handled above"),
     }
+    Ok(0)
 }

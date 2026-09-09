@@ -1,8 +1,8 @@
 # Security policy
 
-Security fixes target the current `main` branch and latest release. There is
-no promised backport or response-time commitment. Repositories generated from
-this template own their dependencies, releases, and security policy.
+Security fixes target the current development branch and latest release. There
+is no promised backport or response-time commitment. Codex Retain supports only
+the explicitly reviewed Codex storage and writer versions in its documentation.
 
 ## Reporting a vulnerability
 
@@ -22,9 +22,11 @@ file or subprocess effects, secret disclosure, memory-safety defects, and releas
 or dependency supply-chain problems. A crash, resource spike, or confusing error
 may be a regular bug; describe the input and impact so it can be assessed.
 
-The template has no hosted service or production credentials to test. Do not
-scan third-party systems or include their private data in a reproduction.
+The utility has no hosted service or production credentials to test. Never use
+real conversations for destructive reproductions. Do not scan third-party
+systems or include their private data in a reproduction.
 
-When adopting this template, update the reporting channel and supported-version
-policy for your project. Keep dependency and workflow updates reviewable, and
-publish artifacts only from the candidate covered by the release checks.
+Keep dependency and workflow updates reviewable, and publish artifacts only from
+the candidate covered by the release checks. The initial local source delivery
+has no published release or active private-reporting channel configured by this
+development session; maintainers must configure those before public release.

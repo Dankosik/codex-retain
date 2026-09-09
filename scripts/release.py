@@ -5,23 +5,21 @@ import argparse
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
-import stat
 import subprocess
 import tarfile
 import tempfile
-import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = (
-    "x86_64-unknown-linux-gnu",
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
-    "x86_64-pc-windows-msvc",
 )
-OPTIONAL_NOTICES = ("NOTICE", "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.md")
+OPTIONAL_NOTICES = ("NOTICE", "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.md", "RUST_STDLIB_NOTICES.html")
+OPTIONAL_DOCS = ("README.ru.md",)
 
 
 @dataclass(frozen=True)
@@ -32,14 +30,16 @@ class Identity:
     target_directory: Path
 
     def archive_root(self, target):
+        if target not in TARGETS:
+            raise ValueError("binary releases support macOS Apple Silicon and Intel only")
         return f"{self.binary}-{self.version}-{target}"
 
     def executable(self, target):
-        return self.binary + (".exe" if "windows" in target else "")
+        self.archive_root(target)
+        return self.binary
 
     def archive_name(self, target):
-        suffix = ".zip" if "windows" in target else ".tar.gz"
-        return self.archive_root(target) + suffix
+        return self.archive_root(target) + ".tar.gz"
 
 
 def run_text(command):
@@ -96,17 +96,32 @@ def check_tag(info, tag, repository):
 
 
 def smoke(executable, info):
-    result = subprocess.run(
-        [str(executable), "--version"], capture_output=True, timeout=10, check=True
-    )
-    if result.stdout.strip() != f"{info.binary} {info.version}".encode() or result.stderr:
-        raise ValueError("extracted binary has unexpected version output")
-    result = subprocess.run(
-        [str(executable), "--format", "json", "stats", "-"],
-        input=b"one\ntwo\nlast", capture_output=True, timeout=10, check=True,
-    )
-    if result.stdout != b'{"bytes":12,"lines":2}\n' or result.stderr:
-        raise ValueError("extracted binary failed the streaming CLI smoke test")
+    # These commands must work before configuration and without a Codex profile.
+    # An empty isolated home also detects accidental initialization in the smoke.
+    with tempfile.TemporaryDirectory(prefix="codex-retain-smoke-") as temporary:
+        home = Path(temporary)
+        env = dict(os.environ, HOME=str(home), CODEX_HOME=str(home / "missing-codex"),
+                   CODEX_RETAIN_STATE_DIR=str(home / "missing-policy"), NO_COLOR="1")
+        def invoke(*arguments):
+            result = subprocess.run(
+                [str(executable), *arguments], env=env, stdin=subprocess.DEVNULL,
+                capture_output=True, timeout=10, check=True,
+            )
+            if result.stderr:
+                raise ValueError("extracted binary smoke command wrote unexpected stderr")
+            return result.stdout
+
+        if invoke("--version").strip() != f"{info.binary} {info.version}".encode():
+            raise ValueError("extracted binary has unexpected version output")
+        help_output = invoke("--help")
+        for command in (b"enable", b"preview", b"run", b"pause", b"disable", b"completions"):
+            if not re.search(rb"(?m)^\s+" + command + rb"\s", help_output):
+                raise ValueError("extracted binary help is missing a retention command")
+        completion = invoke("completions", "bash")
+        if info.binary.encode() not in completion or b"complete " not in completion:
+            raise ValueError("extracted binary failed the Bash completion smoke test")
+        if any(home.iterdir()):
+            raise ValueError("configuration-free smoke commands unexpectedly created local state")
 
 
 def inspect_archive(archive, info, target, destination=None):
@@ -116,7 +131,7 @@ def inspect_archive(archive, info, target, destination=None):
     prefix = info.archive_root(target) + "/"
     executable = prefix + info.executable(target)
     required = {executable, prefix + "README.md", prefix + "LICENSE"}
-    allowed = required | {prefix + item for item in OPTIONAL_NOTICES}
+    allowed = required | {prefix + item for item in (*OPTIONAL_NOTICES, *OPTIONAL_DOCS)}
 
     def check_members(members):
         names = [name for name, _, _ in members]
@@ -127,28 +142,15 @@ def inspect_archive(archive, info, target, destination=None):
         for name, regular, mode in members:
             if not regular:
                 raise ValueError(f"archive member is not a regular file: {name}")
-            if name == executable and "windows" not in target and not mode & 0o111:
+            if name == executable and not mode & 0o111:
                 raise ValueError("archive binary has lost its executable permission")
 
-    if "windows" in target:
-        with zipfile.ZipFile(archive) as source:
-            members = source.infolist()
-            check_members([
-                (member.filename,
-                 not member.is_dir() and stat.S_IFMT(member.external_attr >> 16) in (0, stat.S_IFREG),
-                 member.external_attr >> 16)
-                for member in members
-            ])
-            if destination:
-                with source.open(executable) as content, destination.open("wb") as output:
-                    shutil.copyfileobj(content, output)
-    else:
-        with tarfile.open(archive, "r:gz") as source:
-            members = source.getmembers()
-            check_members([(member.name, member.isfile(), member.mode) for member in members])
-            if destination:
-                with source.extractfile(executable) as content, destination.open("wb") as output:
-                    shutil.copyfileobj(content, output)
+    with tarfile.open(archive, "r:gz") as source:
+        members = source.getmembers()
+        check_members([(member.name, member.isfile(), member.mode) for member in members])
+        if destination:
+            with source.extractfile(executable) as content, destination.open("wb") as output:
+                shutil.copyfileobj(content, output)
     if destination:
         destination.chmod(0o755)
 
@@ -167,8 +169,12 @@ def package(info, target, dist):
     if native_target() != target:
         raise ValueError("release packaging must run on the target's native runner")
     binary = info.target_directory / target / "release" / info.executable(target)
+    if not binary.exists():
+        # `cargo build --release` uses this native-host location. Cross-target
+        # packaging remains forbidden by the native_target check above.
+        binary = info.target_directory / "release" / info.executable(target)
     files = [(binary, info.executable(target)), (ROOT / "README.md", "README.md"), (ROOT / "LICENSE", "LICENSE")]
-    files.extend((ROOT / name, name) for name in OPTIONAL_NOTICES if (ROOT / name).exists())
+    files.extend((ROOT / name, name) for name in (*OPTIONAL_NOTICES, *OPTIONAL_DOCS) if (ROOT / name).exists())
     if any(path.is_symlink() or not path.is_file() for path, _ in files):
         raise ValueError("release binary, README, and license must be regular files")
     dist.mkdir(parents=True, exist_ok=True)
@@ -178,14 +184,9 @@ def package(info, target, dist):
     with tempfile.TemporaryDirectory(prefix="cli-package-", dir=dist) as temporary:
         candidate = Path(temporary) / archive.name
         prefix = info.archive_root(target) + "/"
-        if "windows" in target:
-            with zipfile.ZipFile(candidate, "w", compression=zipfile.ZIP_DEFLATED) as output:
-                for path, name in files:
-                    output.write(path, prefix + name)
-        else:
-            with tarfile.open(candidate, "w:gz") as output:
-                for path, name in files:
-                    output.add(path, arcname=prefix + name, recursive=False)
+        with tarfile.open(candidate, "w:gz") as output:
+            for path, name in files:
+                output.add(path, arcname=prefix + name, recursive=False)
         verify_archive(candidate, info, target)
         candidate.replace(archive)
     print(archive)
@@ -239,7 +240,7 @@ def main():
             verify_archive(args.archive.resolve(), info, args.target)
         else:
             checksums(info, args.dist.resolve())
-    except (ValueError, OSError, subprocess.SubprocessError, tarfile.TarError, zipfile.BadZipFile) as error:
+    except (ValueError, OSError, subprocess.SubprocessError, tarfile.TarError) as error:
         parser.exit(1, f"release: {error}\n")
 
 

@@ -1,0 +1,2666 @@
+[
+  {
+    "background_and_low_priority_io": true,
+    "case": "wrapper-background",
+    "cleanup": {
+      "bootout_verified": true,
+      "errors": [],
+      "registered": false
+    },
+    "label": "io.github.codex-retain.test.72e6c2f3-84a3-4fbf-9537-0f900de8dda3",
+    "last_state": {
+      "last_exit_code": null,
+      "pid": 89609,
+      "registered": true,
+      "runs": 1,
+      "state": "running"
+    },
+    "process_snapshots": [
+      {
+        "processes": [
+          {
+            "command": "xpcproxy io.github.codex-retain.test.72e6c2f3-84a3-4fbf-9537-0f900de8dda3",
+            "cpu": "0:00.00",
+            "elapsed": "00:00",
+            "pgid": 1,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "R"
+          }
+        ],
+        "seconds_since_bootstrap": 0.012914332968648523
+      },
+      {
+        "processes": [
+          {
+            "command": "/usr/bin/env node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:00",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 0.27908645797288045
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:00",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 0.5354764579678886
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 0.7868930829572491
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 1.0494756249827333
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 1.328502791991923
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 1.5896046250127256
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 1.8515503329690546
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 2.1235498329624534
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 2.390586124965921
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 2.661205999960657
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:03",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 2.909409624990076
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:03",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 3.1585687919869088
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:05",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 5.5504530419711955
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 5.791933916974813
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 6.0370609579840675
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 6.289032624976244
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 6.538607124995906
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "R"
+          }
+        ],
+        "seconds_since_bootstrap": 6.784111457993276
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.037483166961465
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.288402749982197
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.53734074998647
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:08",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.789361250004731
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:08",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 8.03588724997826
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:08",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 8.284439167007804
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:08",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 8.535942791961133
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:09",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 8.784075499977916
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:09",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.03414145798888
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:09",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.284412832988892
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:09",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.532405167003162
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.786638041958213
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 10.044310291996226
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "R"
+          }
+        ],
+        "seconds_since_bootstrap": 10.288383124978282
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 10.548231332970317
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:11",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 10.79558845795691
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:11",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 11.068855749967042
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:11",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 11.334138582984451
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:11",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 11.588980917003937
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:12",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 11.84433266700944
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:12",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.132525082968641
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:12",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.400853707978968
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:12",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.667125375010073
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:13",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.927573374996427
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:13",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 13.18555508297868
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:13",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 13.444750708003994
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:13",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 13.711119707964826
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:14",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 13.973961042007431
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:14",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 14.235189749975689
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:14",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 14.506341416970827
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:15",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 14.773020958004054
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:15",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 15.050981000007596
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:15",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 15.308583832986187
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:15",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 15.575191582960542
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:16",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 15.827485749963671
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:16",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 16.089457207999658
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:16",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 16.342474874982145
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:16",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 16.59892774996115
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:17",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 16.856870457995683
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:17",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.120807999977842
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:17",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.38523424998857
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:17",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.657845916983206
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:18",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.926167416968383
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:18",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 18.182614999997895
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:18",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 18.463076832995284
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:18",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 18.715245332976338
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:19",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 18.971756457991432
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:19",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 19.22430479200557
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:19",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 19.466469582985155
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:19",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 19.721098707988858
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:20",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 19.96508554200409
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.07",
+            "elapsed": "00:20",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 20.212414250010625
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.08",
+            "elapsed": "00:20",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 20.472323541995138
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.08",
+            "elapsed": "00:20",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 20.728521124983672
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.08",
+            "elapsed": "00:21",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 20.981245292001404
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.08",
+            "elapsed": "00:21",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 21.249405582959298
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.08",
+            "elapsed": "00:21",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 21.558846207975876
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.10",
+            "elapsed": "00:22",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 21.815503207966685
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.11",
+            "elapsed": "00:22",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 22.06249924999429
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:22",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 22.322541958012152
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:22",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.00",
+            "elapsed": "00:00",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 22.585018249985296
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:23",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.00",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 22.840761124971323
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:23",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.00",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 23.10597437497927
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:23",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.00",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 23.386008541972842
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:23",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:01",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 23.642429917003028
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:24",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 23.898822082963306
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:24",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 24.15707445796579
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:24",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 24.401918707997538
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:24",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:02",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 24.658207833010238
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:25",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:03",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 24.919129124959
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:25",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:03",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 25.18282366701169
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:25",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:03",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 25.438000666967127
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:25",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:03",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 25.69327270798385
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:26",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:04",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 25.955628541996703
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:26",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:04",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 26.21488208300434
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:26",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:04",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 26.468551207974087
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:26",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:04",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 26.715362791961525
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:27",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:05",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 26.966706875013188
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:27",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:05",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 27.230088167008944
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:27",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:05",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 27.488622458011378
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:28",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 27.75506995798787
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:28",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 28.01771737501258
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:28",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 28.28633820801042
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:28",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:06",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 28.537705624999944
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:29",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:07",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 28.850225874979515
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:29",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:07",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 29.177601083007175
+      },
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.12",
+            "elapsed": "00:30",
+            "pgid": 89609,
+            "pid": 89609,
+            "ppid": 1,
+            "state": "S"
+          },
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.03",
+            "elapsed": "00:08",
+            "pgid": 89609,
+            "pid": 89954,
+            "ppid": 89609,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 29.660739207989536
+      }
+    ],
+    "program": "/Users/daniil/.nvm/versions/node/v25.8.2/bin/codex",
+    "sample_result": {
+      "code": 0,
+      "stderr": "Sampling process 89609 for 1 second with 1 millisecond of run time between samples\nCouldn't find _sigtramp symbol in expected dylibs\nSampling completed, processing symbols...\nSample analysis of process 89609 written to file /Users/daniil/Documents/Codex/2026-09-09/open-source-codex-https-github-com-2/work/launchd-version-diagnosis-1/wrapper-background/sample.txt\n"
+    },
+    "sampled_pid": 89609,
+    "stderr": "",
+    "stdout": "",
+    "timed_out": true
+  },
+  {
+    "background_and_low_priority_io": true,
+    "case": "native-background",
+    "cleanup": {
+      "bootout_verified": true,
+      "errors": [],
+      "registered": false
+    },
+    "completed_seconds_since_bootstrap": 19.154917625011876,
+    "first_pid_observed_seconds": 0.032366500003263354,
+    "label": "io.github.codex-retain.test.a5eee9a5-bfe7-4dd2-a7d9-95235822f055",
+    "last_state": {
+      "last_exit_code": 0,
+      "pid": null,
+      "registered": true,
+      "runs": 1,
+      "state": "not running"
+    },
+    "process_snapshots": [
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.00",
+            "elapsed": "00:00",
+            "pgid": 1,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 0.032366500003263354
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:01",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 0.39090774999931455
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.01",
+            "elapsed": "00:02",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 0.783786624961067
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:02",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 1.6197232499835081
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:02",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 1.9637961669941433
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:03",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 2.2742704169941135
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:03",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 2.5558110419660807
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:03",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 2.8523512500105426
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.02",
+            "elapsed": "00:04",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 3.1588093749596737
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:06",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 5.358252624981105
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:06",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 5.614051832992118
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:06",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 5.868527582962997
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:06",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 6.137491250003222
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 6.389473249961156
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 6.640923750004731
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 6.90910004201578
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:07",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.192885875003412
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:08",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.452502249972895
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:08",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.729248457995709
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:08",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 7.988244000007398
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:09",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 8.248561207961757
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:09",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 8.520802167011425
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.04",
+            "elapsed": "00:09",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 8.788462499971502
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:09",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.039772249991074
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.288340541999787
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.576399167010095
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 9.836028374964371
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:10",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 10.095765832986217
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:11",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 10.36572595796315
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:11",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 10.644980749988463
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:11",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 10.93153620796511
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:12",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 11.206554542004596
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:12",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 11.49054674996296
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:12",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 11.798719624988735
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:12",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.081742667010985
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:13",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.369050416979007
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:13",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.65877683297731
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:13",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 12.92593837500317
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:14",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 13.207960416970309
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:14",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 13.478698708000593
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:14",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 13.750275166996289
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:14",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 14.006483250006568
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:15",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 14.27171812497545
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:15",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 14.535070542013273
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.05",
+            "elapsed": "00:15",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 14.817543042008765
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:15",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 15.104638167016674
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:16",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 15.406173457973637
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:16",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 15.691406666999683
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:16",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 15.968778375012334
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:17",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 16.22808733297279
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:17",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 16.487424874969292
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:17",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 16.75008116697427
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:17",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.020096791966353
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:18",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.281640457978938
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:18",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.555713832960464
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:18",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 17.816105958016124
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:18",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 18.080749374988955
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:19",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "U"
+          }
+        ],
+        "seconds_since_bootstrap": 18.340603167016525
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:19",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 18.61079858301673
+      },
+      {
+        "processes": [
+          {
+            "command": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --version",
+            "cpu": "0:00.06",
+            "elapsed": "00:19",
+            "pgid": 90098,
+            "pid": 90098,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 18.88390066701686
+      }
+    ],
+    "program": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+    "sample_result": {
+      "code": 0,
+      "stderr": "Sampling process 90098 for 1 second with 1 millisecond of run time between samples\nCouldn't find _sigtramp symbol in expected dylibs\nFound _sigtramp symbol after 14 tries\nSampling completed, processing symbols...\nSample analysis of process 90098 written to file /Users/daniil/Documents/Codex/2026-09-09/open-source-codex-https-github-com-2/work/launchd-version-diagnosis-1/native-background/sample.txt\n"
+    },
+    "sampled_pid": 90098,
+    "stderr": "",
+    "stdout": "codex-cli 0.153.4\n",
+    "timed_out": false
+  },
+  {
+    "background_and_low_priority_io": false,
+    "case": "wrapper-ordinary",
+    "cleanup": {
+      "bootout_verified": true,
+      "errors": [],
+      "registered": false
+    },
+    "completed_seconds_since_bootstrap": 0.26731662498787045,
+    "first_pid_observed_seconds": 0.012451292015612125,
+    "label": "io.github.codex-retain.test.5301a287-304e-4e5d-bb23-3371edf7f6bb",
+    "last_state": {
+      "last_exit_code": 0,
+      "pid": null,
+      "registered": true,
+      "runs": 1,
+      "state": "not running"
+    },
+    "process_snapshots": [
+      {
+        "processes": [
+          {
+            "command": "node /Users/daniil/.nvm/versions/node/v25.8.2/bin/codex --version",
+            "cpu": "0:00.00",
+            "elapsed": "00:00",
+            "pgid": 90674,
+            "pid": 90674,
+            "ppid": 1,
+            "state": "S"
+          }
+        ],
+        "seconds_since_bootstrap": 0.012451292015612125
+      }
+    ],
+    "program": "/Users/daniil/.nvm/versions/node/v25.8.2/bin/codex",
+    "stderr": "",
+    "stdout": "codex-cli 0.153.4\n",
+    "timed_out": false
+  }
+]

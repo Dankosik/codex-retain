@@ -1,8 +1,9 @@
 # Agent instructions
 
-This is a Rust command-line utility template. Build useful commands with clear
-interfaces, bounded resource use, and measured performance. The working example
-is a synchronous streaming command; extend or replace it for the user's task.
+This is Codex Retain, a local archived-chat retention utility derived from
+rust-cli-template. Read docs/architecture.md and the compatibility evidence
+before changing deletion, capture or recovery. All validation must use synthetic
+profiles; never delete real conversations without separate explicit authority.
 
 ## Scope and decisions
 
@@ -26,8 +27,8 @@ publication, destructive changes, and communications.
 ## Engineering
 
 Read the affected implementation and callers before editing. Reuse existing
-functions, standard-library APIs, and declared crates. The predeclared CLI toolbox
-is an intentional template capability. Further dependencies, abstractions,
+functions, standard-library APIs, and declared crates. The template toolbox is
+a reference; this product declares only its selected dependencies. Further abstractions,
 runtimes, or configuration options need a current requirement. Keep parsing,
 computation, and process-level decisions separately understandable; add no layer
 merely to mirror another layer.
@@ -104,7 +105,7 @@ cargo test --locked
 ```
 
 `make check` runs formatting, Clippy, all-target tests, and doctests.
-`make verify` adds template and maintenance validation. These are convenience
+`make verify` adds release and skill-maintenance validation. These are convenience
 targets, not extra repetitions after equivalent successful checks; see the
 [Makefile](Makefile). Run focused tests during implementation, then the relevant
 assembled checks. Do not run competing builds or benchmarks against the same

@@ -1,0 +1,75 @@
+{
+  "architecture": "arm64",
+  "before_bootstrap": {
+    "last_exit_code": null,
+    "pid": null,
+    "registered": false,
+    "runs": null
+  },
+  "cleanup": {
+    "bootout_verified": true,
+    "errors": [],
+    "registered": false
+  },
+  "codex_version": "codex-cli 0.153.4",
+  "enable": {
+    "automatic": false,
+    "earliest_existing_deletion_after": 1791565792,
+    "enabled": true,
+    "existing_archives_given_grace": 2,
+    "policy": "/Users/daniil/Documents/Codex/2026-09-09/open-source-codex-https-github-com-2/work/launchd-batch-final/fixture/state/policy.json",
+    "retention_days": 30,
+    "schema": 1
+  },
+  "finished_at": "2026-09-09T17:10:04Z",
+  "first_completion_seconds": 5.553874166042078,
+  "fixture_threads": 2,
+  "idle_after_cleanup": {
+    "last_exit_code": 0,
+    "pid": null,
+    "registered": true,
+    "runs": 1,
+    "state": "not running"
+  },
+  "paused_candidate_id": "12c8dda2-f982-4bf1-8b66-618ad4d30f32",
+  "paused_candidate_preserved": true,
+  "paused_invocation": {
+    "last_exit_code": 0,
+    "pid": null,
+    "registered": true,
+    "runs": 2,
+    "state": "not running"
+  },
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "plist_sha256": "99ea312b838c5a9dde31a7d0500a48de95d1bcdae76cda982c06adebf3dca261",
+  "post_cleanup": {
+    "count": 2,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "production_label_touched": false,
+  "production_launchagents_directory_touched": false,
+  "retention_binary_sha256": "af2aeb726b92d273c5e30b2e242264e6dde2fd73cd067ca7a5f37771130040f2",
+  "retention_version": "codex-retain 0.1.0",
+  "scheduled_cleanup": {
+    "actual_reclaimed_bytes": null,
+    "allocated_bytes_unlinked": 8192,
+    "deleted": 2,
+    "examined": 2,
+    "logical_bytes_removed": 8192,
+    "observed_free_space_delta_bytes": -286720,
+    "schema": 1,
+    "skipped": 0,
+    "skips": [],
+    "started_at": 1788973797,
+    "status": "ok",
+    "warnings": []
+  },
+  "schema": 1,
+  "scope": "Native temporary test job invokes the real run --scheduled entrypoint. Production install/disable adapter is not invoked; its registration tests remain mocked.",
+  "start_interval_seconds": 2,
+  "started_at": "2026-09-09T17:09:52Z",
+  "status": "passed",
+  "test_label": "io.github.codex-retain.test.832bf6b9-3a70-43d5-8b8c-d16bf69195bd"
+}

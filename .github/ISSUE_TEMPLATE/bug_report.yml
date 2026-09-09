@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible CLI or template defect.
+description: Report a reproducible Codex Retain defect using synthetic data.
 body:
   - type: textarea
     id: command

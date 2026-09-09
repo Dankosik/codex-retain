@@ -1,472 +1,298 @@
-use std::{
-    fs,
-    io::{self, Read, Write},
-    process::{Child, Command, Output, Stdio},
-    thread,
-    time::{Duration, Instant},
-};
+#[cfg(target_os = "macos")]
+#[allow(dead_code)] // The shared fixture also serves the larger lifecycle test target.
+mod support;
 
-fn command() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_rust-cli-template"));
-    command
-        .env_remove("RUST_CLI_TEMPLATE_CONFIG")
-        .env_remove("RUST_CLI_TEMPLATE_FORMAT")
-        .env("NO_COLOR", "1")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    command
+use assert_cmd::Command;
+#[cfg(target_os = "macos")]
+use codex_retain::database;
+use serde_json::Value;
+use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+#[cfg(target_os = "macos")]
+use support::Fixture;
+
+fn command(state: &Path) -> Command {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_codex-retain"));
+    cmd.arg("--state-dir")
+        .arg(state)
+        .arg("--json")
+        .env_remove("CODEX_RETAIN_STATE_DIR");
+    cmd.timeout(std::time::Duration::from_secs(10));
+    cmd
 }
-
-// Every process is bounded, stopped, and reaped, including on assertion failure.
-struct ChildGuard(Option<Child>);
-
-impl ChildGuard {
-    fn spawn(command: &mut Command) -> Self {
-        Self(Some(command.spawn().expect("spawn test binary")))
-    }
-
-    fn child(&mut self) -> &mut Child {
-        self.0.as_mut().expect("live child")
-    }
-
-    fn finish(self) -> Output {
-        thread::scope(move |scope| {
-            // This guard is local to the closure. On a timeout or panic it kills
-            // and reaps the binary BEFORE the scope joins its reader threads.
-            // The template starts no descendants that could retain pipe handles.
-            let mut guard = self;
-            drop(guard.child().stdin.take());
-            let stdout = guard
-                .child()
-                .stdout
-                .take()
-                .map(|reader| scope.spawn(move || capture(reader)));
-            let stderr = guard
-                .child()
-                .stderr
-                .take()
-                .map(|reader| scope.spawn(move || capture(reader)));
-            let deadline = Instant::now() + Duration::from_secs(10);
-            while guard.child().try_wait().expect("query child").is_none() {
-                assert!(Instant::now() < deadline, "test binary did not terminate");
-                thread::sleep(Duration::from_millis(10));
-            }
-            let status = guard.child().wait().expect("reap child");
-            let stdout = stdout
-                .map(|reader| {
-                    reader
-                        .join()
-                        .expect("stdout reader panicked")
-                        .expect("capture stdout")
-                })
-                .unwrap_or_default();
-            let stderr = stderr
-                .map(|reader| {
-                    reader
-                        .join()
-                        .expect("stderr reader panicked")
-                        .expect("capture stderr")
-                })
-                .unwrap_or_default();
-            drop(guard.0.take());
-            Output {
-                status,
-                stdout,
-                stderr,
-            }
-        })
-    }
+fn json(cmd: &mut Command) -> Value {
+    let output = cmd.assert().success().get_output().stdout.clone();
+    serde_json::from_slice(&output).unwrap()
 }
-
-fn capture(reader: impl Read) -> io::Result<Vec<u8>> {
-    const MAX_CAPTURE_BYTES: u64 = 256 * 1024;
-    let mut bytes = Vec::new();
-    reader.take(MAX_CAPTURE_BYTES + 1).read_to_end(&mut bytes)?;
-    if bytes.len() as u64 > MAX_CAPTURE_BYTES {
-        return Err(io::Error::other(
-            "test output exceeded the 256 KiB capture limit",
-        ));
-    }
-    Ok(bytes)
-}
-
-impl Drop for ChildGuard {
-    fn drop(&mut self) {
-        if let Some(child) = &mut self.0 {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-    }
-}
-
-fn run(command: &mut Command, stdin: &[u8]) -> Output {
-    // Larger fixtures use files: don't make the harness's synchronous stdin
-    // write itself block behind a faulty child that fails to consume its input.
-    assert!(stdin.len() <= 1024);
-    let mut child = ChildGuard::spawn(command);
-    child
-        .child()
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(stdin)
-        .unwrap();
-    child.finish()
-}
-
-fn successful(output: &Output, expected: &[u8]) {
-    assert!(output.status.success(), "{output:?}");
-    assert_eq!(output.stdout, expected);
-    assert_eq!(output.stderr, b"");
+#[cfg(target_os = "macos")]
+fn binary(root: &Path) -> PathBuf {
+    let bin = root.join("codex-version");
+    fs::write(&bin, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 0.153.4'\n").unwrap();
+    fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
+    bin
 }
 
 #[test]
-fn stdin_json_preserves_binary_bytes_and_unterminated_tail() {
-    let output = run(
-        command().args(["stats", "--format", "json"]),
-        b"a\r\n\xff\0tail",
-    );
-    successful(&output, b"{\"bytes\":9,\"lines\":1}\n");
-}
-
-#[test]
-fn explicit_stdin_and_empty_input() {
-    let output = run(command().args(["stats", "-"]), b"");
-    successful(&output, b"bytes: 0\nlines: 0\n");
-}
-
-#[test]
-fn a_large_file_does_not_need_newline_terminated_records() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("input.bin");
-    let mut bytes = vec![b'x'; 4 * 64 * 1024 + 3];
-    bytes[64 * 1024] = b'\n';
-    fs::write(&path, bytes).unwrap();
-    let output = run(command().args(["--format", "json", "stats"]).arg(path), b"");
-    successful(&output, b"{\"bytes\":262147,\"lines\":1}\n");
-}
-
-#[test]
-fn format_precedence_is_flag_environment_config_default() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("config.toml");
-    fs::write(&path, "format = 'json'\n").unwrap();
-
-    successful(
-        &run(command().arg("stats"), b"x\n"),
-        b"bytes: 2\nlines: 1\n",
-    );
-    successful(
-        &run(command().arg("--config").arg(&path).arg("stats"), b"x\n"),
-        b"{\"bytes\":2,\"lines\":1}\n",
-    );
-    successful(
-        &run(
-            command()
-                .env("RUST_CLI_TEMPLATE_CONFIG", &path)
-                .env("RUST_CLI_TEMPLATE_FORMAT", "text")
-                .arg("stats"),
-            b"x\n",
-        ),
-        b"bytes: 2\nlines: 1\n",
-    );
-    successful(
-        &run(
-            command()
-                .env("RUST_CLI_TEMPLATE_CONFIG", &path)
-                .env("RUST_CLI_TEMPLATE_FORMAT", "json")
-                .args(["stats", "--format", "text"]),
-            b"x\n",
-        ),
-        b"bytes: 2\nlines: 1\n",
-    );
-}
-
-#[test]
-fn config_flag_overrides_environment_path() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("valid.toml");
-    fs::write(&path, "format = 'json'\n").unwrap();
-    let output = run(
-        command()
-            .env(
-                "RUST_CLI_TEMPLATE_CONFIG",
-                directory.path().join("absent.toml"),
-            )
-            .arg("--config")
-            .arg(path)
-            .arg("stats"),
-        b"\n",
-    );
-    successful(&output, b"{\"bytes\":1,\"lines\":1}\n");
-}
-
-#[test]
-fn no_config_is_discovered_from_working_directory() {
-    let directory = tempfile::tempdir().unwrap();
-    fs::write(directory.path().join("config.toml"), "broken = [").unwrap();
-    let output = run(command().current_dir(directory.path()).arg("stats"), b"x");
-    successful(&output, b"bytes: 1\nlines: 0\n");
-}
-
-#[test]
-fn explicit_bad_configs_fail_without_summary_even_with_format_override() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("config.toml");
-    for config in ["format = [", "format = 'xml'", "unknown = true"] {
-        fs::write(&path, config).unwrap();
-        let output = run(
-            command()
-                .arg("--config")
-                .arg(&path)
-                .args(["stats", "--format", "text"]),
-            b"",
-        );
-        assert_eq!(output.status.code(), Some(1), "{output:?}");
-        assert!(output.stdout.is_empty());
-        assert!(
-            String::from_utf8(output.stderr)
-                .unwrap()
-                .contains("invalid config")
-        );
-    }
-}
-
-#[test]
-fn oversized_config_is_rejected() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("config.toml");
-    fs::write(&path, vec![b' '; 64 * 1024 + 1]).unwrap();
-    let output = run(command().arg("--config").arg(path).arg("stats"), b"");
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert!(
-        String::from_utf8(output.stderr)
-            .unwrap()
-            .contains("65536-byte limit")
-    );
-}
-
-#[test]
-fn missing_input_and_config_are_operation_failures() {
-    let directory = tempfile::tempdir().unwrap();
-    let missing = directory.path().join("absent");
-    for args in [vec!["stats"], vec!["--config"]] {
-        let mut cmd = command();
-        cmd.args(&args).arg(&missing);
-        if args[0] == "--config" {
-            cmd.arg("stats");
-        }
-        let output = run(&mut cmd, b"");
-        assert_eq!(output.status.code(), Some(1), "{output:?}");
-        assert!(output.stdout.is_empty());
-        assert!(!output.stderr.is_empty());
-    }
-}
-
-#[test]
-fn invalid_arguments_and_environment_have_usage_status() {
-    for args in [
-        vec!["stats", "--unknown"],
-        vec!["stats", "--format", "yaml"],
-    ] {
-        let output = run(command().args(args), b"");
-        assert_eq!(output.status.code(), Some(2), "{output:?}");
-        assert!(output.stdout.is_empty());
-        assert!(!output.stderr.is_empty());
-    }
-    let output = run(
-        command()
-            .env("RUST_CLI_TEMPLATE_FORMAT", "yaml")
-            .arg("stats"),
-        b"",
-    );
-    assert_eq!(output.status.code(), Some(2), "{output:?}");
-}
-
-#[test]
-fn parser_diagnostics_escape_untrusted_controls_even_with_forced_color() {
-    let invalid = "\u{1b}[2J\nFORGED";
-    for source in ["flag", "environment", "unknown-argument"] {
-        let mut cmd = command();
-        cmd.env_remove("NO_COLOR").env("CLICOLOR_FORCE", "1");
-        match source {
-            "flag" => {
-                cmd.args(["stats", "--format", invalid]);
-            }
-            "environment" => {
-                cmd.env("RUST_CLI_TEMPLATE_FORMAT", invalid).arg("stats");
-            }
-            "unknown-argument" => {
-                cmd.arg("stats").arg(format!("--bad{invalid}"));
-            }
-            _ => unreachable!(),
-        }
-        let output = run(&mut cmd, b"");
-        assert_eq!(output.status.code(), Some(2), "{source}: {output:?}");
-        assert!(output.stdout.is_empty());
-        let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(!stderr.contains("\u{1b}[2J"), "{source}: {stderr:?}");
-        assert!(!stderr.contains("\nFORGED"), "{source}: {stderr:?}");
-        assert!(
-            stderr.contains("\\u{1b}[2J\\nFORGED"),
-            "{source}: {stderr:?}"
-        );
-        assert!(stderr.contains("error:"), "{source}: {stderr:?}");
-        assert!(stderr.contains("--help"), "{source}: {stderr:?}");
-    }
-}
-
-#[test]
-fn help_keeps_trusted_layout_and_hides_untrusted_environment_values() {
-    let output = run(
-        command()
-            .env_remove("NO_COLOR")
-            .env("CLICOLOR_FORCE", "1")
-            .env("RUST_CLI_TEMPLATE_FORMAT", "\u{1b}[2J\nFORGED_FORMAT")
-            .env("RUST_CLI_TEMPLATE_CONFIG", "\u{1b}[2J\nFORGED_CONFIG")
-            .arg("--help"),
-        b"",
-    );
-    assert!(output.status.success(), "{output:?}");
-    assert!(output.stderr.is_empty());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Usage:"));
-    assert!(stdout.contains('\n'));
-    assert!(stdout.contains("RUST_CLI_TEMPLATE_FORMAT"));
-    assert!(stdout.contains("RUST_CLI_TEMPLATE_CONFIG"));
-    assert!(!stdout.contains("\u{1b}[2J"));
-    assert!(!stdout.contains("FORGED_FORMAT"));
-    assert!(!stdout.contains("FORGED_CONFIG"));
-    assert!(!stdout.contains("\\u{1b}"));
-}
-
-#[test]
-fn completion_output_is_drained_while_the_process_runs() {
-    let output = run(command().args(["completions", "bash"]), b"");
-    assert!(output.status.success(), "{output:?}");
-    assert!(output.stderr.is_empty());
-    // This exceeds Windows' typical anonymous-pipe capacity, so waiting for
-    // process exit before draining stdout would deadlock on the Windows CI job.
-    assert!(
-        output.stdout.len() > 4096,
-        "completion fixture is too small"
-    );
-}
-
-#[test]
-fn informational_commands_do_not_open_config_or_read_stdin() {
-    let directory = tempfile::tempdir().unwrap();
+fn help_version_completions_do_not_load_policy_or_create_state() {
+    let temp = tempfile::tempdir().unwrap();
+    let state = temp.path().join("missing");
     for args in [
         vec!["--help"],
         vec!["--version"],
-        vec!["stats", "--help"],
         vec!["completions", "bash"],
     ] {
-        let mut child = ChildGuard::spawn(
-            command()
-                .env("RUST_CLI_TEMPLATE_CONFIG", directory.path().join("absent"))
-                .args(args),
-        );
-        // Keep the pipe's writer alive through child termination. Reading stdin
-        // would block, so this establishes that informational commands bypass it.
-        let stdin = child.child().stdin.take().unwrap();
-        let output = child.finish();
-        drop(stdin);
-        assert!(output.status.success(), "{output:?}");
-        assert!(!output.stdout.is_empty());
-        assert!(output.stderr.is_empty());
+        command(&state)
+            .env("HOME", temp.path().join("absent-home"))
+            .args(args)
+            .assert()
+            .success();
+        assert!(!state.exists());
     }
 }
 
 #[test]
-fn dash_prefixed_file_works_after_end_of_options() {
-    let directory = tempfile::tempdir().unwrap();
-    fs::write(directory.path().join("-input"), b"yes\n").unwrap();
-    let output = run(
-        command()
-            .current_dir(directory.path())
-            .args(["stats", "--", "-input"]),
-        b"",
-    );
-    successful(&output, b"bytes: 4\nlines: 1\n");
+fn unknown_arguments_and_invalid_retention_are_parser_errors() {
+    let temp = tempfile::tempdir().unwrap();
+    let state = temp.path().join("missing");
+    for args in [
+        vec!["enable", "--days", "0"],
+        vec!["enable", "--days", "36501"],
+        vec!["enable", "--days", "-1"],
+        vec!["run", "--yes"],
+        vec!["no-such-command"],
+    ] {
+        command(&state).args(args).assert().code(2);
+        assert!(!state.exists());
+    }
 }
 
 #[test]
-fn closed_stdout_is_a_quiet_success() {
-    let mut child = ChildGuard::spawn(command().args(["stats", "--format", "json"]));
-    // No output can be produced before EOF; close the real pipe's read end first.
-    drop(child.child().stdout.take());
-    let output = child.finish();
-    assert!(output.status.success(), "{output:?}");
-    assert!(output.stderr.is_empty());
-}
-
-// Linux filesystems used by CI accept arbitrary filename bytes. APFS may reject
-// invalid UTF-8 at file creation, so Unix-wide parser coverage lives in cli.rs.
-#[cfg(target_os = "linux")]
-#[test]
-fn non_utf8_input_path_is_preserved() {
-    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
-
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory
-        .path()
-        .join(OsString::from_vec(b"input-\xff".to_vec()));
-    fs::write(&path, b"abc\n").unwrap();
-    let output = run(command().arg("stats").arg(path), b"");
-    successful(&output, b"bytes: 4\nlines: 1\n");
-}
-
-#[cfg(unix)]
-#[test]
-fn nonexistent_non_utf8_path_is_an_operation_error_not_a_parser_error() {
-    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
-
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory
-        .path()
-        .join(OsString::from_vec(b"absent-\xff".to_vec()));
-    let output = run(command().arg("stats").arg(&path), b"");
-    assert_eq!(output.status.code(), Some(1), "{output:?}");
-    assert!(output.stdout.is_empty());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("cannot read input"), "{stderr}");
-    assert!(stderr.contains(&format!("{path:?}")), "{stderr}");
+fn status_without_policy_does_not_create_one() {
+    let temp = tempfile::tempdir().unwrap();
+    let state = temp.path().join("missing");
+    let result = json(command(&state).arg("status").env("HOME", temp.path()));
+    assert_eq!(result["configured"], false);
+    assert!(!state.exists());
 }
 
 #[test]
-fn config_diagnostics_do_not_emit_terminal_control_sequences() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("config.toml");
-    fs::write(&path, "format = \"\\u001b[2J\"\n").unwrap();
-    let output = run(command().arg("--config").arg(path).arg("stats"), b"");
-    assert_eq!(output.status.code(), Some(1), "{output:?}");
-    assert!(output.stdout.is_empty());
-    assert!(!output.stderr.contains(&0x1b));
+#[cfg(target_os = "macos")]
+fn consent_is_required_before_profile_mutation() {
+    let f = Fixture::new();
+    let id = f.add(400, 1);
+    let state = f.store.root.clone();
+    let home = f.home.clone();
+    let bin = binary(f.temp.path());
+    database::uninstall_capture(&mut { f.c }, &f.policy).unwrap();
+    drop(f.store);
+    command(&state)
+        .args(["enable", "--no-schedule", "--codex-home"])
+        .arg(&home)
+        .arg("--codex-bin")
+        .arg(bin)
+        .assert()
+        .failure();
+    let db = database::open(&home, false).unwrap();
     assert_eq!(
-        output.stderr.iter().filter(|&&byte| byte == b'\n').count(),
+        db.query_row("SELECT count(*) FROM threads WHERE id=?", [id], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
         1
     );
+    assert_eq!(
+        db.query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'codex_retain_%'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
 }
 
-#[cfg(target_os = "linux")]
 #[test]
-fn stdout_device_failure_is_not_a_clean_pipeline_end() {
-    let output = run(
-        command().arg("stats").stdout(
-            fs::OpenOptions::new()
-                .write(true)
-                .open("/dev/full")
-                .unwrap(),
-        ),
-        b"a\n",
+#[cfg(target_os = "macos")]
+fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable() {
+    let mut f = Fixture::new();
+    let id = f.add(401, 1);
+    let rowpath = f.path(&id, true);
+    database::uninstall_capture(&mut f.c, &f.policy).unwrap();
+    let bin = binary(f.temp.path());
+    let state = f.store.root.clone();
+    let home = f.home.clone();
+    drop(f.c);
+    drop(f.store);
+    let enabled = json(
+        command(&state)
+            .args([
+                "enable",
+                "--days",
+                "7",
+                "--no-schedule",
+                "--yes",
+                "--codex-home",
+            ])
+            .arg(&home)
+            .arg("--codex-bin")
+            .arg(&bin),
     );
-    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert_eq!(enabled["existing_archives_given_grace"], 1);
+    assert_eq!(enabled["automatic"], false);
+    let preview = json(command(&state).arg("preview"));
+    assert_eq!(preview["eligible"], 0);
+    assert!(rowpath.exists());
+    assert_eq!(json(command(&state).arg("pause"))["paused"], true);
+    command(&state).arg("run").assert().failure();
+    assert!(rowpath.exists());
+    command(&state)
+        .args(["run", "--scheduled"])
+        .assert()
+        .success()
+        .stdout("");
+    json(command(&state).arg("resume"));
+    command(&state)
+        .args(["policy", "--days", "1"])
+        .assert()
+        .failure();
+    json(command(&state).args(["policy", "--days", "1", "--yes"]));
+    json(command(&state).arg("exclude").arg(&id));
+    let c = database::open(&home, true).unwrap();
+    c.execute(
+        "UPDATE codex_retain_epochs SET archived_since=unixepoch()-3*86400",
+        [],
+    )
+    .unwrap();
+    assert_eq!(json(command(&state).arg("run"))["deleted"], 0);
+    assert!(rowpath.exists());
+    command(&state).arg("include").arg(&id).assert().failure();
+    json(command(&state).arg("include").arg(&id).arg("--yes"));
+    let report = json(command(&state).arg("run"));
+    assert_eq!(report["deleted"], 1);
+    assert!(!rowpath.exists());
+    assert!(report["actual_reclaimed_bytes"].is_null());
+    assert!(report["logical_bytes_removed"].as_u64().unwrap() > 0);
+    assert_eq!(json(command(&state).arg("run"))["deleted"], 0);
+    let status = json(command(&state).arg("status").env("HOME", f.temp.path()));
+    assert_eq!(status["policy"]["enabled"], true);
+    assert_eq!(status["last_run"]["status"], "ok");
+    assert_eq!(
+        json(command(&state).arg("disable"))["capture_removed"],
+        true
+    );
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'codex_retain_%'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+    command(&state).arg("run").assert().failure();
+    json(command(&state).arg("uninstall"));
     assert!(
-        String::from_utf8(output.stderr)
+        !home.join("archived_sessions").read_dir().unwrap().any(|e| e
             .unwrap()
-            .contains("cannot write standard output")
+            .file_name()
+            .to_string_lossy()
+            .contains("pending"))
     );
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn scheduled_errors_replace_one_bounded_receipt_and_remain_quiet() {
+    let mut f = Fixture::new();
+    f.policy.codex_bin = binary(f.temp.path());
+    f.store.save(&f.policy).unwrap();
+    let state = f.store.root.clone();
+    f.c.execute_batch("DROP TRIGGER codex_retain_update")
+        .unwrap();
+    drop(f.store);
+    for _ in 0..2 {
+        command(&state)
+            .args(["run", "--scheduled"])
+            .assert()
+            .failure()
+            .stdout("")
+            .stderr("");
+    }
+    let value: Value =
+        serde_json::from_slice(&fs::read(state.join("last-run.json")).unwrap()).unwrap();
+    assert_eq!(value["status"], "error");
+    assert!(value["error"].as_str().unwrap().contains("capture"));
+    assert!(fs::metadata(state.join("last-run.json")).unwrap().len() < 4096);
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn incomplete_automatic_setup_cannot_become_a_manual_policy() {
+    let mut f = Fixture::new();
+    f.policy.enabled = false;
+    f.policy.automatic = true;
+    f.policy.codex_bin = binary(f.temp.path());
+    f.store.save(&f.policy).unwrap();
+    let state = f.store.root.clone();
+    let before = fs::read(state.join("policy.json")).unwrap();
+    let home = f.home.clone();
+    let bin = f.policy.codex_bin.clone();
+    drop(f.store);
+    command(&state)
+        .args(["enable", "--no-schedule", "--yes", "--codex-home"])
+        .arg(home)
+        .arg("--codex-bin")
+        .arg(bin)
+        .assert()
+        .failure();
+    assert_eq!(fs::read(state.join("policy.json")).unwrap(), before);
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn pending_recovery_prevents_policy_replacement() {
+    let mut f = Fixture::new();
+    let id = f.add(420, 1);
+    f.pending(&id, &f.path(&id, true));
+    f.policy.enabled = false;
+    f.policy.codex_bin = binary(f.temp.path());
+    f.store.save(&f.policy).unwrap();
+    let state = f.store.root.clone();
+    let before = fs::read(state.join("policy.json")).unwrap();
+    let pending = fs::read(state.join("pending.json")).unwrap();
+    let home = f.home.clone();
+    let bin = f.policy.codex_bin.clone();
+    drop(f.store);
+    command(&state)
+        .args(["enable", "--no-schedule", "--yes", "--codex-home"])
+        .arg(home)
+        .arg("--codex-bin")
+        .arg(bin)
+        .assert()
+        .failure();
+    assert_eq!(fs::read(state.join("policy.json")).unwrap(), before);
+    assert_eq!(fs::read(state.join("pending.json")).unwrap(), pending);
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn version_probe_isolates_and_removes_codex_startup_side_effects() {
+    let temp = tempfile::tempdir().unwrap();
+    let bin = temp.path().join("codex-side-effect");
+    let receipt = temp.path().join("observed-home");
+    // This records the child's CODEX_HOME through its own explicit test receipt.
+    // A real Codex creates analogous helpers while processing --version.
+    let script = format!(
+        "#!/bin/sh\nprintf '%s' \"$CODEX_HOME\" > '{}'\nprintf test > \"$CODEX_HOME/helper\"\nprintf '%s\\n' 'codex-cli 0.153.4'\n",
+        receipt.display()
+    );
+    fs::write(&bin, script).unwrap();
+    fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
+    database::verify_binary(&bin).unwrap();
+    let isolated = PathBuf::from(fs::read_to_string(receipt).unwrap());
+    assert!(
+        !isolated.exists(),
+        "isolated Codex startup files must be removed"
+    );
+    assert_ne!(isolated, temp.path());
 }

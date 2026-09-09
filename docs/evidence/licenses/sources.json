@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "description": "Reviewed exceptions for locked crates that omit conventional license files. Regeneration checks the exact versions, packaged VCS/source receipts, and attribution hashes. No network access is needed to use these copies.",
+  "packages": {
+    "defmt-parser 1.0.0": {
+      "vendored_file": "defmt-parser-1.0.0-LICENSE-MIT",
+      "sha256": "2710a622a896bba67356913d4d0492cab5465f61b2ecce6d880aeb483834fb50",
+      "source_url": "https://raw.githubusercontent.com/knurling-rs/defmt/4a8cdb44891ed57b8ff5a023b6bec7137c48708f/LICENSE-MIT",
+      "upstream_commit": "4a8cdb44891ed57b8ff5a023b6bec7137c48708f",
+      "packaged_vcs_commit": "4a8cdb44891ed57b8ff5a023b6bec7137c48708f",
+      "note": "The crate README points to the workspace-root MIT/Apache licenses, omitted from its package. This is the MIT option at the commit in its .cargo_vcs_info.json."
+    },
+    "difflib 0.4.0": {
+      "vendored_file": "difflib-0.4.0-LICENSE",
+      "sha256": "6725d1437fc6c77301f2ff0e7d52914cf4f9509213e1078dc77d9356dbe6eac5",
+      "source_url": "https://raw.githubusercontent.com/DimaKudosh/difflib/f035fb8e656f27119e23eca9d5b996df14f3885e/LICENSE",
+      "upstream_commit": "f035fb8e656f27119e23eca9d5b996df14f3885e",
+      "package_files": {
+        "Cargo.toml.orig": "d541194ec9dbbc63a8e371fcb0a20af128671a73bea0c4734e17e43ed6956e50",
+        "src/lib.rs": "1d196166d4ee0d7eb6cfe127920c2a314a965098c7f08bef44be163528368bde",
+        "src/utils.rs": "9ef8aa4219e856745dec81849453ae3ff7edba6a16f470d1a4ba65eb498b1044",
+        "src/differ.rs": "115671b901c439affb816d8a7d4275bf31ebba045d6118596dfac776b78699d3",
+        "src/sequencematcher.rs": "b671c4ee066cc548c98784bb6fd6788c10ef8d75e7eb176694659ad7ad976f12"
+      },
+      "note": "The package omits LICENSE and has no VCS receipt. Its original Cargo.toml and every src/*.rs file were compared byte-for-byte with this commit and matched; the listed hashes retain that comparison."
+    },
+    "r-efi 6.0.0": {
+      "registry_file": "AUTHORS",
+      "sha256": "d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111",
+      "source_url": "https://github.com/r-efi/r-efi/blob/7e1b0322d31d625f81a5656096330934f9cd835d/AUTHORS",
+      "upstream_commit": "7e1b0322d31d625f81a5656096330934f9cd835d",
+      "packaged_vcs_commit": "7e1b0322d31d625f81a5656096330934f9cd835d",
+      "note": "The installed AUTHORS file contains the full MIT grant, copyright holders, and licensing alternatives. The upstream README explicitly routes licensing to AUTHORS; no README or source-code substitution is used."
+    }
+  }
+}

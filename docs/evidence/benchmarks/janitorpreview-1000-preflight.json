@@ -1,0 +1,7 @@
+{
+  "command_output": "Scanned 1000 session file(s).\nMatched 1000 expired file(s), reclaimable 3.91 MiB.\n",
+  "count": 1000,
+  "remaining_thread_rows": 1000,
+  "removed": false,
+  "verified": true
+}

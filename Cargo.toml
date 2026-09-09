@@ -1,34 +1,29 @@
 [package]
-name = "rust-cli-template"
+name = "codex-retain"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.98.1"
-description = "A fast, small Rust command-line utility."
+description = "Predictable local retention for archived Codex chats."
 license = "MIT"
-repository = "https://github.com/Dankosik/rust-cli-template"
+repository = "https://github.com/Dankosik/codex-retain"
 publish = false
 
 [dependencies]
 # Shared CLI infrastructure.
 clap = { version = "4.6.6", features = ["derive", "env"] }
 clap_complete = "4.6.9"
-memchr = "2.8.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
-thiserror = "2.0.20"
-toml = { version = "1.1.5", default-features = false, features = ["parse", "serde", "std"] }
 
-# Predeclared toolbox for common utility commands; see docs/library-guide.md.
+# Selected filesystem, SQLite, identity and timestamp capabilities.
 anyhow = "1.0.104"
-bstr = { version = "1.13.1", default-features = false, features = ["std"] }
-env_logger = { version = "0.11.11", default-features = false, features = ["auto-color"] }
-globset = "0.4.20"
-ignore = "0.4.33"
-indicatif = { version = "0.18.6", default-features = false, features = ["unicode-width"] }
-itertools = "0.15.0"
-log = "0.4.34"
 tempfile = "3.27.0"
 walkdir = "2.5.0"
+rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
+uuid = { version = "1.26.0", features = ["serde"] }
+zstd = { version = "0.14.0", default-features = false }
+rustix = { version = "1.1.4", features = ["fs"] }
+jiff = { version = "0.2.35", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 assert_cmd = "2.2.2"

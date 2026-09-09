@@ -1,4 +1,5 @@
 import io
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -6,7 +7,6 @@ import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
-import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import release
@@ -17,7 +17,7 @@ class ArchiveTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        self.info = release.Identity("renamed-cli", "2.3.4", "https://github.com/example/renamed-cli", self.root / "target")
+        self.info = release.Identity("codex-retain", "2.3.4", "https://github.com/example/codex-retain", self.root / "target")
 
     def archive(self, target, *, extra=None, executable=True):
         path = self.root / self.info.archive_name(target)
@@ -26,20 +26,21 @@ class ArchiveTests(unittest.TestCase):
                     (prefix + "README.md", b"usage"), (prefix + "LICENSE", b"license")]
         if extra is not None:
             contents.append((extra, b"unexpected"))
-        if "windows" in target:
-            with zipfile.ZipFile(path, "w") as archive:
-                for name, data in contents:
-                    archive.writestr(name, data)
-        else:
-            with tarfile.open(path, "w:gz") as archive:
-                for name, data in contents:
-                    member = tarfile.TarInfo(name)
-                    member.size = len(data)
-                    member.mode = 0o755 if executable else 0o644
-                    archive.addfile(member, io.BytesIO(data))
+        with tarfile.open(path, "w:gz") as archive:
+            for name, data in contents:
+                member = tarfile.TarInfo(name)
+                member.size = len(data)
+                member.mode = 0o755 if executable else 0o644
+                archive.addfile(member, io.BytesIO(data))
         return path
 
-    def test_extracts_only_expected_binary_for_all_formats(self):
+    def test_release_targets_are_exactly_the_supported_macos_architectures(self):
+        self.assertEqual(release.TARGETS, ("aarch64-apple-darwin", "x86_64-apple-darwin"))
+        for unsupported in ("x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"):
+            with self.assertRaisesRegex(ValueError, "macOS"):
+                self.info.archive_name(unsupported)
+
+    def test_extracts_only_expected_binary_for_both_macos_targets(self):
         for target in release.TARGETS:
             with self.subTest(target=target):
                 archive = self.archive(target)
@@ -103,15 +104,73 @@ class ArchiveTests(unittest.TestCase):
             self.archive(target)
         release.checksums(self.info, self.root)
         lines = (self.root / "SHA256SUMS").read_text().splitlines()
+        self.assertEqual(len(lines), 2)
         self.assertEqual({line.split("  ", 1)[1] for line in lines},
                          {self.info.archive_name(target) for target in release.TARGETS})
         self.assertTrue(all(len(line.split("  ", 1)[0]) == 64 for line in lines))
+        for line in lines:
+            digest, filename = line.split("  ", 1)
+            self.assertEqual(digest, hashlib.sha256((self.root / filename).read_bytes()).hexdigest())
+
+    def test_unexpected_non_macos_asset_prevents_checksum_publication(self):
+        for target in release.TARGETS:
+            self.archive(target)
+        (self.root / "codex-retain-2.3.4-x86_64-unknown-linux-gnu.tar.gz").write_bytes(b"unexpected")
+        with self.assertRaisesRegex(ValueError, "unexpected"):
+            release.checksums(self.info, self.root)
+        self.assertFalse((self.root / "SHA256SUMS").exists())
 
     def test_foreign_target_does_not_execute_archive(self):
         with patch.object(release, "native_target", return_value=release.TARGETS[0]), patch.object(release, "smoke") as smoke:
             with self.assertRaisesRegex(ValueError, "native runner"):
-                release.verify_archive(self.root / "foreign.zip", self.info, release.TARGETS[-1])
+                release.verify_archive(self.root / "foreign.tar.gz", self.info, release.TARGETS[-1])
             smoke.assert_not_called()
+
+
+class SmokeTests(unittest.TestCase):
+    def setUp(self):
+        self.info = release.Identity("codex-retain", "0.1.0", "https://github.com/example/codex-retain", Path("target"))
+        self.version = b"codex-retain 0.1.0\n"
+        self.help = b"Commands:\n  enable  Enable retention\n  preview  Preview\n  run  Run\n  pause  Pause\n  disable  Disable\n  completions  Generate\n"
+        self.completions = b"complete -F _codex-retain codex-retain\n"
+
+    def result(self, output):
+        return subprocess.CompletedProcess([], 0, output, b"")
+
+    def test_smoke_uses_only_configuration_free_commands_in_isolated_home(self):
+        with patch.object(release.subprocess, "run", side_effect=[self.result(self.version), self.result(self.help), self.result(self.completions)]) as run:
+            release.smoke(Path("/synthetic/codex-retain"), self.info)
+        self.assertEqual([call.args[0][1:] for call in run.call_args_list],
+                         [["--version"], ["--help"], ["completions", "bash"]])
+        for call in run.call_args_list:
+            env = call.kwargs["env"]
+            self.assertEqual(Path(env["CODEX_HOME"]).parent, Path(env["HOME"]))
+            self.assertEqual(Path(env["CODEX_RETAIN_STATE_DIR"]).parent, Path(env["HOME"]))
+            self.assertEqual(call.kwargs["stdin"], subprocess.DEVNULL)
+
+    def test_smoke_rejects_wrong_version(self):
+        with patch.object(release.subprocess, "run", return_value=self.result(b"codex-retain 9.9.9\n")):
+            with self.assertRaisesRegex(ValueError, "version output"):
+                release.smoke(Path("/synthetic/codex-retain"), self.info)
+
+    def test_smoke_rejects_obsolete_template_commands(self):
+        with patch.object(release.subprocess, "run", side_effect=[self.result(self.version), self.result(b"Commands:\n  stats  Count bytes\n")]):
+            with self.assertRaisesRegex(ValueError, "retention command"):
+                release.smoke(Path("/synthetic/codex-retain"), self.info)
+
+    def test_smoke_rejects_invalid_completions(self):
+        with patch.object(release.subprocess, "run", side_effect=[self.result(self.version), self.result(self.help), self.result(b"empty\n")]):
+            with self.assertRaisesRegex(ValueError, "completion smoke"):
+                release.smoke(Path("/synthetic/codex-retain"), self.info)
+
+    def test_smoke_rejects_accidental_state_creation(self):
+        outputs = iter([self.version, self.help, self.completions])
+        def creates_state(_command, **kwargs):
+            Path(kwargs["env"]["CODEX_HOME"]).mkdir(exist_ok=True)
+            return self.result(next(outputs))
+        with patch.object(release.subprocess, "run", side_effect=creates_state):
+            with self.assertRaisesRegex(ValueError, "created local state"):
+                release.smoke(Path("/synthetic/codex-retain"), self.info)
 
 
 class TagTests(unittest.TestCase):

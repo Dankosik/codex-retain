@@ -1,0 +1,418 @@
+[
+  {
+    "version": 1,
+    "description": "threads",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "627ef19164c9bb298a0cd99945981c9b7bda3d9e6cf12eb35145e3b1d3bf7cf8740f0dbaa0b475185fc2993397078049",
+    "execution_time": 455208
+  },
+  {
+    "version": 2,
+    "description": "logs",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "521b72cbc04c7d03b1e4aef8dc0fdee672f1f7f5881385a55a0e937e4ebe87a3f67bca4d3f6b59afbc9a7ca723c82856",
+    "execution_time": 117000
+  },
+  {
+    "version": 3,
+    "description": "logs thread id",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "e58a2862bdb66d3274e60144a26dc9d68bbefff834cd29b82b740f38fcf95862934f412665d985715167839e8f0eb377",
+    "execution_time": 366292
+  },
+  {
+    "version": 4,
+    "description": "thread dynamic tools",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "8adc251366e4c7e5ea78b620ac71f4c4bdfb8f048bf9f2fd7204226cfba54c8e83fc9d83fc1ec334bc683bb7f6d0d8a8",
+    "execution_time": 110458
+  },
+  {
+    "version": 5,
+    "description": "threads cli version",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "1ac64f85e083e5b49b974bf498fc39c630f0032057fb4bf4cb31708619fac5a80189f261cf3e38dafd92dc406e73c220",
+    "execution_time": 110084
+  },
+  {
+    "version": 6,
+    "description": "memories",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "a203fc4b597e1420bffdc4e00e214798b21cf7fc921d8bd6f089c75248fb6a4b4942c97a1f8e0271eca8cf3b3e5e7a80",
+    "execution_time": 175584
+  },
+  {
+    "version": 7,
+    "description": "threads first user message",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "7e35a464df6d4c82694de50865ba3fe9104f9e1385a33be7d633ab4b8d6cf60b7f369fe083d31251fd77b75fa2d61f82",
+    "execution_time": 134959
+  },
+  {
+    "version": 8,
+    "description": "backfill state",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "aa3f287f7a448554e7af01f259f0871ce90ace1a7d4b8ebbd74c87ae57c3e21119f7eec8b9c2e9f4a9e76e63a0f0b60a",
+    "execution_time": 114542
+  },
+  {
+    "version": 9,
+    "description": "stage1 outputs rollout slug",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "8b469360777e6dd6c21d3f0eb93481251846b0a50e0a44eb0dbee4a0a32b7206768a5d83a5fcec30c6fd2e43d755ff1b",
+    "execution_time": 102542
+  },
+  {
+    "version": 10,
+    "description": "logs process id",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "8adaf1365f8e5deeba68bdeee9fd83b094a87bdab364d95ab5c714f7b8bd95dc3b38576871470312154c9d41e8f10f93",
+    "execution_time": 120042
+  },
+  {
+    "version": 11,
+    "description": "logs partition prune indexes",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "31ececbd07f04452d0dc5127d824ed183056b9900a31aa739387a4aef232016d975110829814841fb6bf3fd23634b799",
+    "execution_time": 91166
+  },
+  {
+    "version": 12,
+    "description": "logs estimated bytes",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "0012a213ed25f2cf806c2530c487ebb00b4f102f5960d1a852154a0f77d25c9e9f7df29550faeb30ebaff15a26c7d604",
+    "execution_time": 168125
+  },
+  {
+    "version": 13,
+    "description": "threads agent nickname",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "05526a0900a8430523a9a05932ea61302fce20782b245498565c1b9a2dfd10cf5c49932089b496ae23af44f6c5f76af4",
+    "execution_time": 144792
+  },
+  {
+    "version": 14,
+    "description": "agent jobs",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "4d2fbb2442c5c5c7c47b4254b5b8dc2c52129f65c4a952a79f1ec5c40fb07483326429ce5acdbd372bc9262352cb6277",
+    "execution_time": 172083
+  },
+  {
+    "version": 15,
+    "description": "agent jobs max runtime seconds",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "0eece6db59c948faa6608526af440a9f53f5a982d27f3e866cd9f1401c2e59bc61f8381b5a1c9744acb232f50db493e5",
+    "execution_time": 117750
+  },
+  {
+    "version": 16,
+    "description": "memory usage",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "4768f743e981293735c6e07b0282ec8ace98af720059d68555b17979d28c94b0c893a97a950d5e32758bc6d92d8fe6ff",
+    "execution_time": 160125
+  },
+  {
+    "version": 17,
+    "description": "phase2 selection flag",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "4cbdb2edfebf6040858ffc193cffa36e6b3fbf508f8418ad073081bbfcf59d53d423b6eb4c0ded206ab4d4c1a0efed94",
+    "execution_time": 101375
+  },
+  {
+    "version": 18,
+    "description": "phase2 selection snapshot",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "a4363003bc44f0a4ae1eed53b536b7175f97863ea6881a059dc6642e70e2921576204697cec2345f560e65ff7fbf4455",
+    "execution_time": 176125
+  },
+  {
+    "version": 19,
+    "description": "thread dynamic tools defer loading",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "3884c02f080f0184e92b620f870dfbb840a8ec5dfce2fe6455dd8197fcd27d7dd86e63ad6ec7c4091a1161d9ed199f8d",
+    "execution_time": 107500
+  },
+  {
+    "version": 20,
+    "description": "threads model reasoning effort",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "07673f4859f740134569ab9606760d8173ed6df92da47c86fbd0ceeb333e18ab7ac91d525ab8c11503c42164fd4167ae",
+    "execution_time": 157208
+  },
+  {
+    "version": 21,
+    "description": "thread spawn edges",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "ea1aebe4f5a1d56c8effcc15f705c272275dd8adfeb01bc97d3f7b283474a3b8c2b0c8c69de55786e8bda17cae6f4de7",
+    "execution_time": 97709
+  },
+  {
+    "version": 22,
+    "description": "threads agent path",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "160fe01b757dd06f9573b9030952d021f2b148732bea5fc5f5ae09e9227f3f83ca676695edaf8502669fcb546119dc94",
+    "execution_time": 227250
+  },
+  {
+    "version": 23,
+    "description": "drop logs",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "e6c748a9a18286e4c773ffe0dad659f16fb7e5b7b032235815991c405f2d32c068f3edde920d0fcf589b687bffcfee2e",
+    "execution_time": 133167
+  },
+  {
+    "version": 24,
+    "description": "remote control enrollments",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "e92aa526b1f36e26f6221c04a671f07b27de2e7a5112d93a8c3af816a87846e7804d5fbad689e61cf4ec91fd79d3bd8a",
+    "execution_time": 82791
+  },
+  {
+    "version": 25,
+    "description": "thread timestamps millis",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "d6fb51d79941b93c3278fe2a8a0c6fa882407b7b716e32d72329f0b7b60c181a42f49e56cd552315efb0402a111ede12",
+    "execution_time": 362542
+  },
+  {
+    "version": 26,
+    "description": "thread dynamic tools namespace",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "6c62a325d3b9ca8e424eacb9e3890d8d9de57c3725e2d1fa30c3743ae779fca2969387174359dfb26e4920791ae7e831",
+    "execution_time": 124458
+  },
+  {
+    "version": 27,
+    "description": "threads cwd sort indexes",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "d84dca6a039e004c0c7d06c5a16c2ccc363137537f3dd9898f50bb013ce9067140761b87d58ca742d769d35976863fc3",
+    "execution_time": 108083
+  },
+  {
+    "version": 28,
+    "description": "device key bindings",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "ef44adaa291e40dfe6b74e3cd259711adae13f01c5594b177d08e2d2041a67ed3813feecf049662aaed0f636bd3f4ac3",
+    "execution_time": 94291
+  },
+  {
+    "version": 29,
+    "description": "thread goals",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "e9ec76f97dbf41ce4949de324a2a26538c2025c0ac4f272b77a852970fb14b7ec970d6978a765f91ae171dce9c0e4149",
+    "execution_time": 86166
+  },
+  {
+    "version": 30,
+    "description": "threads thread source",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "80c1cdacd4520b42b18b960164912685591a7ee041645f35609a2ee2792eb474b7b0b758366556982d8cde2acb583672",
+    "execution_time": 137417
+  },
+  {
+    "version": 31,
+    "description": "drop device key bindings",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "943675a9b3dc92d0b2731ae7d2fe324ff1a40b6366b9d5d8b4cb47ca885c08beb6ebb1d776a5a47c878b4094dde70ea0",
+    "execution_time": 87583
+  },
+  {
+    "version": 32,
+    "description": "threads preview",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "3c01d615c5e3aba0fd858b7168e73881598d7d33a0ecc41527bdf6595a199d1aec2ff9f3b3000a57241c500d81b34259",
+    "execution_time": 155667
+  },
+  {
+    "version": 33,
+    "description": "thread goal stopped statuses",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "4904aae354e3d8ce32ac21d2ae579fd708446ae1dfb2649fc9dd22dc9279b91a2bbb02e6f01b3e0abd1088177bf2f030",
+    "execution_time": 411042
+  },
+  {
+    "version": 34,
+    "description": "drop thread goals",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "d6fea739c76ebdef35a23f06e54efb5904d7987fb6b663db1ebc98eb9b192305f454932bfbaa2231aedca6209903a5f3",
+    "execution_time": 89583
+  },
+  {
+    "version": 35,
+    "description": "drop memory tables",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "d7b56acb07c96858bdc7ca4c53db51eb71c6a19ef2c524ff68c2660a6fe0d23211a6d39cb905f01c42ffb7c8ee913bbc",
+    "execution_time": 138750
+  },
+  {
+    "version": 36,
+    "description": "threads visible sort indexes",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "6381f7bb4c36be41c6106b8523ea6c68f5a00273a5522155b7b84bad26d152436f3375df7097ce3abf2421aec32641ed",
+    "execution_time": 93167
+  },
+  {
+    "version": 37,
+    "description": "remote control enrollments enabled",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "f6a5ab0db36bb9e45ab5285b56090fb453df0a4d4d8d62eace234f0b557f4203c6c455fc67bd7d6e72623c3979ec9405",
+    "execution_time": 119208
+  },
+  {
+    "version": 38,
+    "description": "external agent config imports",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "e7778522cbe529f5e2ba179b502aee8e5c21272ad820e672ab0a565f7edc9bd0f29171ccf9815c0acc0f89eae0a2b1fc",
+    "execution_time": 92084
+  },
+  {
+    "version": 39,
+    "description": "threads recency at",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "c217b3d14c08c23603f485af11452ee2b68f65fa8dbaf215f33f53b608c092be8738de3f63d6a38f120edea5af247c17",
+    "execution_time": 317500
+  },
+  {
+    "version": 40,
+    "description": "threads history mode",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "a7a99674f90a43184e43d66595c4f1da50ae8715a5bfcb1579a2b7b10668335d7f7ab6b6f2d7a7a379272773d803a914",
+    "execution_time": 157167
+  },
+  {
+    "version": 41,
+    "description": "threads name",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "0dc734dbe4cbcc5ad5a8bbc2fdc1cf770ddea3cb53eb36c55a4da6fa2e8be4cc8e68672f43ac953e727e415e45c50a78",
+    "execution_time": 124667
+  },
+  {
+    "version": 42,
+    "description": "drop agent jobs",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "cfdc4fd47328d1b67c0c7555125de4fb4add5b3b57fd31ac1987e4d8b0c99b1f5418db9ee7ec2158aed8a2e3dfcfd636",
+    "execution_time": 126125
+  },
+  {
+    "version": 43,
+    "description": "threads is pinned",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "605128e722bd2521c7e979e9961c16706435e442b3e3a8efa36f6b16c42e3833090906d9a62fde097a109b78e29da830",
+    "execution_time": 147750
+  },
+  {
+    "version": 44,
+    "description": "external agent config imports provider id",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "5d29223bd1cafe456a4af992a545e8ec420b71331eb12a7427e26512b8a44117d9445b83562f095b3a5a0f11c4f091d2",
+    "execution_time": 117792
+  },
+  {
+    "version": 45,
+    "description": "threads section",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "a7fadc8caea8b6abeb108f588a91b8e5d1c9e2645ce990f2251b9f0234e6e53d78fc854f1c88c7217cc143016539d691",
+    "execution_time": 192166
+  },
+  {
+    "version": 46,
+    "description": "threads section order",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "63addf6115c3fb1a22a886108ce6ebff5cd8408f219606dc2f8396836418e56d5be2a6de7b0df877119a28096ee67d22",
+    "execution_time": 273208
+  },
+  {
+    "version": 47,
+    "description": "rollout migration state",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "1ae117e4ab40813de2b6cfed521585a5396a8dcb7277923d539ed111f5e76424787131ef1de353be5dd78e8228f204cc",
+    "execution_time": 122750
+  },
+  {
+    "version": 48,
+    "description": "thread section appearance",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "9d298333f7523010502044685009ffe1ed18c3fed7f01fb200d62252f90ab0d897ccf05e478f90150b941ea6c0bd459c",
+    "execution_time": 143833
+  },
+  {
+    "version": 49,
+    "description": "projects",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "faf45c392bb8572062bbd52f9702966cf62e3d195a1633f54cfe1b7dcb5865a3f951dc75c975179dc9a0ee639f7426a7",
+    "execution_time": 321458
+  },
+  {
+    "version": 50,
+    "description": "threads section empty preview indexes",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "d2802e96f5fc1900fc6d3d595f040ebca8d25310ae9d1499a12b91f1635617adf5d2b4a93d0807203a22f4a6d4edb77e",
+    "execution_time": 119958
+  },
+  {
+    "version": 51,
+    "description": "thread artifacts",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "23360a03a7fc307c3fd5bb8b432b66034dd8f8695cdba698b45278c20dd712c1af476b884e192237d80baa08a5f29505",
+    "execution_time": 259792
+  },
+  {
+    "version": 52,
+    "description": "projects recency",
+    "installed_on": "2026-09-09 15:14:08",
+    "success": 1,
+    "checksum": "071e96313d402e4c3d156f620f3f62b4a468da00ce30a47574d2594623e5e954f3ec2f1e54f043a8e4b602643e868b7d",
+    "execution_time": 115916
+  }
+]

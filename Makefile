@@ -3,16 +3,15 @@ CARGO ?= cargo
 
 .NOTPARALLEL:
 
-.PHONY: help run build fmt lint test check verify audit template-check template-smoke init
+.PHONY: help run build fmt lint test check verify audit maintenance-check
 
 help:
-	@echo "run             Run the CLI (ARGS='stats input.txt')"
+	@echo "run             Run the CLI (ARGS='--help')"
 	@echo "build           Build the optimized executable"
 	@echo "check           Formatting, Clippy, and Rust tests"
-	@echo "verify          check plus template/maintenance validation"
+	@echo "verify          check plus release/skill maintenance tests"
 	@echo "audit           Dependency advisories, licenses, and sources (cargo-deny)"
-	@echo "template-smoke  Initialize and test a disposable consumer"
-	@echo "init            Set identity (NAME=my-tool REPOSITORY=https://github.com/me/my-tool)"
+	@echo "maintenance-check  Test release archives and vendored skill maintenance"
 
 run:
 	$(CARGO) run --locked -- $(ARGS)
@@ -32,17 +31,11 @@ test:
 
 check: fmt lint test
 
-template-check:
-	$(PYTHON) scripts/check_template.py
-	$(PYTHON) -m unittest discover -s scripts/tests
+maintenance-check:
+	$(PYTHON) -m unittest discover -s scripts/tests -p test_release.py
+	$(PYTHON) -m unittest discover -s scripts/tests -p test_sync_skills.py
 
-verify: check template-check
+verify: check maintenance-check
 
 audit:
 	$(CARGO) deny check
-
-template-smoke:
-	$(PYTHON) scripts/check_template.py --consumer
-
-init:
-	$(PYTHON) scripts/init.py --name "$(NAME)" --repository "$(REPOSITORY)"

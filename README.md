@@ -1,195 +1,185 @@
-# Rust CLI Template
+# Codex Retain
 
-A ready-to-use starting point for small, fast Rust command-line utilities.
-The project already connects argument parsing, configuration, errors, streaming
-I/O, tests, native binary packaging, CI, and instructions for coding agents.
+Keep local archived Codex chats for a chosen number of days, then remove eligible
+archives automatically. A short hourly macOS job does the work; nothing stays
+running between checks. No cloud service, subscription, account, or LLM is used
+by the utility.
 
-[Use this template](https://github.com/Dankosik/rust-cli-template/generate) ·
-[First command](docs/first-command.md) · [Architecture](docs/architecture.md) ·
-[Agent workflow](docs/agent-workflow.md)
+**v0.1 has a deliberately narrow compatibility boundary:** macOS and Codex CLI
+**0.153.4**, with the reviewed local `state_5.sqlite` schema and legacy JSONL or
+zstd rollouts. Every Codex client writing the selected profile must use the
+supported locking protocol. The version of a PATH CLI does **not** certify the
+desktop app's embedded server. Paginated/shared histories and threads with
+spawn relationships are skipped. [Compatibility evidence](docs/compatibility-research.md).
 
-Start with a useful synchronous command, then spend the first product change on
-what your users need. The included `stats` example scans files or stdin using a
-fixed 64 KiB buffer. It does not need a server, database, asynchronous runtime,
-network access, or user configuration to run.
+[Русская инструкция](README.ru.md) · [Design](docs/architecture.md) ·
+[Competitors](docs/competitors.md) · [Measurements](docs/performance.md)
 
-## Quickstart
+Measured on macOS 26.4 / Apple M5: previewing 10,000 synthetic 4 KiB archives
+took **521 ms median**, versus 1,368 ms for the pinned Janitor baseline. Recorded
+maximum RSS was **50.56 MiB versus 180.14 MiB**. Cleanup was slower (19.35 s
+versus 2.88 s median) because its effect scope and recovery protocol differ.
+These are warm-cache local measurements, not a universal speed guarantee.
+The [full report](docs/performance.md) includes all samples, failed targets and
+unmeasured metrics; [validation](docs/validation.md) separates local proof from
+untested platforms and publication.
 
-Install [Rust through rustup](https://rust-lang.org/tools/install/), with your
-platform's normal native linker. The repository selects Rust 1.98.1 and the
-formatter/Clippy components automatically. Python 3.9+ is used for initialization
-and repository maintenance; ordinary application development uses Cargo.
-The minimum supported compiler is also Rust 1.98.1. The template follows the
-current stable baseline; it no longer targets Rust 1.85.1.
+## Install and enable
 
-Create your repository using GitHub's **Use this template** button, or:
-
-```sh
-gh repo create my-tool --template Dankosik/rust-cli-template --public --clone
-cd my-tool
-python3 scripts/init.py --name my-tool --repository https://github.com/your-name/my-tool
-cargo test --locked
-cargo run --locked -- --help
-```
-
-On Windows, use `python` where your installation does not provide `python3`.
-The optional Makefile shortcuts require Make; every underlying command is
-available directly.
-
-Try the included command before or after initialization:
+From this checkout, with the pinned Rust toolchain installed:
 
 ```sh
-cargo run --locked -- stats README.md
-cargo run --locked -- --format json stats README.md
-cargo run --locked -- --config examples/config.toml stats README.md
-cargo run --locked -- completions bash
-cargo build --locked --release
+cargo install --path . --locked
+codex-retain enable --days 30 --yes
 ```
 
-With `alpha\nbeta` on stdin, JSON output is exactly:
+The native utility is one executable; Rust is needed only to build it. Local
+release archives can also be extracted and their executable installed on PATH.
+This source delivery does not imply that a GitHub release or crates.io package
+has been published. [Building and packaging](docs/releasing.md).
 
-```json
-{"bytes":10,"lines":1}
+`enable --yes` is the one-time consent to permanent local deletion after the
+selected retention period. It also installs a small, explicitly owned SQLite
+transition recorder and an hourly per-user LaunchAgent. **All existing archives
+receive a fresh full grace period. Nothing is deleted by enable.** The default
+is 30 days; choose 7, 30, or any whole number from 1 through 36500.
+
+For a particular installation, use explicit paths:
+
+```sh
+codex-retain doctor --codex-home /path/to/codex-home --codex-bin /path/to/codex
+codex-retain enable --days 7 --codex-home /path/to/codex-home --codex-bin /path/to/codex --yes
 ```
 
-The initializer changes package/crate identity, executable references,
-environment prefix, repository links, and optional description. It also writes
-a consumer README from `.template/README.md`. Use `--dry-run`
-to inspect the patch. It validates before writing, preserves dependency versions
-and checksums, and leaves Git state for you to review and commit. Repeating the
-same identity is a no-op; a later different rename is an explicit project change.
-Vendored skills and upstream attribution remain unchanged.
+The default profile is `$CODEX_HOME`, otherwise `~/.codex`. `doctor` checks the
+selected binary and schema without enabling retention. Keep the configured
+Codex executable, and its Node runtime if using the npm launcher, available.
+The LaunchAgent captures the installation shell's PATH for that purpose.
 
-## What is ready
+## Everyday commands
 
-| Area | Included |
+| Action | Command |
 | --- | --- |
-| CLI contract | clap arguments/subcommands, typed values, help/version, generated shell completions |
-| Configuration | Explicit bounded TOML file, environment overrides, CLI precedence, unknown-field rejection |
-| Output and errors | Stable text/JSON, distinct stdout/stderr, intentional exit status, fallible final output |
-| Streaming core | Byte-safe scanning with memchr, fixed buffer, short-read/Interrupted handling, checked count growth |
-| Tests | Focused core tests plus real binaries, pipes, config, native paths, output failure and subprocess cleanup |
-| Rust tooling | Pinned toolchain, lockfile, formatter, Clippy, profiling profile, editor recommendations |
-| CLI toolbox | Collections, byte strings, traversal, glob filters, temporary files, progress, logging, and application errors |
-| CI | Linux/macOS/Windows tests, declared minimum Rust 1.98.1, dependency advisories/licenses, renamed-consumer validation |
-| Delivery | Native archives for Linux, both macOS architectures, and Windows; extracted-binary smoke tests and checksums |
-| Agents | Shared AGENTS.md, Claude/Copilot pointers, 16 vendored Rust skills with immutable provenance |
-| Adoption | Safe identity initializer, integrity checks, explicit pinned skill updates, first-command guide |
+| Inspect policy, compatibility, scheduling, last result | `codex-retain status` |
+| Preview candidates and skip reasons | `codex-retain preview` |
+| Perform one cleanup now | `codex-retain run` |
+| Pause all deletion | `codex-retain pause` |
+| Resume the same archive clock | `codex-retain resume` |
+| Extend retention | `codex-retain policy --days 60` |
+| Shorten retention deliberately | `codex-retain policy --days 7 --yes` |
+| Protect an important chat | `codex-retain exclude THREAD_UUID` |
+| Remove that protection deliberately | `codex-retain include THREAD_UUID --yes` |
+| Disable scheduling and transition capture | `codex-retain disable` |
+| Prepare for executable removal | `codex-retain uninstall` |
+| JSON for scripts | `codex-retain --json preview` |
+| Shell completion | `codex-retain completions zsh` |
 
-Direct dependencies have specific jobs: `clap` and `clap_complete` own command
-parsing and completion generation; `serde`, `serde_json`, and `toml` handle typed
-formats; `thiserror` preserves error meaning; `memchr` supplies optimized byte
-search. The predeclared toolbox adds `anyhow`, `itertools`, `bstr`, `walkdir`,
-`ignore`, `globset`, `tempfile`, `indicatif`, `log`, and `env_logger`. `assert_cmd`
-is available in dev-dependencies for ordinary CLI tests. [Cargo.toml](Cargo.toml)
-and [Cargo.lock](Cargo.lock) are the dependency authorities.
+Manual cleanup follows the same enabled policy and exclusions as automatic
+cleanup. It does not bypass a pause or force-delete skipped chats. A preview is
+a snapshot, not a stored deletion permission: the live row, pin, archive epoch,
+file identity and locks are checked again when deleting.
 
-Use the [library guide](docs/library-guide.md) before writing a technical helper.
-It maps concrete needs to installed APIs and additional maintained crates, with
-feature and resource tradeoffs. The toolbox is deliberately available before
-the first product command; the sample does not manufacture uses of every crate.
-Chosen default features avoid unrelated WebAssembly progress support, Unicode
-tables for byte-only helpers, and timestamp/message-regex logging features.
-The full [research record](docs/research/2026-09-08-cli-libraries.md) and
-[78-crate catalog](docs/research/library-catalog.md) are kept in the repository.
+Pausing preserves archive transition capture; elapsed archive time continues
+to count. Consequently, resuming or removing a protection may make a chat due
+immediately. Shortening retention and removing an explicit protection require
+`--yes`. Ordinary runs after enable do not ask again.
 
-The release profile uses ordinary optimized Rust with thin LTO and keeps unwind
-semantics. It makes no CPU-native assumptions. Startup, throughput, resident
-memory, and binary size still depend on the real workload; see
-[performance measurement](docs/performance.md).
+For manual-only operation use `enable --no-schedule --yes`. Only one automatic
+policy per macOS user is supported. Custom independent manual policies use
+`--state-dir PATH`; policy storage and Codex home must be separate directories.
 
-## Command contract
+## Retention rules
 
-`stats [INPUT]` reads stdin when INPUT is omitted or `-`. It counts all raw bytes
-and LF terminators, matching the newline convention of `wc -l`. An unterminated
-tail contributes bytes but no extra line. Input does not need to be UTF-8.
+* A newly archived old conversation receives the full retention period.
+* Restoring a conversation removes its archive epoch. Archiving it again starts
+  a new epoch, even if both actions happen between hourly utility runs.
+* File creation time, last-message time and file modification time never decide
+  expiration. If Codex repairs or changes its archive timestamp, the recorder
+  conservatively starts a new full period.
+* Native Codex pins, explicit exclusions, active threads, unknown archive state,
+  absent capture, unsupported history, related threads and unsafe file paths
+  prevent deletion. A busy writer or maintenance job is skipped for a later run.
+* Unknown versions, schema changes, a replaced database or modified recorder
+  stop cleanup. There is no unsafe compatibility override.
+* A day means 86400 elapsed UTC seconds. Removal happens only after the whole
+  period has elapsed, on the next successful check. Sleep, logout, pause and
+  contention can delay cleanup; they cannot shorten the configured period.
 
-Global options can appear before or after the subcommand:
+The transition recorder is necessary because Codex 0.153.4 can reconstruct its
+own `archived_at` field from file mtime. Merely querying that field does not
+provide the promised clock. [Why this design](docs/architecture.md).
 
-- `--format text|json` overrides `RUST_CLI_TEMPLATE_FORMAT`, then the explicit
-  config file's `format`, then the default `text`.
-- `--config PATH` overrides `RUST_CLI_TEMPLATE_CONFIG`. No configuration file is
-  discovered implicitly from the working directory or home directory.
-- An explicitly selected config is validated even when a flag overrides its
-  value. Invalid configuration fails before opening the command's input.
-- Help, version, and `completions SHELL` do not load config or consume stdin.
+## Space and recovery
 
-After initialization, `my-tool` uses the prefix `MY_TOOL` instead. Available
-completion shells are listed by `completions --help`.
+Eligible local rollout files and their selected SQLite thread rows are removed
+permanently. The tool never recursively deletes a parent and its descendants.
+There is no growing backup or Trash store. One durable intent and groups of at
+most 32 temporarily staged rollouts allow interrupted operations to recover on the next
+run. Unresolved recovery stops new deletion. Run `disable` before uninstalling
+so it can finish or roll back any pending operation.
 
-Successful results go to stdout; operational diagnostics go to stderr. Exit 0
-means success, including a downstream stdout pipe deliberately closed by its
-reader; exit 1 means an operation failed; exit 2 means invalid command usage.
-Read errors and unrelated output failures remain failures. Ctrl+C uses the
-operating system's default behavior. A command that later owns persistent writes
-or child processes must define the cleanup it needs.
+Reports distinguish:
 
-## Develop and verify
+* `logical_bytes_removed`: removed files' lengths on disk (compressed length for
+  `.zst`, not the decompressed conversation size).
+* `allocated_bytes_unlinked`: their allocated blocks, an estimate of attributable
+  reclamation rather than a promise about physical storage.
+* `observed_free_space_delta_bytes`: the observed change in free space on the
+  volume. Other activity can make this negative or larger than the cleanup.
+* `actual_reclaimed_bytes`: `null`; APFS clones, snapshots and concurrent activity
+  prevent a reliable exact attribution.
 
-| Command | Purpose |
-| --- | --- |
-| `cargo test --locked` | Test Rust behavior, including the real CLI |
-| `cargo fmt --all -- --check` | Check formatting |
-| `cargo clippy --locked --all-targets -- -D warnings` | Compiler/lint feedback |
-| `cargo build --locked --release` | Build the optimized executable |
-| `make check` | Formatting, Clippy, all-target tests and doctests |
-| `make verify` | `check` plus pinned skills, local links, and maintenance tests |
-| `make template-smoke` | Initialize and test a disposable consumer |
-| `make audit` | Advisories, licenses, and sources using cargo-deny |
+This does **not** erase cloud history, global `history.jsonl` or
+`session_index.jsonl`, logs, separate memory/queue databases, exports, snapshots,
+or every forensic trace. SQLite reuses deleted pages; the tool does not VACUUM a
+live Codex database. Some unlocked Codex metadata operations can republish a
+rollout; newly published files are preserved and noticed when observed. This
+limitation is recorded in the compatibility report.
 
-For local dependency policy checks, install the tool version used by CI:
+## Quiet operation and removal
 
-```sh
-cargo install cargo-deny --version 0.20.2 --locked
-cargo deny check
-```
-
-The CI jobs use pinned action revisions and expose one aggregate `required`
-check for branch protection. Ordinary changes need matching focused local
-proof; they do not require repeated full validation or a new specification file.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and validation details.
-
-## Start your real command
-
-Ask your coding agent to implement the requested behavior in this repository.
-[AGENTS.md](AGENTS.md) routes it to the relevant Rust skills and actual validation
-commands. Clear tasks proceed directly to code. Larger tasks can record concise
-decisions and split independent work across agents.
-
-[docs/first-command.md](docs/first-command.md) shows where to add or replace a
-subcommand and its tests. Replace the demonstration command, its tests, the
-release smoke case in `scripts/release.py`, and performance examples together.
-Initialized consumers' CI does not require keeping `stats` as a permanent feature.
-
-The 16 skills are vendored from
-[Dankosik/rust-cli-skills](https://github.com/Dankosik/rust-cli-skills). They are
-available immediately, without an installer or live download. To update from a
-reviewed local checkout, supply an exact upstream commit:
+The LaunchAgent runs hourly in the user GUI domain with normal short-job
+scheduling, no KeepAlive and no persistent process. Automatic stdout/stderr go to
+`/dev/null`. One bounded `last-run.json` replaces its predecessor; detailed
+interactive preview JSON is available on demand. `status` distinguishes policy
+state, LaunchAgent registration, compatibility failure and pending recovery.
+Registration alone is not evidence of a successful cleanup.
 
 ```sh
-python3 scripts/sync_skills.py --source ../rust-cli-skills --revision FULL_COMMIT_SHA --check
-python3 scripts/sync_skills.py --source ../rust-cli-skills --revision FULL_COMMIT_SHA --apply
+codex-retain uninstall
+cargo uninstall codex-retain
 ```
 
-`--check` returns 1 when an update is available; it writes nothing. Application
-files and locally changed skills are protected from replacement. Review the
-resulting diff and run the relevant checks before committing an update.
+`uninstall` disables the policy before attempting other cleanup, removes its
+LaunchAgent and transition recorder, and retains the small policy/report for
+inspection. If Codex data is unavailable, the command reports the incomplete
+step; the policy is already disabled. Keep the executable until recovery and
+recorder removal succeed. For a manually installed binary, remove that binary
+after the first command. There is no hidden copied executable: removing the
+scheduled binary directly leaves a stale launchd entry that cannot perform
+cleanup. [Automation details](docs/automation.md).
 
-## Release
+To update the utility at the same path, run `cargo install --path . --locked
+--force`; the policy and exclusions persist. Disable Retain before upgrading
+Codex: future Codex migrations are not certified with this SQLite extension.
+Unknown Codex versions suspend cleanup until a compatible adapter is available.
+Do not edit the policy JSON to bypass
+version or schema errors. Disable and explicitly re-enable when resetting a
+repaired recorder; existing archives receive another full grace period.
 
-[docs/releasing.md](docs/releasing.md) describes the native target matrix,
-compatibility boundaries, archive verification, and tag-driven GitHub Releases.
-Manual release-workflow runs verify packages without publishing. A matching `v`
-tag publishes only after CI and every native archive check succeeds. Source
-publication to crates.io remains disabled until you intentionally configure it.
+## Development and evidence
 
-## Origin and license
+```sh
+make check
+make maintenance-check
+cargo build --release --locked
+```
 
-This adapts the ready-to-run, contract, initialization, validation, and agent
-workflow ideas of
-[Dankosik/go-service-template-rest](https://github.com/Dankosik/go-service-template-rest)
-to Rust CLI development. [Template design](docs/template-design.md) explains the
-adaptation. The Rust skills provide the technical foundation.
+All deletion tests use synthetic profiles. [Development guide](docs/first-command.md)
+documents fixtures and checks. See [measured results](docs/performance.md) before
+making speed or memory claims; Rust alone is not a competitive advantage.
 
-[MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) ·
-[Security policy](SECURITY.md)
+Initialized from [Dankosik/rust-cli-template](https://github.com/Dankosik/rust-cli-template).
+The template's CLI/parser foundation, pinned toolchain, Rust methods, native
+packaging and CI were retained and adapted; the example statistics command was
+replaced. [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md).
