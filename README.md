@@ -214,15 +214,27 @@ chats of 4 KiB each:
 | Recorded maximum RSS during preview | **50.56 MiB** | 187.78 MiB |
 | Permanent cleanup, median | 7.76 s | **3.12 s** |
 
-Preview was 2.89 times faster, with a 3.71 times lower recorded RSS. Cleanup
-remains slower: Retain rechecks eligibility, updates SQLite, and synchronizes
-its recovery journal; the compared Janitor mode deletes files and leaves SQLite
-rows. Neither measured mode makes a backup or uses Trash.
+Preview was 2.89 times faster, with a 3.71 times lower recorded RSS. Cleanup was
+2.49 times slower.
+
+Retain's cleanup removes both a conversation's rollout files and its supported
+SQLite thread state. A SQLite transaction cannot also commit a filesystem
+deletion, so Retain records an intent, stages the files, commits the database
+changes, then finishes removal. Synchronizing these steps to disk lets the next
+unattended run determine whether to restore staged files or finish deletion
+after an interruption. Retention and pins are also rechecked under locks because
+a conversation can change between the initial scan and deletion.
+
+The compared Janitor mode removes rollout files and leaves SQLite rows. Retain's
+additional database work and ordered disk synchronization add time to each
+deletion group, even for small transcripts. Waiting for disk synchronization was
+the largest sampled cost in the previous Retain build. We have not separately
+measured each step's contribution to the remaining gap. Neither measured mode
+makes a backup or uses Trash.
 
 Profiling led to buffered JSON writes, larger bounded deletion groups, and
 shorter global coordination. In a comparison against the previous Retain build,
 10,000-chat cleanup fell from **14.35 to 7.76 seconds**, a **1.85x speedup**.
-Archive timing, pin protection, and recovery checks remain in effect.
 
 The updated comparison used a pinned Janitor revision, five timed runs and three
 warmups. Cleanup regenerated equivalent fixtures before each run; read-only
