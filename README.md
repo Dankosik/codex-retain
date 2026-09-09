@@ -1,176 +1,267 @@
-# Codex Retain
+# Codex Retain: automatic cleanup for archived Codex chats
 
-Keep local archived Codex chats for a chosen number of days, then remove eligible
-archives automatically. A short hourly macOS job does the work; nothing stays
-running between checks. No cloud service, subscription, account, or LLM is used
-by the utility.
+Keep finished conversations for as long as you need them. Let the rest expire.
 
-**The current development build has a deliberately narrow compatibility boundary:**
-macOS and Codex CLI **0.153.4**, with the reviewed local `state_5.sqlite` schema and legacy JSONL or
-zstd rollouts. Every Codex client writing the selected profile must use the
-supported locking protocol. The version of a PATH CLI does **not** certify the
-desktop app's embedded server. Paginated/shared histories and threads with
-spawn relationships are skipped. [Compatibility evidence](docs/compatibility-research.md).
+Codex Retain is an open-source CLI that automatically deletes eligible **local
+OpenAI Codex chats after a configurable time in the archive**. Set a retention
+period, protect important conversations, and let macOS run the cleanup each hour.
 
-[Design](docs/architecture.md) ·
-[Competitors](docs/competitors.md) · [Measurements](docs/performance.md)
+[![CI](https://github.com/Dankosik/codex-retain/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Dankosik/codex-retain/actions/workflows/ci.yml)
+[MIT license](LICENSE) · [Quick start](#quick-start) · [Commands](#everyday-commands) ·
+[Compatibility](#compatibility) · [Benchmarks](#measured-performance)
 
-Measured on macOS 26.4 / Apple M5: previewing 10,000 synthetic 4 KiB archives
-took **521 ms median**, versus 1,368 ms for the pinned Janitor baseline. Recorded
-maximum RSS was **50.56 MiB versus 180.14 MiB**. Cleanup was slower (19.35 s
-versus 2.88 s median) because its effect scope and recovery protocol differ.
-These are warm-cache local measurements, not a universal speed guarantee.
-The [full report](docs/performance.md) includes all samples, failed targets and
-unmeasured metrics; [validation](docs/validation.md) separates local proof from
-untested platforms and publication.
+## Why archived Codex chats need a retention policy
 
-## Install and enable
+You finish a task, archive the conversation, and move on. The chat leaves your
+active list, but its local history stays on disk. Repeat that over time and the
+archive keeps growing, even when your working list looks tidy.
 
-Clone the repository and install from source with the pinned Rust toolchain:
+You may still need last week's context without keeping every conversation
+indefinitely. Codex Retain lets you keep archived chats for 7 days, 30 days, or
+another period that suits your work. It counts time **from archiving**, so an
+old conversation archived today gets the full retention period. Restore it,
+and it stops being a candidate. Archive it again, and the clock starts over.
+
+You can preview deletions, protect specific chats, or pause the policy. Once
+enabled, ordinary runs need no further confirmation. The utility needs no cloud
+service, subscription, account, or LLM, and leaves no process running between checks.
+
+> **Check compatibility before enabling.** The current adapter supports Codex CLI
+> **0.153.4** local legacy history on macOS. An installed CLI does not establish
+> compatibility with Codex Desktop's embedded server. Spawn-related and paginated
+> histories are skipped. See [the full compatibility boundary](#compatibility).
+
+## Quick start
+
+The project is **unreleased**: install from source with Rust 1.98.1, pinned in
+`rust-toolchain.toml`. Automatic cleanup requires a compatible Codex installation
+and a macOS GUI login session.
 
 ```sh
 git clone https://github.com/Dankosik/codex-retain.git
 cd codex-retain
 cargo install --path . --locked
+codex-retain doctor
+```
+
+`doctor` checks the selected Codex executable and local database without enabling
+retention. If it reports compatibility, choose your policy:
+
+```sh
 codex-retain enable --days 30 --yes
 ```
 
-The native utility is one executable; Rust is needed only to build it. This
-repository is currently published as **unreleased source**: no version tags,
-GitHub Releases, registry packages, or deployments are published. The version
-field required by Cargo identifies development builds and is not an official
-release designation. [Local building and packaging](docs/releasing.md).
+**Deletion is permanent.** `--yes` is your consent to remove eligible local
+archives after the retention period, without asking on every run.
+**Every existing archive receives a fresh full grace period. Nothing is deleted
+when you enable the policy.**
 
-`enable --yes` is the one-time consent to permanent local deletion after the
-selected retention period. It also installs a small, explicitly owned SQLite
-transition recorder and an hourly per-user LaunchAgent. **All existing archives
-receive a fresh full grace period. Nothing is deleted by enable.** The default
-is 30 days; choose 7, 30, or any whole number from 1 through 36500.
+Check what is configured and what will happen next:
 
-For a particular installation, use explicit paths:
+```sh
+codex-retain status
+codex-retain preview
+```
+
+macOS now runs the policy hourly. For manual cleanup only, enable with
+`--no-schedule --yes` and use `run` when needed. Both modes honor the same rules.
+
+<details>
+<summary>Choose a different Codex executable or profile</summary>
+
+The default profile is `$CODEX_HOME`, otherwise `~/.codex`. The default executable
+is `codex` on PATH. To select both explicitly:
 
 ```sh
 codex-retain doctor --codex-home /path/to/codex-home --codex-bin /path/to/codex
 codex-retain enable --days 7 --codex-home /path/to/codex-home --codex-bin /path/to/codex --yes
 ```
 
-The default profile is `$CODEX_HOME`, otherwise `~/.codex`. `doctor` checks the
-selected binary and schema without enabling retention. Keep the configured
-Codex executable, and its Node runtime if using the npm launcher, available.
-The LaunchAgent captures the installation shell's PATH for that purpose.
+Keep that executable available. If you use Codex's npm launcher, keep its Node.js
+runtime available too. The LaunchAgent captures your installation shell's PATH.
+Codex Retain itself is one native executable; Rust is needed only to build it.
+
+Use `--state-dir PATH` for a separate utility policy directory. It must be
+separate from, and not nested inside, the Codex profile. One automatic policy per
+macOS user is supported; independent custom policies can use manual-only mode.
+
+</details>
+
+## How archive retention works
+
+| What happens | What Codex Retain does |
+| --- | --- |
+| You archive a conversation today | Gives it the full configured retention period, however old the conversation is |
+| You restore it before cleanup | Removes it from the eligible archive |
+| You archive it again | Starts a new retention period, even if both actions happened between cleanup runs |
+| You enable retention on an existing archive | Gives all existing archived chats a new full grace period |
+| You pin a chat in Codex or exclude its ID | Preserves it during automatic and manual cleanup |
+| A chat is active, busy, ambiguous, or unsupported | Preserves it; reports a skip or stops the run |
+
+A day means 86,400 elapsed UTC seconds. Deletion is permitted only after the full
+period has passed, on the next successful check. Sleep, logout, contention, or a
+paused policy may delay cleanup.
+
+A small SQLite extension records archive transitions in the same transaction
+as Codex changes their state, including between utility runs. Neither file
+modification time nor the last message date determines expiration. If Codex
+repairs its archive timestamp, Retain conservatively starts a new full period.
+
+The system clock must be correct. Recognized clock inconsistencies stop cleanup;
+arbitrary forward adjustments cannot be independently detected.
+[Retention design and failure model](docs/architecture.md).
 
 ## Everyday commands
 
-| Action | Command |
+| What you want to do | Command |
 | --- | --- |
-| Inspect policy, compatibility, scheduling, last result | `codex-retain status` |
-| Preview candidates and skip reasons | `codex-retain preview` |
-| Perform one cleanup now | `codex-retain run` |
+| Check policy, scheduler, compatibility, and last result | `codex-retain status` |
+| Preview candidate chats and reasons for skips | `codex-retain preview` |
+| Run cleanup once under the enabled policy | `codex-retain run` |
 | Pause all deletion | `codex-retain pause` |
-| Resume the same archive clock | `codex-retain resume` |
-| Extend retention | `codex-retain policy --days 60` |
-| Shorten retention deliberately | `codex-retain policy --days 7 --yes` |
-| Protect an important chat | `codex-retain exclude THREAD_UUID` |
-| Remove that protection deliberately | `codex-retain include THREAD_UUID --yes` |
-| Disable scheduling and transition capture | `codex-retain disable` |
-| Prepare for executable removal | `codex-retain uninstall` |
-| JSON for scripts | `codex-retain --json preview` |
-| Shell completion | `codex-retain completions zsh` |
+| Resume the same policy | `codex-retain resume` |
+| Keep archives for longer | `codex-retain policy --days 60` |
+| Deliberately shorten retention | `codex-retain policy --days 7 --yes` |
+| Protect a chat using its ID from preview | `codex-retain exclude THREAD_UUID` |
+| Remove an explicit protection | `codex-retain include THREAD_UUID --yes` |
+| Disable cleanup and remove its schedule | `codex-retain disable` |
+| Generate shell completions | `codex-retain completions zsh` |
 
-Manual cleanup follows the same enabled policy and exclusions as automatic
-cleanup. It does not bypass a pause or force-delete skipped chats. A preview is
-a snapshot, not a stored deletion permission: the live row, pin, archive epoch,
-file identity and locks are checked again when deleting.
+Pausing stops deletion while archive time continues to count. Resuming,
+shortening retention, or removing a protection can therefore make a chat due
+immediately. Shortening the period and removing an exclusion require `--yes`.
+Manual `run` never bypasses a pause or force-deletes a skipped chat.
 
-Pausing preserves archive transition capture; elapsed archive time continues
-to count. Consequently, resuming or removing a protection may make a chat due
-immediately. Shortening retention and removing an explicit protection require
-`--yes`. Ordinary runs after enable do not ask again.
+`status` reports policy, actual scheduler registration, and the last result.
+A registered job does not prove a successful cleanup. Scheduled runs stay quiet
+and replace one bounded `last-run.json`; stdout/stderr logs do not grow.
+[Scheduling and troubleshooting](docs/automation.md).
 
-For manual-only operation use `enable --no-schedule --yes`. Only one automatic
-policy per macOS user is supported. Custom independent manual policies use
-`--state-dir PATH`; policy storage and Codex home must be separate directories.
+## For scripts and coding agents
 
-## Retention rules
+Use JSON output to inspect the policy or archive without parsing terminal text:
 
-* A newly archived old conversation receives the full retention period.
-* Restoring a conversation removes its archive epoch. Archiving it again starts
-  a new epoch, even if both actions happen between hourly utility runs.
-* File creation time, last-message time and file modification time never decide
-  expiration. If Codex repairs or changes its archive timestamp, the recorder
-  conservatively starts a new full period.
-* Native Codex pins, explicit exclusions, active threads, unknown archive state,
-  absent capture, unsupported history, related threads and unsafe file paths
-  prevent deletion. A busy writer or maintenance job is skipped for a later run.
-* Unknown versions, schema changes, a replaced database or modified recorder
-  stop cleanup. There is no unsafe compatibility override.
-* A day means 86400 elapsed UTC seconds. Removal happens only after the whole
-  period has elapsed, on the next successful check. Sleep, logout, pause and
-  contention can delay cleanup; they cannot shorten the configured period.
+```sh
+codex-retain --json status
+codex-retain --json preview
+```
 
-The transition recorder is necessary because Codex 0.153.4 can reconstruct its
-own `archived_at` field from file mtime. Merely querying that field does not
-provide the promised clock. [Why this design](docs/architecture.md).
+JSON contains candidate IDs, eligibility times, skip reasons, counts, and space
+measurements. `--json run` applies the enabled policy with the same checks as
+text mode. Preview is a snapshot; deletion always rechecks eligibility.
 
-## Space and recovery
+Exit codes are `0` for a completed command, including ordinary policy skips;
+`1` for an operational failure; `2` for invalid CLI usage; and `3` for cleanup
+with artifact errors or recovery warnings. `--help`, `--version`, and completions
+work without loading Codex data or a policy.
 
-Eligible local rollout files and their selected SQLite thread rows are removed
-permanently. The tool never recursively deletes a parent and its descendants.
-There is no growing backup or Trash store. One durable intent and groups of at
-most 32 temporarily staged rollouts allow interrupted operations to recover on the next
-run. Unresolved recovery stops new deletion. Run `disable` before uninstalling
-so it can finish or roll back any pending operation.
+See the [CLI definition](src/cli.rs) and [validation record](docs/validation.md)
+for the contract. No agent framework, MCP server, API key, or model call is required.
 
-Reports distinguish:
+## What gets deleted, and what stays
 
-* `logical_bytes_removed`: removed files' lengths on disk (compressed length for
-  `.zst`, not the decompressed conversation size).
-* `allocated_bytes_unlinked`: their allocated blocks, an estimate of attributable
-  reclamation rather than a promise about physical storage.
-* `observed_free_space_delta_bytes`: the observed change in free space on the
-  volume. Other activity can make this negative or larger than the cleanup.
-* `actual_reclaimed_bytes`: `null`; APFS clones, snapshots and concurrent activity
-  prevent a reliable exact attribution.
+Codex Retain removes eligible local rollout files, their selected SQLite thread
+rows, and the reviewed metadata those rows own. It never recursively deletes
+a parent conversation and its descendants.
 
-This does **not** erase cloud history, global `history.jsonl` or
-`session_index.jsonl`, logs, separate memory/queue databases, exports, snapshots,
-or every forensic trace. SQLite reuses deleted pages; the tool does not VACUUM a
-live Codex database. Some unlocked Codex metadata operations can republish a
-rollout; newly published files are preserved and noticed when observed. This
-limitation is recorded in the compatibility report.
+Cloud history, global `history.jsonl` and `session_index.jsonl`, logs, separate
+memory and queue databases, exports, and disk snapshots remain. Cleanup does not
+erase every conversation trace or run `VACUUM` against a live SQLite profile.
 
-## Quiet operation and removal
+The utility keeps no growing Trash or backup archive. A durable journal covers
+at most 32 temporarily staged rollouts; interrupted operations recover before
+new deletion. Unresolved recovery stops the run. Some Codex metadata operations
+can republish a rollout outside the shared locks; Retain preserves those new
+objects and reports them when observed. [Coordination limits](docs/architecture.md#limits-of-coordination).
 
-The LaunchAgent runs hourly in the user GUI domain with normal short-job
-scheduling, no KeepAlive and no persistent process. Automatic stdout/stderr go to
-`/dev/null`. One bounded `last-run.json` replaces its predecessor; detailed
-interactive preview JSON is available on demand. `status` distinguishes policy
-state, LaunchAgent registration, compatibility failure and pending recovery.
-Registration alone is not evidence of a successful cleanup.
+Space reports keep different measurements separate:
+
+| JSON field | Meaning |
+| --- | --- |
+| `logical_bytes_removed` | Removed files' lengths on disk, using compressed length for `.zst` files |
+| `allocated_bytes_unlinked` | Allocated file blocks unlinked, an estimate rather than exact physical reclamation |
+| `observed_free_space_delta_bytes` | The volume's observed free-space change, including other concurrent activity |
+| `actual_reclaimed_bytes` | `null`, because APFS snapshots, shared blocks, and open handles prevent exact attribution |
+
+## Compatibility
+
+| Environment or history type | Current status |
+| --- | --- |
+| macOS with Codex CLI 0.153.4 | Supported adapter; native conformance tested on macOS 26.4 ARM64 |
+| Local legacy JSONL and zstd rollouts in `state_5.sqlite` | Supported within the reviewed schema |
+| Codex Desktop's embedded server | Not certified by the version of a separate installed CLI; every writer must use the supported protocol |
+| Threads with spawn relationships, including parents and children | Skipped |
+| Paginated or shared histories | Skipped |
+| Linux | Experimental core, doctor, and preview paths; destructive commands and scheduling disabled |
+| Windows | Not supported |
+
+Unknown Codex versions, schema changes, a replaced database, or a missing or
+modified transition recorder stop cleanup. There is no unsafe override.
+This is why some archived chats may remain after a run. See
+[the source review and real Codex tests](docs/compatibility-research.md).
+
+There are no version tags, GitHub Releases, registry packages, or deployments.
+Cargo's version field identifies development builds, not an official release.
+
+## Measured performance
+
+On an Apple M5 with 16 GiB RAM and macOS 26.4, using 10,000 synthetic archived
+chats of 4 KiB each:
+
+| Measurement | Codex Retain | codex-session-janitor |
+| --- | --- | --- |
+| Preview, median | **521 ms** | 1,368 ms |
+| Recorded maximum RSS during preview | **50.56 MiB** | 180.14 MiB |
+| Permanent cleanup, median | 19.35 s | **2.88 s** |
+
+Preview was 2.62 times faster, with a 3.56 times lower recorded RSS. Cleanup was
+slower. Retain performs fresh eligibility checks, updates SQLite, and synchronizes
+its recovery journal; the compared Janitor mode deletes files and leaves SQLite
+rows. Neither measured mode makes a backup or uses Trash.
+
+The comparison used a pinned Janitor revision, ten timed runs, three warmups,
+and fresh equivalent fixtures before each run. These are warm-cache measurements
+on a shared desktop. RSS is one separate native accounting observation per case,
+not a measured peak for the combined process tree. The Retain executable was
+3.84 MiB. [All samples, methodology, failed targets, and unmeasured metrics](docs/performance.md).
+
+We also [reviewed five existing Codex cleanup tools](docs/competitors.md) and
+[compared seven retention scenarios](docs/evidence/semantic-comparison.json).
+The differences concern their actual cleanup rules and effects, not just the
+language they are written in.
+
+## Update or uninstall
+
+To update from this checkout, replace the executable at its existing path:
+
+```sh
+git pull --ff-only
+cargo install --path . --locked --force
+```
+
+Your policy and exclusions persist. If you move the executable or its Node.js
+launcher runtime, disable the schedule and re-enable from the new location.
+**Disable Retain before upgrading Codex** so the next storage version can be
+reviewed before the SQLite extension is used with it.
+
+To remove the utility:
 
 ```sh
 codex-retain uninstall
 cargo uninstall codex-retain
 ```
 
-`uninstall` disables the policy before attempting other cleanup, removes its
-LaunchAgent and transition recorder, and retains the small policy/report for
-inspection. If Codex data is unavailable, the command reports the incomplete
-step; the policy is already disabled. Keep the executable until recovery and
-recorder removal succeed. For a manually installed binary, remove that binary
-after the first command. There is no hidden copied executable: removing the
-scheduled binary directly leaves a stale launchd entry that cannot perform
-cleanup. [Automation details](docs/automation.md).
+`uninstall` disables deletion, removes the schedule and transition recorder, and
+handles pending recovery. The small policy and report remain for inspection. If
+Codex data is unavailable, the policy is already disabled; keep the executable
+until the reported unfinished step succeeds. Remove a manually installed binary
+after `uninstall` succeeds.
 
-To update the utility at the same path, run `cargo install --path . --locked
---force`; the policy and exclusions persist. Disable Retain before upgrading
-Codex: future Codex migrations are not certified with this SQLite extension.
-Unknown Codex versions suspend cleanup until a compatible adapter is available.
-Do not edit the policy JSON to bypass
-version or schema errors. Disable and explicitly re-enable when resetting a
-repaired recorder; existing archives receive another full grace period.
+Deleting the binary directly cannot run an uninstall hook. It can leave a stale
+launchd entry, but no hidden copy exists to keep cleaning chats. Reinstall at
+the same path and run `uninstall` to remove that entry.
 
-## Development and evidence
+## Development and help
 
 ```sh
 make check
@@ -178,11 +269,22 @@ make maintenance-check
 cargo build --release --locked
 ```
 
-All deletion tests use synthetic profiles. [Development guide](docs/first-command.md)
-documents fixtures and checks. See [measured results](docs/performance.md) before
-making speed or memory claims; Rust alone is not a competitive advantage.
+The [validation record](docs/validation.md) covers 66 Rust tests, native Codex
+conformance, interruption recovery, and a temporary launchd integration test.
+All destructive tests use synthetic profiles.
 
-Initialized from [Dankosik/rust-cli-template](https://github.com/Dankosik/rust-cli-template).
-The template's CLI/parser foundation, pinned toolchain, Rust methods, native
-packaging and CI were retained and adapted; the example statistics command was
-replaced. [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md).
+For setup problems or feature requests, [open an issue](https://github.com/Dankosik/codex-retain/issues).
+Include your platform, tool versions, and relevant skip or error message; remove
+private chat contents. For security issues, follow [SECURITY.md](SECURITY.md).
+
+Read the [contributing guide](CONTRIBUTING.md),
+[development guide](docs/first-command.md), or
+[local packaging instructions](docs/releasing.md) to work on the project.
+
+## License and origin
+
+Codex Retain uses the [MIT license](LICENSE) and was built from
+[Dankosik/rust-cli-template](https://github.com/Dankosik/rust-cli-template).
+[Template provenance](docs/template-origin.md) and
+[third-party notices](THIRD_PARTY_NOTICES.md) record the source and dependency
+attributions.

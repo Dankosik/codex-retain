@@ -1,4 +1,4 @@
 * text=auto eol=lf
 *.png binary
 *.zip binary
-RUST_STDLIB_NOTICES.html -whitespace
+RUST_STDLIB_NOTICES.html -whitespace linguist-vendored
