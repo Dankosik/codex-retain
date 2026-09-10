@@ -3,13 +3,13 @@ class CodexRetain < Formula
   desc "Predictable local retention for archived Codex chats"
   homepage "https://github.com/Dankosik/codex-retain"
   if Hardware::CPU.arm?
-    url "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/codex-retain-0.1.3-aarch64-apple-darwin.tar.gz"
-    sha256 "83e798581edbbd3a1bc3022b23e3cf6408cd3daf863da862291aeeceaff53e25"
+    url "https://github.com/Dankosik/codex-retain/releases/download/0.1.4/codex-retain-0.1.4-aarch64-apple-darwin.tar.gz"
+    sha256 "6a5bc49ae494bf7e88b480d0e9bcf0de67aa8bfe3834651dabf650a8391cb0e7"
   else
-    url "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/codex-retain-0.1.3-x86_64-apple-darwin.tar.gz"
-    sha256 "869ee2ce5fafb14954ef671709c18ca1716bbdd94bc1bb32f844f7ff8c1816dc"
+    url "https://github.com/Dankosik/codex-retain/releases/download/0.1.4/codex-retain-0.1.4-x86_64-apple-darwin.tar.gz"
+    sha256 "1543e397490ae67b3db79db15811d55463149710e4aead916f47616a2fb018ea"
   end
-  version "0.1.3"
+  version "0.1.4"
   license "MIT"
 
   depends_on macos: :sequoia

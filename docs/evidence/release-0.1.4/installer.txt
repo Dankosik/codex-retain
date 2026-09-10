@@ -1,0 +1,4 @@
+Downloading codex-retain 0.1.4 (aarch64-apple-darwin)...
+Installed codex-retain 0.1.4 at /private/tmp/codex-retain-0.1.4-install/bin/codex-retain
+Add this directory to your shell PATH: /private/tmp/codex-retain-0.1.4-install/bin
+Run codex-retain doctor to check compatibility. Installation does not enable retention.

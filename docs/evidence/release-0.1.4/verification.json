@@ -1,0 +1,98 @@
+{
+  "version": "0.1.4",
+  "release_url": "https://github.com/Dankosik/codex-retain/releases/tag/0.1.4",
+  "published_at": "2026-09-10T20:11:16Z",
+  "source_commit": "6d4c145a18ec05284afdf882d8f443b7017ad292",
+  "workflow_url": "https://github.com/Dankosik/codex-retain/actions/runs/34524181285",
+  "workflow_conclusion": "success",
+  "jobs": [
+    {
+      "name": "Archive (aarch64-apple-darwin)",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Test (macos-15)",
+      "conclusion": "success"
+    },
+    {
+      "name": "Archive (x86_64-apple-darwin)",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Declared minimum Rust",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Quality and maintenance",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Dependency policy",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Test (ubuntu-22.04)",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / required",
+      "conclusion": "success"
+    },
+    {
+      "name": "publish",
+      "conclusion": "success"
+    }
+  ],
+  "assets": [
+    {
+      "name": "codex-retain-0.1.4-aarch64-apple-darwin.tar.gz",
+      "sha256": "6a5bc49ae494bf7e88b480d0e9bcf0de67aa8bfe3834651dabf650a8391cb0e7",
+      "bytes": 2035605
+    },
+    {
+      "name": "codex-retain-0.1.4-x86_64-apple-darwin.tar.gz",
+      "sha256": "1543e397490ae67b3db79db15811d55463149710e4aead916f47616a2fb018ea",
+      "bytes": 2167186
+    },
+    {
+      "name": "codex-retain.rb",
+      "sha256": "53b0b78143d9084f73cc90f5abcfe42dd2e21b128d41e867b77989ce016cc041",
+      "bytes": 1515
+    },
+    {
+      "name": "install.sh",
+      "sha256": "02e08de2a2f654673c4ec3825795240c7a8cb8fc2c5a508ec4980c810500676d",
+      "bytes": 4088
+    },
+    {
+      "name": "SHA256SUMS",
+      "sha256": "396a8c730a42587e2ba2cb8cc8dfc901bb12d394bc0a3b2871fea8fa34e36de6",
+      "bytes": 225
+    }
+  ],
+  "both_archive_manifests_verified": true,
+  "all_asset_checksums_verified": true,
+  "regenerated_formula_matches_asset": true,
+  "installed_binary_sha256": "991d65bb5815d6beb735055337db6187ae4eeb0ec08e4d917ce19203861df5c2",
+  "isolated_installer_smoke": true,
+  "isolated_homebrew_style": true,
+  "isolated_homebrew_readall": true,
+  "isolated_homebrew_test": true,
+  "isolated_homebrew_upgrade_final_exit": 0,
+  "isolated_homebrew_note": "Initial upgrade installed successfully, then attempted a slow unrelated core-tap download during post-install checks; that temporary process was interrupted. Repeating with automatic removal disabled and API mode enabled completed with exit 0. brew test and independent binary smoke checks passed.",
+  "published_binary_native_checks": [
+    {
+      "file": "native-paginated.json",
+      "checks": 13,
+      "passed": true,
+      "sha256": "215141181b1ff64d1d2176cae58f19cbd3bd4e5625b77707b9bb4aea2ece0621"
+    },
+    {
+      "file": "native-lifecycle.json",
+      "checks": 11,
+      "passed": true,
+      "sha256": "ce30ebc0fa150f8ad15590b9a5f7110c308e69f061aa3672bb9796b29830845a"
+    }
+  ],
+  "verification_scope": "Synthetic profiles and isolated package locations. Real-profile application evidence is kept privately outside Git."
+}

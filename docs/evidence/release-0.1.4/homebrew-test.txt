@@ -1,0 +1,7 @@
+==> Downloading Homebrew API data
+✔︎ JSON API packages.arm64_tahoe.jws.json
+==> Testing dankosik/codex-retain/codex-retain
+==> /private/tmp/codex-retain-0.1.3-brew/Cellar/codex-retain/0.1.4/bin/codex-ret
+==> /private/tmp/codex-retain-0.1.3-brew/Cellar/codex-retain/0.1.4/bin/codex-ret
+sysmon request failed with error: sysmond service not found
+pgrep: Cannot get process list

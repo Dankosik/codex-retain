@@ -1,0 +1,3 @@
+==> Downloading Homebrew API data
+✔︎ JSON API packages.arm64_tahoe.jws.json
+Warning: dankosik/codex-retain/codex-retain 0.1.4 already installed

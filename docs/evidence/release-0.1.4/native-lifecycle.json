@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "passed": true,
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "codex_version": "codex-cli 0.153.4",
+  "retain_version": "codex-retain 0.1.4",
+  "retain_sha256": "991d65bb5815d6beb735055337db6187ae4eeb0ec08e4d917ce19203861df5c2",
+  "codex_launcher_sha256": "c147aa90d34139599711fb568102ceefc6319ca1ac5cb6f4056ca46a1834edd9",
+  "fixture": "new isolated HOME and CODEX_HOME; native schema and native legacy threads",
+  "model_turns_submitted": 0,
+  "launchagents_installed": 0,
+  "checks": [
+    {
+      "name": "enable_immediately_deletes_preexisting_due_native_archive",
+      "passed": true
+    },
+    {
+      "name": "actual_utility_enable_preserves_recent_archive_date",
+      "passed": true,
+      "eligible": 0,
+      "archived": 2
+    },
+    {
+      "name": "native_unarchive_clears_capture",
+      "passed": true
+    },
+    {
+      "name": "native_rearchive_between_utility_runs_resets_capture",
+      "passed": true
+    },
+    {
+      "name": "native_pinned_section_is_protected",
+      "passed": true,
+      "native_legacy_pin_bit": 0,
+      "reason": "pinned_or_unknown_pin"
+    },
+    {
+      "name": "native_resume_rejects_archived_threads",
+      "passed": true
+    },
+    {
+      "name": "native_live_active_thread_is_ignored",
+      "passed": true
+    },
+    {
+      "name": "live_codex_writer_blocks_actual_utility_cleanup",
+      "passed": true,
+      "reason": "changed_busy_or_error",
+      "detail": "acquire thread and owning ancestor writer locks: busy or unavailable lock $FIXTURE/codex/thread-writer-locks/01a08cf3-69d9-7c73-b1ca-676c0b5bfe5e.lock: lock acquisition failed because the operation would block"
+    },
+    {
+      "name": "native_shutdown_allows_only_due_unpinned_archive_deletion",
+      "passed": true,
+      "deleted": 1,
+      "skipped": 1,
+      "logical_bytes_removed": 21753,
+      "actual_reclaimed_bytes": null
+    },
+    {
+      "name": "repeat_actual_cleanup_is_idempotent",
+      "passed": true
+    },
+    {
+      "name": "disable_removes_capture_and_installs_no_agent",
+      "passed": true
+    }
+  ],
+  "test_only_mutation": "age one pre-enable synthetic archive timestamp and later capture epochs; adversarially mark a native-loaded synthetic thread archived while its native writer lock remains held",
+  "app_server_user_agent": "codex-retain-conformance/0.153.4 (Mac OS 26.4.0; arm64) dumb (codex-retain-conformance; 1)",
+  "native_methods": [
+    "initialize",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/archive",
+    "thread/archive",
+    "thread/archive",
+    "thread/unarchive",
+    "thread/archive",
+    "thread/section/move",
+    "thread/unarchive",
+    "thread/resume"
+  ],
+  "native_stderr_tail": "",
+  "finished_at_utc": "2026-09-10T20:12:38Z"
+}
