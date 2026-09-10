@@ -118,19 +118,16 @@ fn a_reference_to_an_old_segment_protects_the_whole_thread() {
 }
 
 #[test]
-fn deleting_a_leaf_preserves_its_base_until_a_later_run() {
+fn deleting_a_leaf_releases_its_base_in_the_same_ordered_run() {
     let mut f = Fixture::new();
     let base = paginated(&f, 9201, None);
     let child = paginated(&f, 9202, Some(&base));
     f.age(&base);
     f.age(&child);
-    let original = fs::read(f.path(&base, true)).unwrap();
     let report = f.run(true).unwrap();
-    assert_eq!(report.deleted, 1);
-    assert!(f.exists(&base) && !f.exists(&child));
-    assert_eq!(fs::read(f.path(&base, true)).unwrap(), original);
-    assert_eq!(f.run(true).unwrap().deleted, 1);
-    assert!(!f.exists(&base));
+    assert_eq!(report.deleted, 2);
+    assert!(!f.exists(&base) && !f.exists(&child));
+    assert_eq!(f.run(true).unwrap().deleted, 0);
 }
 
 #[test]

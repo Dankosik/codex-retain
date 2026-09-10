@@ -25,7 +25,11 @@ pub enum Action {
     /// Show the current policy, compatibility, scheduler, and last run
     Status,
     /// Explain due and skipped archives without changing Codex data
-    Preview,
+    Preview {
+        /// Forecast retention at a future RFC3339 timestamp using the current snapshot
+        #[arg(long, value_name = "RFC3339")]
+        at: Option<jiff::Timestamp>,
+    },
     /// Perform one cleanup under the enabled policy
     Run {
         /// Quiet scheduler entry point; still saves the bounded last-run result

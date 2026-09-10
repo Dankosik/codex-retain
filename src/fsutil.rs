@@ -84,6 +84,22 @@ pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
 
 pub fn sync_dir(path: &Path) -> Result<()> {
     #[cfg(test)]
+    if DIRECTORY_SYNC_TRACE.with(|slot| {
+        let mut trace = slot.borrow_mut();
+        let Some(trace) = trace.as_mut() else {
+            return false;
+        };
+        trace.paths.push(path.to_path_buf());
+        if trace.failure.as_deref() == Some(path) {
+            trace.failure = None;
+            true
+        } else {
+            false
+        }
+    }) {
+        bail!("injected recovery directory sync failure");
+    }
+    #[cfg(test)]
     if JOURNAL_CLEAR_SYNC_FAILURE.with(|slot| {
         let mut target = slot.borrow_mut();
         if target.as_deref() == Some(path) && !path.join("pending.json").exists() {
@@ -103,6 +119,32 @@ pub fn sync_dir(path: &Path) -> Result<()> {
 #[cfg(test)]
 thread_local! {
     static JOURNAL_CLEAR_SYNC_FAILURE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+    static DIRECTORY_SYNC_TRACE: std::cell::RefCell<Option<DirectorySyncTrace>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+struct DirectorySyncTrace {
+    failure: Option<PathBuf>,
+    paths: Vec<PathBuf>,
+}
+
+#[cfg(test)]
+pub(crate) fn trace_directory_syncs(fail_once: Option<PathBuf>) {
+    DIRECTORY_SYNC_TRACE.with(|slot| {
+        *slot.borrow_mut() = Some(DirectorySyncTrace {
+            failure: fail_once,
+            paths: Vec::new(),
+        })
+    });
+}
+
+#[cfg(test)]
+pub(crate) fn take_directory_sync_trace() -> Vec<PathBuf> {
+    DIRECTORY_SYNC_TRACE.with(|slot| {
+        slot.borrow_mut()
+            .take()
+            .map_or_else(Vec::new, |trace| trace.paths)
+    })
 }
 
 #[cfg(test)]

@@ -24,6 +24,8 @@ pub enum EntryReason {
     UnsupportedHistoryMode,
     ReferencedHistory,
     RelatedThread,
+    DependentThread,
+    DependencyCycle,
     UnknownArchiveTime,
     MissingCapture,
     CaptureMismatch,
@@ -48,6 +50,8 @@ impl EntryReason {
             Self::UnsupportedHistoryMode => "unsupported_history_mode",
             Self::ReferencedHistory => "referenced_history",
             Self::RelatedThread => "related_thread",
+            Self::DependentThread => "dependent_thread",
+            Self::DependencyCycle => "dependency_cycle",
             Self::UnknownArchiveTime => "unknown_archive_time",
             Self::MissingCapture => "missing_capture",
             Self::CaptureMismatch => "capture_mismatch",
@@ -119,6 +123,8 @@ pub struct Report {
     pub mode: String,
     /// Run or preview start time in whole seconds since the Unix epoch.
     pub started_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evaluated_at: Option<i64>,
     pub examined: u64,
     pub eligible: u64,
     pub deleted: u64,
@@ -151,7 +157,9 @@ impl Report {
             || self.entries.iter().any(|entry| {
                 matches!(
                     entry.reason,
-                    EntryReason::ChangedBusyOrError | EntryReason::UnsafeOrUnavailableArtifact
+                    EntryReason::ChangedBusyOrError
+                        | EntryReason::UnsafeOrUnavailableArtifact
+                        | EntryReason::DependencyCycle
                 )
             })
             || !self.warnings.is_empty()
@@ -162,6 +170,7 @@ impl Report {
             schema: 1,
             mode: mode.as_str().into(),
             started_at: now,
+            evaluated_at: None,
             examined: 0,
             eligible: 0,
             deleted: 0,
@@ -190,7 +199,9 @@ impl Report {
     fn failure(&mut self, index: usize, reason: EntryReason, error: &str, detail: ReportDetail) {
         self.had_attention |= matches!(
             reason,
-            EntryReason::ChangedBusyOrError | EntryReason::UnsafeOrUnavailableArtifact
+            EntryReason::ChangedBusyOrError
+                | EntryReason::UnsafeOrUnavailableArtifact
+                | EntryReason::DependencyCycle
         );
         self.entries[index].reason = reason;
         if detail == ReportDetail::Full {
@@ -233,8 +244,6 @@ pub fn assess(t: &Thread, p: &Policy, now: i64) -> Assessment {
         EntryReason::PinnedOrUnknownPin
     } else if !supported_history_mode(&t.history_mode) {
         EntryReason::UnsupportedHistoryMode
-    } else if t.related {
-        EntryReason::RelatedThread
     } else if t.archived_at.is_none() {
         EntryReason::UnknownArchiveTime
     } else if t.epoch.is_none() {
@@ -290,63 +299,6 @@ impl RolloutVariants {
     }
 }
 
-struct Inventory {
-    paths: HashMap<String, RolloutLocation>,
-}
-
-enum RolloutLocation {
-    Missing,
-    Unique(PathBuf),
-    Ambiguous,
-}
-
-impl Inventory {
-    fn scan<'a>(home: &Path, candidates: impl Iterator<Item = &'a str>) -> Result<Self> {
-        let mut paths: HashMap<String, RolloutLocation> = candidates
-            .map(|id| (id.to_owned(), RolloutLocation::Missing))
-            .collect();
-        let mut count = 0;
-        for dir in [home.join("sessions"), home.join("archived_sessions")] {
-            if !dir.exists() {
-                continue;
-            }
-            let meta = fs::symlink_metadata(&dir)?;
-            ensure!(
-                meta.is_dir() && !meta.file_type().is_symlink(),
-                "session directory is not a real directory"
-            );
-            for entry in walkdir::WalkDir::new(&dir).follow_links(false).max_open(16) {
-                let entry = entry.context("cannot inspect all session paths")?;
-                count += 1;
-                ensure!(
-                    count <= 500000,
-                    "session inventory exceeds the 500,000-entry safety limit"
-                );
-                ensure!(
-                    !entry.file_type().is_symlink(),
-                    "session inventory contains a symlink; resolve it before cleanup"
-                );
-                if let Some(id) = entry.file_name().to_str().and_then(rollout_id)
-                    && let Some(location) = paths.get_mut(id)
-                {
-                    *location = match location {
-                        RolloutLocation::Missing => RolloutLocation::Unique(entry.into_path()),
-                        _ => RolloutLocation::Ambiguous,
-                    };
-                }
-            }
-        }
-        Ok(Self { paths })
-    }
-
-    fn unique_path(&self, id: &str) -> Option<&Path> {
-        match self.paths.get(id) {
-            Some(RolloutLocation::Unique(path)) => Some(path),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 struct Artifact {
     path: PathBuf,
@@ -361,54 +313,6 @@ struct Candidate {
     paginated: bool,
 }
 
-fn inspect(id: &str, logical_path: &Path, p: &Policy, inventory: &Inventory) -> Result<Artifact> {
-    let parsed = uuid::Uuid::parse_str(id)?;
-    ensure!(
-        parsed.hyphenated().encode_lower(&mut [0; 36]) == id,
-        "noncanonical thread ID"
-    );
-    let archive = p.codex_home.join("archived_sessions");
-    ensure!(
-        logical_path.parent() == Some(archive.as_path()),
-        "rollout path is outside the flat local archive"
-    );
-    let name = logical_path
-        .file_name()
-        .and_then(|v| v.to_str())
-        .context("unsupported rollout filename")?;
-    ensure!(
-        rollout_id(name) == Some(id),
-        "filename and thread identity differ"
-    );
-    let location = inventory.paths.get(id).context("rollout file is missing")?;
-    ensure!(
-        !matches!(location, RolloutLocation::Ambiguous),
-        "multiple rollout paths share the thread ID"
-    );
-    let path = inventory
-        .unique_path(id)
-        .context("rollout file is missing")?;
-    let compressed = PathBuf::from(format!("{}.zst", logical_path.display()));
-    ensure!(
-        path == logical_path || path == compressed,
-        "rollout inventory disagrees with the database path"
-    );
-    let variants = RolloutVariants::from_path(path);
-    ensure!(
-        !(fsutil::path_exists(&variants.plain)? && fsutil::path_exists(&variants.compressed)?),
-        "plain and compressed rollouts both exist"
-    );
-    let (file, metadata) = fsutil::regular_with_metadata(path, false, false)?;
-    let line = crate::metadata::first_record(file, path.extension().is_some_and(|v| v == "zst"))?;
-    crate::metadata::validate_metadata(&line, id)?;
-    Ok(Artifact {
-        path: path.to_owned(),
-        identity: Identity::of(&metadata),
-        bytes: metadata.len(),
-        allocated: metadata.blocks().saturating_mul(512),
-    })
-}
-
 #[derive(Debug)]
 struct ReferencedHistory;
 
@@ -420,11 +324,31 @@ impl fmt::Display for ReferencedHistory {
 
 impl std::error::Error for ReferencedHistory {}
 
-fn inspect_paginated(
+fn blocker_reason(blocker: crate::relations::Blocker) -> EntryReason {
+    match blocker {
+        crate::relations::Blocker::Children => EntryReason::DependentThread,
+        crate::relations::Blocker::History => EntryReason::ReferencedHistory,
+        crate::relations::Blocker::Cycle => EntryReason::DependencyCycle,
+    }
+}
+
+fn dependency_reason(error: &anyhow::Error) -> Option<EntryReason> {
+    if let Some(&blocker) = error.downcast_ref::<crate::relations::Blocker>() {
+        Some(blocker_reason(blocker))
+    } else {
+        error
+            .is::<ReferencedHistory>()
+            .then_some(EntryReason::ReferencedHistory)
+    }
+}
+
+fn inspect_owned(
     id: &str,
     logical_path: &Path,
     p: &Policy,
     lineage: &crate::lineage::LineageIndex,
+    paginated: bool,
+    require_unreferenced: bool,
 ) -> Result<Vec<Artifact>> {
     let owner = uuid::Uuid::parse_str(id)?;
     ensure!(owner.to_string() == id, "noncanonical thread ID");
@@ -434,32 +358,48 @@ fn inspect_paginated(
         rollouts.len() <= fsutil::MAX_BATCH_THREADS,
         "one thread owns more than 128 rollouts; automatic cleanup is bounded"
     );
+    managed_source_parents(&p.codex_home, logical_path)?;
+    let logical = RolloutVariants::from_path(logical_path);
+    let exact_selected = rollouts.iter().any(|rollout| {
+        let variants = RolloutVariants::from_path(&rollout.path);
+        logical_path == variants.plain || logical_path == variants.compressed
+    });
+    let relocated = !fsutil::path_exists(&logical.plain)?
+        && !fsutil::path_exists(&logical.compressed)?
+        && rollouts.iter().any(|rollout| {
+            RolloutVariants::from_path(&rollout.path).plain.file_name() == logical.plain.file_name()
+        });
     ensure!(
-        rollouts.iter().any(|rollout| {
-            let variants = RolloutVariants::from_path(&rollout.path);
-            logical_path == variants.plain || logical_path == variants.compressed
-        }),
-        "selected rollout is not owned by the paginated thread"
+        exact_selected || relocated,
+        "selected rollout is not owned by the thread"
     );
-    let archive = p.codex_home.join("archived_sessions");
     let mut artifacts = Vec::with_capacity(rollouts.len());
     for rollout in rollouts {
         ensure!(
-            rollout.paginated,
-            "thread has mixed legacy and paginated rollouts"
+            rollout.paginated == paginated,
+            "database and owned rollout history modes differ"
         );
-        ensure!(
-            rollout.path.parent() == Some(archive.as_path()),
-            "an owned paginated rollout is outside the flat archive"
-        );
-        if lineage.externally_referenced(rollout.rollout_id, owner) {
+        managed_source_parents(&p.codex_home, &rollout.path)?;
+        if require_unreferenced && lineage.externally_referenced(rollout.rollout_id, owner) {
             return Err(ReferencedHistory.into());
         }
-        let (_file, metadata) = fsutil::regular_with_metadata(&rollout.path, false, false)?;
+        let (file, metadata) = fsutil::regular_with_metadata(&rollout.path, false, false)?;
         ensure!(
             Identity::of(&metadata) == rollout.identity,
             "paginated rollout changed after reference discovery"
         );
+        let line = crate::metadata::first_record(
+            file,
+            rollout
+                .path
+                .extension()
+                .is_some_and(|extension| extension == "zst"),
+        )?;
+        if paginated {
+            crate::lineage::validate_owner(&line, owner)?;
+        } else {
+            crate::metadata::validate_metadata(&line, id)?;
+        }
         artifacts.push(Artifact {
             path: rollout.path.clone(),
             identity: rollout.identity.clone(),
@@ -486,6 +426,8 @@ struct PendingItem {
     thread_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rollout_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    slot: Option<u32>,
     artifact: Artifact,
     staged: PathBuf,
 }
@@ -507,7 +449,7 @@ impl Journal {
         match self {
             Self::Batch(batch) => {
                 ensure!(
-                    matches!(batch.schema, 2 | 3),
+                    matches!(batch.schema, 2..=4),
                     "unrecognized pending deletion schema"
                 );
                 Ok(batch)
@@ -520,6 +462,7 @@ impl Journal {
                     items: vec![PendingItem {
                         thread_id: one.thread_id,
                         rollout_id: None,
+                        slot: None,
                         artifact: one.artifact,
                         staged: one.staged,
                     }],
@@ -539,6 +482,78 @@ fn stage_path(home: &Path, id: &str) -> PathBuf {
 fn rollout_stage_path(home: &Path, thread_id: &str, rollout_id: &str) -> PathBuf {
     home.join("archived_sessions")
         .join(format!(".codex-retain-pending-{thread_id}-{rollout_id}"))
+}
+
+fn copy_stage_path(home: &Path, thread_id: &str, rollout_id: &str, slot: u32) -> PathBuf {
+    home.join("archived_sessions").join(format!(
+        ".codex-retain-pending-{thread_id}-{rollout_id}-{slot}"
+    ))
+}
+
+/// Validate every ancestor; missing directories may only be created by recovery.
+fn managed_source_parents(home: &Path, source: &Path) -> Result<Vec<PathBuf>> {
+    use std::path::Component;
+    ensure!(source.is_absolute(), "rollout source must be absolute");
+    let relative = source
+        .strip_prefix(home)
+        .context("rollout source is outside Codex home")?;
+    let first = relative.components().next();
+    ensure!(
+        matches!(first, Some(Component::Normal(name)) if name == "sessions" || name == "archived_sessions"),
+        "rollout source is outside managed session roots"
+    );
+    ensure!(
+        !relative
+            .components()
+            .any(|component| matches!(component, Component::ParentDir)),
+        "rollout source contains parent traversal"
+    );
+    let parent = source.parent().context("rollout source has no parent")?;
+    ensure!(
+        parent != home,
+        "rollout source is not inside a session directory"
+    );
+    let mut parents = vec![home.to_path_buf()];
+    for component in parent.strip_prefix(home)?.components() {
+        parents.push(
+            parents
+                .last()
+                .context("missing source root")?
+                .join(component),
+        );
+    }
+    for directory in &parents {
+        match fs::symlink_metadata(directory) {
+            Ok(meta) => ensure!(
+                meta.is_dir() && !meta.file_type().is_symlink(),
+                "rollout source ancestor is not a real directory: {}",
+                directory.display()
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error).context("inspect rollout source ancestor"),
+        }
+    }
+    Ok(parents)
+}
+
+fn prepare_restore_parent(home: &Path, source: &Path) -> Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    let parents = managed_source_parents(home, source)?;
+    for pair in parents.windows(2) {
+        match fs::symlink_metadata(&pair[1]) {
+            Ok(meta) => ensure!(
+                meta.is_dir() && !meta.file_type().is_symlink(),
+                "recovery directory changed"
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                fs::DirBuilder::new().mode(0o700).create(&pair[1])?;
+                fsutil::sync_dir(&pair[1])?;
+                fsutil::sync_dir(&pair[0])?;
+            }
+            Err(error) => return Err(error).context("prepare recovery source directory"),
+        }
+    }
+    Ok(())
 }
 fn archive_directory(p: &Policy) -> Result<PathBuf> {
     let archive = p.codex_home.join("archived_sessions");
@@ -561,7 +576,21 @@ fn validate_intent(intent: &BatchIntent, p: &Policy) -> Result<()> {
     );
     let mut ids = HashSet::new();
     let mut rollout_ids = HashSet::new();
-    for item in &intent.items {
+    let mut sources = HashSet::new();
+    for (index, item) in intent.items.iter().enumerate() {
+        ensure!(
+            sources.insert(&item.artifact.path),
+            "duplicate pending source path"
+        );
+        ensure!(
+            item.slot
+                == if intent.schema == 4 {
+                    Some(u32::try_from(index)?)
+                } else {
+                    None
+                },
+            "invalid pending slot"
+        );
         ensure!(
             uuid::Uuid::parse_str(&item.thread_id)?.to_string() == item.thread_id,
             "invalid pending thread ID"
@@ -576,13 +605,23 @@ fn validate_intent(intent: &BatchIntent, p: &Policy) -> Result<()> {
                 );
                 item.thread_id.as_str()
             }
-            (3, Some(rollout)) => {
+            (3 | 4, Some(rollout)) => {
                 ensure!(
                     uuid::Uuid::parse_str(rollout)?.to_string() == rollout,
                     "invalid pending rollout ID"
                 );
                 ensure!(
-                    item.staged == rollout_stage_path(&p.codex_home, &item.thread_id, rollout),
+                    item.staged
+                        == if intent.schema == 4 {
+                            copy_stage_path(
+                                &p.codex_home,
+                                &item.thread_id,
+                                rollout,
+                                u32::try_from(index)?,
+                            )
+                        } else {
+                            rollout_stage_path(&p.codex_home, &item.thread_id, rollout)
+                        },
                     "invalid pending staging path"
                 );
                 let filename = crate::lineage::filename(
@@ -602,9 +641,17 @@ fn validate_intent(intent: &BatchIntent, p: &Policy) -> Result<()> {
             }
             _ => anyhow::bail!("pending rollout identity does not match journal schema"),
         };
-        ensure!(rollout_ids.insert(rollout), "duplicate pending rollout ID");
         ensure!(
-            item.artifact.path.parent() == Some(p.codex_home.join("archived_sessions").as_path()),
+            rollout_ids.insert(rollout) || intent.schema == 4,
+            "duplicate pending rollout ID"
+        );
+        if intent.schema == 4 {
+            managed_source_parents(&p.codex_home, &item.artifact.path)?;
+        }
+        ensure!(
+            intent.schema == 4
+                || item.artifact.path.parent()
+                    == Some(p.codex_home.join("archived_sessions").as_path()),
             "invalid recovery source path"
         );
         ensure!(
@@ -639,12 +686,41 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
     let tx = c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     database::verify_base(&tx)?;
     database::verify_policy(&tx, p)?;
+    let mut restored_parents = std::collections::BTreeSet::new();
     let mut restored = 0;
     let mut finished = 0;
     let mut exists_query = tx.prepare("SELECT EXISTS(SELECT 1 FROM threads WHERE id=?)")?;
     for item in &intent.items {
         let exists: bool = exists_query.query_row([&item.thread_id], |r| r.get(0))?;
+        if exists && intent.schema == 4 {
+            restored_parents.extend(managed_source_parents(&p.codex_home, &item.artifact.path)?);
+        }
         if !fsutil::path_exists(&item.staged)? {
+            if exists && intent.schema == 4 {
+                // A previous recovery may have restored this file but stopped
+                // before its directory barrier. Keep that barrier on every retry.
+                let (file, metadata) =
+                    fsutil::regular_with_metadata(&item.artifact.path, false, false)?;
+                ensure!(
+                    Identity::of(&metadata) == item.artifact.identity,
+                    "restored source identity changed; manual recovery required"
+                );
+                let line = crate::metadata::first_record(
+                    file,
+                    item.artifact
+                        .path
+                        .extension()
+                        .is_some_and(|extension| extension == "zst"),
+                )?;
+                crate::lineage::validate_owner(&line, uuid::Uuid::parse_str(&item.thread_id)?)?;
+                restored_parents.insert(
+                    item.artifact
+                        .path
+                        .parent()
+                        .context("missing restored parent")?
+                        .to_path_buf(),
+                );
+            }
             continue;
         }
         let (file, metadata) = fsutil::regular_with_metadata(&item.staged, false, false)?;
@@ -652,7 +728,7 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
             Identity::of(&metadata) == item.artifact.identity,
             "staged file identity changed; manual recovery required"
         );
-        if intent.schema == 3 {
+        if intent.schema >= 3 {
             let line = crate::metadata::first_record(
                 file,
                 item.artifact
@@ -665,6 +741,14 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
             drop(file);
         }
         if exists {
+            prepare_restore_parent(&p.codex_home, &item.artifact.path)?;
+            restored_parents.insert(
+                item.artifact
+                    .path
+                    .parent()
+                    .context("missing restore parent")?
+                    .to_path_buf(),
+            );
             fsutil::rename_without_overwrite_unsynced(&item.staged, &item.artifact.path)?;
             restored += 1;
         } else {
@@ -673,6 +757,9 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
         }
     }
     drop(exists_query);
+    for parent in restored_parents.into_iter().rev() {
+        fsutil::sync_dir(&parent)?;
+    }
     fsutil::sync_dir(&archive)?;
     tx.commit()?;
     fsutil::remove_durable(&path)?;
@@ -694,7 +781,7 @@ struct Cleanup<'run, 'connection> {
     policy: &'run Policy,
     store: &'run Store,
     now: i64,
-    inventory: &'run Inventory,
+    graph: &'run crate::relations::Dependencies,
     owners: RolloutOwners<'connection>,
     detail: ReportDetail,
     #[cfg(test)]
@@ -712,7 +799,15 @@ impl Cleanup<'_, '_> {
         let store = self.store;
         let archive = archive_directory(p).context(GlobalCleanupFailure)?;
         let _maintenance = fsutil::maintenance(&p.codex_home)?;
-        let _writers = ThreadLocks::acquire(&p.codex_home, ids)?;
+        let deleting: HashSet<_> = ids
+            .iter()
+            .map(|id| uuid::Uuid::parse_str(id))
+            .collect::<Result<_, _>>()?;
+        let guards = self.graph.ancestors(&deleting, fsutil::MAX_BATCH_THREADS)?;
+        let guard_ids: Vec<_> = guards.iter().map(ToString::to_string).collect();
+        let guard_names: Vec<_> = guard_ids.iter().map(String::as_str).collect();
+        let _writers = ThreadLocks::acquire(&p.codex_home, &guard_names)
+            .context("acquire thread and owning ancestor writer locks")?;
         let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate)?;
         database::verify_base(&tx).context(GlobalCleanupFailure)?;
         database::verify_policy(&tx, p).context(GlobalCleanupFailure)?;
@@ -730,34 +825,35 @@ impl Cleanup<'_, '_> {
             threads.push(thread);
         }
         drop(thread_query);
-        let paginated: HashSet<_> = threads
-            .iter()
-            .filter(|thread| thread.history_mode == "paginated")
-            .map(|thread| uuid::Uuid::parse_str(&thread.id))
-            .collect::<Result<_, _>>()?;
-        // Rebuild incoming references under the candidate writer locks and the
-        // live state transaction. The preview inventory is never deletion proof.
-        let lineage = if paginated.is_empty() {
-            None
-        } else {
-            Some(crate::lineage::scan(&p.codex_home, &paginated).context(GlobalCleanupFailure)?)
-        };
+        // File metadata also carries parent ownership when SQL edges are absent.
+        // Rebuild both dependency kinds after locks and the live state transaction.
+        let lineage =
+            crate::lineage::scan(&p.codex_home, &deleting).context(GlobalCleanupFailure)?;
+        let mut fresh = crate::relations::Dependencies::default();
+        database::add_spawn_dependencies(&tx, &mut fresh).context(GlobalCleanupFailure)?;
+        lineage.add_dependencies(&mut fresh);
+        let fresh_guards = fresh
+            .ancestors(&deleting, fsutil::MAX_BATCH_THREADS)
+            .context(GlobalCleanupFailure)?;
+        ensure!(
+            fresh_guards.is_subset(&guards),
+            "owning ancestors changed before deletion; retry with a fresh snapshot"
+        );
+        fresh.verify_removal(&deleting)?;
         let mut intent = BatchIntent {
-            schema: if lineage.is_some() { 3 } else { 2 },
+            schema: 4,
             owner: p.owner.clone(),
             items: Vec::new(),
         };
         for thread in &threads {
-            let artifacts = if thread.history_mode == "paginated" {
-                inspect_paginated(
-                    &thread.id,
-                    &thread.path,
-                    p,
-                    lineage.as_ref().context("missing lineage inventory")?,
-                )?
-            } else {
-                vec![inspect(&thread.id, &thread.path, p, self.inventory)?]
-            };
+            let artifacts = inspect_owned(
+                &thread.id,
+                &thread.path,
+                p,
+                &lineage,
+                thread.history_mode == "paginated",
+                true,
+            )?;
             for artifact in artifacts {
                 let rollout = artifact
                     .path
@@ -766,18 +862,16 @@ impl Cleanup<'_, '_> {
                     .and_then(rollout_id)
                     .context("invalid rollout identity")?
                     .to_owned();
-                let staged = if intent.schema == 3 {
-                    rollout_stage_path(&p.codex_home, &thread.id, &rollout)
-                } else {
-                    stage_path(&p.codex_home, &thread.id)
-                };
+                let slot = u32::try_from(intent.items.len())?;
+                let staged = copy_stage_path(&p.codex_home, &thread.id, &rollout, slot);
                 ensure!(
                     !fsutil::path_exists(&staged)?,
                     "an untracked staged file exists; inspect it before cleanup"
                 );
                 intent.items.push(PendingItem {
                     thread_id: thread.id.clone(),
-                    rollout_id: (intent.schema == 3).then_some(rollout),
+                    rollout_id: Some(rollout),
+                    slot: Some(slot),
                     artifact,
                     staged,
                 });
@@ -793,11 +887,36 @@ impl Cleanup<'_, '_> {
         let delete_query = database::prepare_delete(&tx)?;
         *journal_write_attempted = true;
         fsutil::atomic_json(&intent_path(store), &intent)?;
+        let mut source_parents = std::collections::BTreeSet::new();
         for item in &intent.items {
+            managed_source_parents(&p.codex_home, &item.artifact.path)?;
+            source_parents.insert(
+                item.artifact
+                    .path
+                    .parent()
+                    .context("missing source parent")?,
+            );
             fsutil::rename_without_overwrite_unsynced(&item.artifact.path, &item.staged)?;
+            let (file, metadata) = fsutil::regular_with_metadata(&item.staged, false, false)?;
+            ensure!(
+                Identity::of(&metadata) == item.artifact.identity,
+                "staged file identity changed before commit"
+            );
+            let line = crate::metadata::first_record(
+                file,
+                item.artifact
+                    .path
+                    .extension()
+                    .is_some_and(|extension| extension == "zst"),
+            )?;
+            crate::lineage::validate_owner(&line, uuid::Uuid::parse_str(&item.thread_id)?)?;
+        }
+        for parent in source_parents {
+            fsutil::sync_dir(parent)?;
         }
         fsutil::sync_dir(&archive)?;
         database::delete_rows(delete_query, &threads)?;
+        database::delete_spawn_edges(&tx, &threads)?;
         tx.commit()?;
         self.owners.acknowledge_local_deletes();
         let mut removed = HashMap::<String, (u64, u64)>::new();
@@ -855,6 +974,7 @@ fn verify_rollout_owners(
         );
         for path in [&variants.plain, &variants.compressed] {
             let path = path.to_str().context("non-UTF-8 path")?;
+            cache.register_exact(path, &item.thread_id);
             if let Some(previous) = owners.insert(path.to_owned(), item.thread_id.as_str()) {
                 ensure!(
                     previous == item.thread_id,
@@ -942,11 +1062,7 @@ impl Cleanup<'_, '_> {
                     for &index in &indices[range] {
                         report.failure(
                             index,
-                            if error.is::<ReferencedHistory>() {
-                                EntryReason::ReferencedHistory
-                            } else {
-                                EntryReason::ChangedBusyOrError
-                            },
+                            dependency_reason(&error).unwrap_or(EntryReason::ChangedBusyOrError),
                             &message,
                             self.detail,
                         );
@@ -1056,26 +1172,22 @@ fn execute_with_detail(
     })?;
     // Finish the entire bounded snapshot before deletion, including the
     // 100,001st-row guard. Only candidate paths survive alongside report state.
-    let inventory = if candidates.is_empty() {
-        Inventory {
-            paths: HashMap::new(),
-        }
-    } else {
-        Inventory::scan(
-            &p.codex_home,
-            candidates
-                .iter()
-                .map(|candidate| report.entries[candidate.report_index].id.as_str()),
-        )?
-    };
-    let paginated: HashSet<_> = candidates
+    let candidate_ids: HashSet<_> = candidates
         .iter()
-        .filter(|candidate| candidate.paginated)
         .filter_map(|candidate| {
             uuid::Uuid::parse_str(&report.entries[candidate.report_index].id).ok()
         })
         .collect();
-    let lineage = (!paginated.is_empty()).then(|| crate::lineage::scan(&p.codex_home, &paginated));
+    let mut graph = crate::relations::Dependencies::default();
+    let lineage = if candidates.is_empty() {
+        Ok(crate::lineage::LineageIndex::default())
+    } else {
+        crate::lineage::scan(&p.codex_home, &candidate_ids).and_then(|lineage| {
+            database::add_spawn_dependencies(c, &mut graph)?;
+            lineage.add_dependencies(&mut graph);
+            Ok(lineage)
+        })
+    };
     let mut selected_paths = HashMap::new();
     let before = apply
         .then(|| fsutil::volume_available(&p.codex_home))
@@ -1093,22 +1205,19 @@ fn execute_with_detail(
     for candidate in candidates {
         let index = candidate.report_index;
         let id = &report.entries[index].id;
-        let artifacts = if candidate.paginated {
-            match &lineage {
-                Some(Ok(lineage)) => inspect_paginated(id, &candidate.path, p, lineage),
-                Some(Err(error)) => Err(anyhow::anyhow!(
-                    "cannot verify paginated references: {error:#}"
-                )),
-                None => Err(anyhow::anyhow!("invalid paginated thread identity")),
+        let artifacts = match &lineage {
+            Ok(lineage) => {
+                inspect_owned(id, &candidate.path, p, lineage, candidate.paginated, false)
             }
-        } else {
-            inspect(id, &candidate.path, p, &inventory).map(|artifact| vec![artifact])
+            Err(error) => Err(anyhow::anyhow!(
+                "cannot verify history and ownership dependencies: {error:#}"
+            )),
         };
         match artifacts {
             Ok(artifacts) => {
                 let bytes = artifacts.iter().map(|artifact| artifact.bytes).sum();
                 report.entries[index].bytes = Some(bytes);
-                report.selected_bytes += bytes;
+                due.push(index);
                 if apply {
                     selected_paths.insert(
                         index,
@@ -1127,9 +1236,6 @@ fn execute_with_detail(
                             &report.entries[index].id,
                         );
                     }
-                    due.push(index);
-                } else {
-                    report.eligible += 1;
                 }
             }
             Err(error) => {
@@ -1147,27 +1253,71 @@ fn execute_with_detail(
             }
         }
     }
+    // File validation precedes dependency pruning: an unavailable or protected
+    // child must keep its parents, even when their own files are valid.
+    let mut indices = HashMap::new();
+    for &index in &due {
+        let id = uuid::Uuid::parse_str(&report.entries[index].id)?;
+        match graph.ancestors(&HashSet::from([id]), fsutil::MAX_BATCH_THREADS) {
+            Ok(_) => {
+                indices.insert(id, index);
+            }
+            Err(error) => {
+                report.failure(
+                    index,
+                    EntryReason::UnsafeOrUnavailableArtifact,
+                    &format!("{error:#}"),
+                    detail,
+                );
+            }
+        }
+    }
+    let plan = graph.plan(&indices.keys().copied().collect());
+    for (id, blocker) in plan.blocked {
+        report.failure(
+            indices[&id],
+            blocker_reason(blocker),
+            &blocker.to_string(),
+            detail,
+        );
+    }
+    let layers: Vec<Vec<usize>> = plan
+        .layers
+        .into_iter()
+        .map(|layer| layer.into_iter().map(|id| indices[&id]).collect())
+        .collect();
+    report.selected_bytes = layers
+        .iter()
+        .flatten()
+        .map(|&index| report.entries[index].bytes.unwrap_or(0))
+        .sum();
+    if !apply {
+        report.eligible = layers.iter().map(Vec::len).sum::<usize>() as u64;
+        report.skipped = report.examined.saturating_sub(report.eligible);
+    }
     if apply {
         let mut cleanup = Cleanup {
             policy: p,
             store,
             now,
-            inventory: &inventory,
+            graph: &graph,
             owners,
             detail,
             #[cfg(test)]
             completed_batches: 0,
         };
-        for indices in due.chunks(fsutil::MAX_BATCH_THREADS) {
-            if cleanup.apply_group(c, &mut report, indices)?.is_break() {
-                for entry in report
-                    .entries
-                    .iter_mut()
-                    .filter(|entry| entry.reason == EntryReason::Eligible)
-                {
-                    entry.reason = EntryReason::RunStopped;
+        'layers: for layer in &layers {
+            for group in layer.chunks(fsutil::MAX_BATCH_THREADS) {
+                if cleanup.apply_group(c, &mut report, group)?.is_break() {
+                    for entry in report
+                        .entries
+                        .iter_mut()
+                        .filter(|entry| entry.reason == EntryReason::Eligible)
+                    {
+                        entry.reason = EntryReason::RunStopped;
+                    }
+                    break 'layers;
                 }
-                break;
             }
         }
         #[cfg(test)]
@@ -1247,6 +1397,8 @@ mod tests {
             ),
             (EntryReason::ReferencedHistory, "referenced_history", false),
             (EntryReason::RelatedThread, "related_thread", false),
+            (EntryReason::DependentThread, "dependent_thread", false),
+            (EntryReason::DependencyCycle, "dependency_cycle", true),
             (
                 EntryReason::UnknownArchiveTime,
                 "unknown_archive_time",
@@ -1356,27 +1508,27 @@ mod tests {
         for number in 2..=100 {
             fixture.add(number, 0);
         }
-        let inventory = Inventory::scan(&fixture.home, std::iter::once(due.as_str())).unwrap();
-        assert_eq!(inventory.paths.len(), 1);
-        assert_eq!(
-            inventory.unique_path(&due),
-            Some(fixture.path(&due, true).as_path())
-        );
-
+        let owner = uuid::Uuid::parse_str(&due).unwrap();
+        let candidates = HashSet::from([owner]);
+        let inventory = crate::lineage::scan(&fixture.home, &candidates).unwrap();
+        assert_eq!(inventory.owned(owner).len(), 1);
+        assert_eq!(inventory.owned(owner)[0].path, fixture.path(&due, true));
+        assert!(inventory.owned(uuid::Uuid::from_u128(2)).is_empty());
         let duplicate = fixture
             .home
             .join("sessions")
             .join(fixture.path(&due, true).file_name().unwrap());
-        fs::write(&duplicate, b"duplicate identity").unwrap();
-        let inventory = Inventory::scan(&fixture.home, std::iter::once(due.as_str())).unwrap();
-        assert!(matches!(
-            inventory.paths.get(&due),
-            Some(RolloutLocation::Ambiguous)
-        ));
-
+        fs::copy(fixture.path(&due, true), &duplicate).unwrap();
+        assert_eq!(
+            crate::lineage::scan(&fixture.home, &candidates)
+                .unwrap()
+                .owned(owner)
+                .len(),
+            2
+        );
         std::os::unix::fs::symlink("missing", fixture.home.join("sessions/unrelated-link"))
             .unwrap();
-        assert!(Inventory::scan(&fixture.home, std::iter::once(due.as_str())).is_err());
+        assert!(crate::lineage::scan(&fixture.home, &candidates).is_err());
     }
 
     #[test]
@@ -1640,5 +1792,96 @@ mod tests {
         );
         assert!(fixture.path(&ids[fsutil::MAX_BATCH_THREADS], true).exists());
         assert_eq!(fixture.run(true).unwrap().deleted, 1);
+    }
+
+    #[test]
+    fn recovery_retries_every_cross_directory_barrier_after_partial_failure() {
+        for recreate_directories in [false, true] {
+            let mut fixture = test_support::Fixture::new();
+            let owner = fixture.add(1, 1);
+            let archived = fixture.path(&owner, true);
+            let source = fixture
+                .home
+                .join("sessions/2025/01/01")
+                .join(archived.file_name().unwrap());
+            fs::create_dir_all(source.parent().unwrap()).unwrap();
+            fs::rename(&archived, &source).unwrap();
+            let original = fs::read(&source).unwrap();
+            let metadata = fs::metadata(&source).unwrap();
+            let staged = copy_stage_path(&fixture.home, &owner, &owner, 0);
+            let intent = BatchIntent {
+                schema: 4,
+                owner: fixture.policy.owner.clone(),
+                items: vec![PendingItem {
+                    thread_id: owner.clone(),
+                    rollout_id: Some(owner.clone()),
+                    slot: Some(0),
+                    artifact: Artifact {
+                        path: source.clone(),
+                        identity: Identity::of(&metadata),
+                        bytes: metadata.len(),
+                        allocated: metadata.blocks() * 512,
+                    },
+                    staged: staged.clone(),
+                }],
+            };
+            fsutil::atomic_json(&intent_path(&fixture.store), &intent).unwrap();
+            fs::rename(&source, &staged).unwrap();
+            if recreate_directories {
+                for directory in ["sessions/2025/01/01", "sessions/2025/01", "sessions/2025"] {
+                    fs::remove_dir(fixture.home.join(directory)).unwrap();
+                }
+            }
+            let failed_directory = if recreate_directories {
+                fixture.home.join("sessions")
+            } else {
+                source.parent().unwrap().to_path_buf()
+            };
+            fsutil::trace_directory_syncs(Some(failed_directory.clone()));
+            let failure = recover(&mut fixture.c, &fixture.policy, &fixture.store);
+            let first_trace = fsutil::take_directory_sync_trace();
+            assert!(
+                failure
+                    .unwrap_err()
+                    .to_string()
+                    .contains("injected recovery directory sync failure")
+            );
+            assert!(first_trace.contains(&failed_directory));
+            assert!(intent_path(&fixture.store).exists());
+            if !recreate_directories {
+                assert!(
+                    source.exists() && !staged.exists(),
+                    "retry must cover a copy already restored before its barrier failed"
+                );
+            }
+            fsutil::trace_directory_syncs(None);
+            let retried = recover(&mut fixture.c, &fixture.policy, &fixture.store);
+            let retry_trace = fsutil::take_directory_sync_trace();
+            retried.unwrap();
+            let ancestors = managed_source_parents(&fixture.home, &source).unwrap();
+            let mut previous = None;
+            for ancestor in ancestors.iter().rev() {
+                let position = retry_trace
+                    .iter()
+                    .rposition(|path| path == ancestor)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "retry omitted durability barrier for {}",
+                            ancestor.display()
+                        )
+                    });
+                if let Some(previous) = previous {
+                    assert!(
+                        previous < position,
+                        "source ancestry must be synced bottom-up"
+                    );
+                }
+                previous = Some(position);
+            }
+            assert!(retry_trace.contains(&fixture.home.join("archived_sessions")));
+            assert_eq!(fs::read(&source).unwrap(), original);
+            assert!(fixture.exists(&owner));
+            assert!(!staged.exists() && !intent_path(&fixture.store).exists());
+        }
     }
 }

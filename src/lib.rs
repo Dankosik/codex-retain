@@ -7,6 +7,7 @@ pub mod fsutil;
 mod lineage;
 mod metadata;
 mod owners;
+mod relations;
 pub mod scheduler;
 
 #[cfg(test)]
@@ -323,7 +324,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 &message,
             )?;
         }
-        Action::Preview | Action::Run { .. } => {
+        Action::Preview { .. } | Action::Run { .. } => {
             let mode = if matches!(cli.command, Action::Run { .. }) {
                 ExecutionMode::Run
             } else {
@@ -345,6 +346,14 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             };
             let mut db = database::open(&p.codex_home, access)?;
             let now = config::now()?;
+            let forecast_at = match cli.command {
+                Action::Preview { at } => at.map(|timestamp| timestamp.as_second()),
+                _ => None,
+            };
+            ensure!(
+                forecast_at.is_none_or(|at| at >= now),
+                "preview --at must be the current time or a future RFC3339 timestamp"
+            );
             if apply && store.root.join("last-run.json").exists() {
                 let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
                 ensure!(
@@ -352,11 +361,15 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                     "system clock moved backwards since the last run"
                 );
             }
-            let report = if quiet {
+            let mut report = if quiet {
                 engine::execute_scheduled(&mut db, &p, &store, now)?
             } else {
-                engine::execute(&mut db, &p, &store, now, mode)?
+                engine::execute(&mut db, &p, &store, forecast_at.unwrap_or(now), mode)?
             };
+            if let Some(at) = forecast_at {
+                report.started_at = now;
+                report.evaluated_at = Some(at);
+            }
             let incomplete = report.requires_attention();
             if apply {
                 fsutil::atomic_json(
@@ -369,6 +382,13 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                     serde_json::to_writer(&mut *out, &report)?;
                     writeln!(out)?;
                 } else {
+                    if let Some(at) = forecast_at {
+                        writeln!(
+                            out,
+                            "Forecast for {} using the current profile snapshot. No deletion. Future changes can alter eligibility; this is not a cleanup guarantee.",
+                            date(Some(at))
+                        )?;
+                    }
                     writeln!(
                         out,
                         "{}: {} examined, {} eligible, {} deleted, {} skipped.",

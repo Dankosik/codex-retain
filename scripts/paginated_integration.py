@@ -233,14 +233,12 @@ background_paginated_rollout_migration = false
         app.request("thread/archive", {"threadId": child})
         child_path = Path(row(child)[1])
         age(child)
-        # One run inventories both references before mutation: only the leaf
-        # becomes removable; the source is eligible on the following inventory.
+        # Dependency ordering removes the leaf, then rechecks and removes the
+        # source's two owned segments within the same cleanup invocation.
         run = cli("run", allowed=(0, 3))
-        check("archived_fork_leaf_deleted_before_source", run["deleted"] == 1 and row(child) is None and not child_path.exists()
-              and row(source) is not None and source_path.exists(), deleted=run["deleted"], entries=run["entries"])
-        run = cli("run")
-        check("unreferenced_source_deleted_on_next_run", run["deleted"] == 1 and row(source) is None
-              and not source_path.exists() and not archived_original.exists(), deleted=run["deleted"], owned_rollouts_removed=2)
+        check("archived_fork_and_released_source_deleted_in_one_run", run["deleted"] == 2 and row(child) is None
+              and not child_path.exists() and row(source) is None and not source_path.exists()
+              and not archived_original.exists(), deleted=run["deleted"], owned_rollouts_removed=3)
         check("native_paginated_cleanup_idempotent", cli("run")["deleted"] == 0)
         cli("disable")
         check("no_launchagent_installed", not (home / "Library/LaunchAgents").exists())

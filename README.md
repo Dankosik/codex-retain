@@ -28,8 +28,9 @@ service, subscription, account, or LLM, and leaves no process running between ch
 
 > **Check compatibility before enabling.** The current adapter supports Codex CLI
 > **0.153.4** local history on macOS. An installed CLI does not establish
-> compatibility with Codex Desktop's embedded server. Spawn-related threads and
-> histories still referenced by other threads are preserved. See [the full compatibility boundary](#compatibility).
+> compatibility with Codex Desktop's embedded server. Cleanup removes eligible
+> dependent chats before their parents or shared history. Surviving dependents
+> keep those sources protected. See [the full compatibility boundary](#compatibility).
 
 ## Quick start
 
@@ -46,7 +47,7 @@ codex-retain doctor
 
 The installer checks SHA-256 and installs to `~/.local/bin`. Add that directory
 to your shell's PATH permanently if needed. Installation never enables retention.
-For a specific release, use `CODEX_RETAIN_VERSION=0.1.1 sh /tmp/codex-retain-install.sh`.
+For a specific release, use `CODEX_RETAIN_VERSION=0.1.2 sh /tmp/codex-retain-install.sh`.
 Set `CODEX_RETAIN_INSTALL_DIR` to choose a different absolute installation directory.
 
 ### Homebrew
@@ -65,7 +66,7 @@ This tap installs the same prebuilt binaries and shell completions. Enable using
 To compile the tagged source, install Rust 1.98.1 and a C toolchain, then run:
 
 ```sh
-cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.1 --locked codex-retain
+cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.2 --locked codex-retain
 ```
 
 Or download the matching archive and `SHA256SUMS` from
@@ -170,6 +171,7 @@ arbitrary forward adjustments cannot be independently detected.
 | --- | --- |
 | Check policy, scheduler, compatibility, and last result | `codex-retain status` |
 | Preview candidate chats and reasons for skips | `codex-retain preview` |
+| Forecast the current archive at a future UTC time | `codex-retain preview --at 2027-01-01T00:00:00Z` |
 | Run cleanup once under the enabled policy | `codex-retain run` |
 | Pause all deletion | `codex-retain pause` |
 | Resume the same policy | `codex-retain resume` |
@@ -184,6 +186,12 @@ Pausing stops deletion while archive time continues to count. Resuming,
 shortening retention, or removing a protection can therefore make a chat due
 immediately. Shortening the period and removing an exclusion require `--yes`.
 Manual `run` never bypasses a pause or force-deletes a skipped chat.
+
+`preview --at` evaluates the current profile at a future RFC3339 timestamp. It
+does not advance capture epochs, change the policy, or delete files. The forecast
+shows what would qualify if the observed archive and dependencies stayed the
+same; new children, pins, restores, and busy writers can change the eventual
+result. Only `preview` accepts `--at`.
 
 `status` reports policy, actual scheduler registration, and the last result.
 A registered job does not prove a successful cleanup. Scheduled runs stay quiet
@@ -202,6 +210,9 @@ codex-retain --json preview
 JSON contains candidate IDs, eligibility times, skip reasons, counts, and space
 measurements. `--json run` applies the enabled policy with the same checks as
 text mode. Preview is a snapshot; deletion always rechecks eligibility.
+Forecast JSON adds `evaluated_at` for the requested retention time while
+`started_at` remains the actual observation time. Normal preview omits
+`evaluated_at`.
 
 Exit codes are `0` for a completed command, including ordinary policy skips;
 `1` for an operational failure; `2` for invalid CLI usage; and `3` for cleanup
@@ -214,8 +225,16 @@ for the contract. No agent framework, MCP server, API key, or model call is requ
 ## What gets deleted, and what stays
 
 Codex Retain removes eligible local rollout files, their selected SQLite thread
-rows, and the reviewed metadata those rows own. It never recursively deletes
-a parent conversation and its descendants.
+rows, incident spawn edges, and reviewed metadata those rows own. Each chat must
+qualify independently. A fully expired family can finish in one run, with
+children removed before parents; an active, protected, or otherwise surviving
+child keeps its ancestors. Shared paginated history follows the same rule.
+
+An archived database row is authoritative for archive state. Its validated owned
+copies can exist under either `sessions` or `archived_sessions`, in plain or
+compressed form. Cleanup checks and removes those copies together; directory
+placement alone does not make an active chat eligible. See
+[related-thread cleanup](docs/related-support.md).
 
 Cloud history, global `history.jsonl` and `session_index.jsonl`, logs, separate
 memory and queue databases, paginated projection caches (`thread_history_1.sqlite`),
@@ -244,8 +263,8 @@ Space reports keep different measurements separate:
 | macOS with Codex CLI 0.153.4 | Supported adapter; native conformance tested on macOS 26.4 ARM64 |
 | Local legacy JSONL and zstd rollouts in `state_5.sqlite` | Supported within the reviewed schema |
 | Codex Desktop's embedded server | Not certified by the version of a separate installed CLI; every writer must use the supported protocol |
-| Threads with spawn relationships, including parents and children | Skipped |
-| Paginated JSONL/zstd (0.1.1+) | All owned archive segments are checked; referenced histories are preserved |
+| Threads with spawn relationships (0.1.2+) | Eligible children can be removed; surviving descendants preserve ancestors |
+| Paginated JSONL/zstd (0.1.1+) | All owned physical copies are checked; surviving references preserve their sources |
 | Linux | Experimental core, doctor, and preview paths; destructive commands and scheduling disabled |
 | Windows | Not supported |
 
@@ -261,8 +280,9 @@ or notarized. Browser downloads may require approval in macOS Privacy & Security
 
 ## Measured performance
 
-These measurements use legacy-history fixtures. Paginated reference discovery
-adds work and is not represented by these timings.
+These historical measurements use legacy-history fixtures. Paginated reference
+discovery, dependency ordering, and the broader copy inventory in 0.1.2 are not
+represented by these timings; no performance improvement is claimed for them.
 
 The latest benchmarks were recorded on September 10, 2026, on an Apple M5
 with 16 GiB RAM and macOS 26.4, using a Rust 1.98.1 release build with Thin LTO.
@@ -319,9 +339,10 @@ launcher runtime, disable the schedule and re-enable from the new location.
 **Disable Retain before upgrading Codex** so the next storage version can be
 reviewed before the SQLite extension is used with it.
 
-Before downgrading Retain to an older build with 32-chat groups, finish pending
-recovery or disable using the newer executable. Older builds safely reject
-pending journals containing more than 32 chats and cannot recover them.
+Before downgrading Retain, finish pending recovery or disable using the newer
+executable. Version 0.1.2 writes schema 4 journals with a separate slot for every
+physical file. Older versions cannot recover that format; older 32-chat builds
+also reject larger groups. The current reader accepts journal schemas 1–4.
 
 To remove the utility:
 

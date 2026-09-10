@@ -23,6 +23,9 @@ pub(crate) struct Rollout {
 pub(crate) struct LineageIndex {
     owned: HashMap<Uuid, Vec<Rollout>>,
     incoming: HashMap<Uuid, ReferringOwners>,
+    owners: HashMap<Uuid, Uuid>,
+    parents: HashSet<(Uuid, Uuid)>,
+    references: Vec<(Uuid, Uuid)>,
 }
 
 struct ReferringOwners {
@@ -40,11 +43,23 @@ impl LineageIndex {
             .get(&rollout)
             .is_some_and(|sources| sources.mixed || sources.first != owner)
     }
+
+    pub(crate) fn add_dependencies(&self, graph: &mut crate::relations::Dependencies) {
+        for &(child, parent) in &self.parents {
+            graph.add_parent(child, parent);
+        }
+        for &(dependent, rollout) in &self.references {
+            if let Some(&source) = self.owners.get(&rollout)
+                && source != dependent
+            {
+                graph.add_history(dependent, source);
+            }
+        }
+    }
 }
 
 pub(crate) fn scan(home: &Path, candidate_owners: &HashSet<Uuid>) -> Result<LineageIndex> {
     let mut index = LineageIndex::default();
-    let mut seen = HashSet::new();
     let mut entries = 0usize;
     for root in [home.join("sessions"), home.join("archived_sessions")] {
         let metadata = match fs::symlink_metadata(&root) {
@@ -87,22 +102,31 @@ pub(crate) fn scan(home: &Path, candidate_owners: &HashSet<Uuid>) -> Result<Line
                 continue;
             };
             let rollout_id = filename.rollout;
-            ensure!(
-                seen.insert(rollout_id),
-                "duplicate rollout identity {rollout_id}"
-            );
             let (file, metadata) =
                 crate::fsutil::regular_with_metadata(entry.path(), false, false)?;
             let identity = crate::fsutil::Identity::of(&metadata);
             let line = crate::metadata::first_record(file, filename.compressed)
                 .with_context(|| format!("read rollout header {}", entry.path().display()))?;
-            let (owner, paginated, base) = header(&line)
+            let parsed = header(&line)
                 .with_context(|| format!("invalid rollout header {}", entry.path().display()))?;
+            let ParsedHeader {
+                owner,
+                paginated,
+                base,
+                parent,
+            } = parsed;
+            if let Some(previous) = index.owners.insert(rollout_id, owner) {
+                ensure!(
+                    previous == owner,
+                    "rollout identity {rollout_id} has conflicting owners"
+                );
+            }
             ensure!(
                 owner == filename.owner,
                 "rollout filename and metadata owners differ"
             );
             if let Some(base) = base {
+                index.references.push((owner, base));
                 index
                     .incoming
                     .entry(base)
@@ -113,6 +137,9 @@ pub(crate) fn scan(home: &Path, candidate_owners: &HashSet<Uuid>) -> Result<Line
                         first: owner,
                         mixed: false,
                     });
+            }
+            if let Some(parent) = parent {
+                index.parents.insert((owner, parent));
             }
             if candidate_owners.contains(&owner) {
                 index.owned.entry(owner).or_default().push(Rollout {
@@ -190,6 +217,48 @@ struct Payload {
     id: String,
     history_mode: Option<String>,
     history_base: Option<Base>,
+    parent_thread_id: Option<String>,
+    source: Option<SessionSource>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum SessionSource {
+    // Unit source names have no organizational parent; retain their type check.
+    #[allow(dead_code)]
+    Name(String),
+    Object(SourceFields),
+}
+
+#[derive(Deserialize)]
+struct SourceFields {
+    subagent: Option<SubagentSource>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum SubagentSource {
+    #[allow(dead_code)]
+    Name(String),
+    Object(SubagentFields),
+}
+
+#[derive(Deserialize)]
+struct SubagentFields {
+    thread_spawn: Option<SpawnSource>,
+}
+
+#[derive(Deserialize)]
+struct SpawnSource {
+    parent_thread_id: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ParsedHeader {
+    owner: Uuid,
+    paginated: bool,
+    base: Option<Uuid>,
+    parent: Option<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -199,7 +268,7 @@ struct Base {
     end_byte_offset: u64,
 }
 
-fn header(line: &[u8]) -> Result<(Uuid, bool, Option<Uuid>)> {
+fn header(line: &[u8]) -> Result<ParsedHeader> {
     let value: Value = serde_json::from_slice(line)?;
     ensure!(
         value.is_object() && value["payload"].is_object(),
@@ -210,6 +279,9 @@ fn header(line: &[u8]) -> Result<(Uuid, bool, Option<Uuid>)> {
         base.is_null() || base.is_object(),
         "history_base must be an object or null"
     );
+    if let Some(spawn) = value.pointer("/payload/source/subagent/thread_spawn") {
+        ensure!(spawn.is_object(), "thread_spawn source must be an object");
+    }
     drop(value);
     let record: Header = serde_json::from_slice(line)?;
     ensure!(
@@ -234,12 +306,54 @@ fn header(line: &[u8]) -> Result<(Uuid, bool, Option<Uuid>)> {
         paginated || base.is_none(),
         "legacy rollout contains a history reference"
     );
-    Ok((owner, paginated, base))
+    let explicit_parent = record
+        .payload
+        .parent_thread_id
+        .as_deref()
+        .map(canonical_uuid)
+        .transpose()?;
+    let source_parent = match record.payload.source {
+        Some(SessionSource::Object(SourceFields {
+            subagent:
+                Some(SubagentSource::Object(SubagentFields {
+                    thread_spawn: Some(spawn),
+                })),
+        })) => Some(canonical_uuid(&spawn.parent_thread_id)?),
+        _ => None,
+    };
+    ensure!(
+        explicit_parent.is_none() || source_parent.is_none() || explicit_parent == source_parent,
+        "conflicting recorded parent identities"
+    );
+    Ok(ParsedHeader {
+        owner,
+        paginated,
+        base,
+        parent: explicit_parent.or(source_parent),
+    })
 }
 
 /// Journal schema 3 cannot infer the stable owner from the filename UUID.
 pub(crate) fn validate_owner(line: &[u8], expected: Uuid) -> Result<()> {
-    let (owner, _, _) = header(line)?;
+    // A committed journal already authorized removal. Recovery binds identity,
+    // rather than reinterpreting optional metadata under a newer adapter policy.
+    #[derive(Deserialize)]
+    struct OwnerHeader {
+        #[serde(rename = "type")]
+        kind: String,
+        payload: OwnerPayload,
+    }
+    #[derive(Deserialize)]
+    struct OwnerPayload {
+        id: String,
+    }
+    let _: Value = serde_json::from_slice(line)?;
+    let record: OwnerHeader = serde_json::from_slice(line)?;
+    ensure!(
+        record.kind == "session_meta",
+        "staged header is not session_meta"
+    );
+    let owner = canonical_uuid(&record.payload.id)?;
     ensure!(
         owner == expected,
         "staged rollout belongs to a different thread"
@@ -343,12 +457,18 @@ mod tests {
     }
 
     #[test]
-    fn rejects_duplicate_identity_across_locations_and_encodings() {
+    fn retains_same_owner_copies_across_locations_and_encodings() {
         for (directory, compressed) in [("sessions", false), ("archived_sessions", true)] {
             let home = tempfile::tempdir().unwrap();
             write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
             write(home.path(), directory, OWNER, OWNER, None, compressed);
-            assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
+            assert_eq!(
+                scan(home.path(), &HashSet::from([OWNER]))
+                    .unwrap()
+                    .owned(OWNER)
+                    .len(),
+                2
+            );
         }
     }
 
@@ -392,7 +512,12 @@ mod tests {
         let legacy = json!({"type":"session_meta","payload":{"id":OWNER}});
         assert_eq!(
             header(legacy.to_string().as_bytes()).unwrap(),
-            (OWNER, false, None)
+            ParsedHeader {
+                owner: OWNER,
+                paginated: false,
+                base: None,
+                parent: None
+            }
         );
     }
 
@@ -440,5 +565,48 @@ mod tests {
         std::os::unix::fs::symlink(home.path().join("missing"), home.path().join("sessions"))
             .unwrap();
         assert!(scan(home.path(), &HashSet::new()).is_err());
+    }
+
+    #[test]
+    fn organizational_metadata_survives_missing_sql_edges() {
+        for source_only in [false, true] {
+            let home = tempfile::tempdir().unwrap();
+            write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
+            let child = write(home.path(), "sessions", CHILD, CHILD, None, false);
+            let parent = if source_only {
+                json!({"source":{"subagent":{"thread_spawn":{"parent_thread_id":OWNER,"depth":1}}}})
+            } else {
+                json!({"parent_thread_id":OWNER})
+            };
+            let mut payload = json!({"id":CHILD,"history_mode":"paginated"});
+            for (key, value) in parent.as_object().unwrap() {
+                payload[key] = value.clone();
+            }
+            fs::write(
+                &child,
+                format!("{}\n", json!({"type":"session_meta","payload":payload})),
+            )
+            .unwrap();
+            let index = scan(home.path(), &HashSet::from([OWNER])).unwrap();
+            let mut graph = crate::relations::Dependencies::default();
+            index.add_dependencies(&mut graph);
+            assert_eq!(
+                graph.plan(&HashSet::from([OWNER])).blocked[&OWNER],
+                crate::relations::Blocker::Children
+            );
+        }
+    }
+
+    #[test]
+    fn contradictory_or_duplicate_parent_metadata_cannot_hide_an_owner() {
+        let invalid = json!({"type":"session_meta","payload":{"id":OWNER,"parent_thread_id":CHILD,
+            "source":{"subagent":{"thread_spawn":{"parent_thread_id":OLD,"depth":1}}}}});
+        assert!(header(invalid.to_string().as_bytes()).is_err());
+        let duplicate = format!(
+            r#"{{"type":"session_meta","payload":{{"id":"{OWNER}","source":{{"subagent":{{"thread_spawn":{{"parent_thread_id":"{CHILD}","parent_thread_id":"{OLD}"}}}}}}}}}}"#
+        );
+        assert!(header(duplicate.as_bytes()).is_err());
+        // Recovery checks identity, not new optional-metadata admission rules.
+        validate_owner(invalid.to_string().as_bytes(), OWNER).unwrap();
     }
 }

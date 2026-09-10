@@ -316,3 +316,41 @@ pub fn delete_rows(mut statement: Statement<'_>, threads: &[Thread]) -> Result<(
     }
     Ok(())
 }
+
+pub(crate) fn add_spawn_dependencies(
+    c: &Connection,
+    graph: &mut crate::relations::Dependencies,
+) -> Result<()> {
+    let mut query =
+        c.prepare("SELECT parent_thread_id,child_thread_id FROM thread_spawn_edges LIMIT 500001")?;
+    for (index, edge) in query
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .enumerate()
+    {
+        ensure!(
+            index < 500000,
+            "spawn graph exceeds the 500,000-edge safety limit"
+        );
+        let (parent, child) = edge?;
+        let parent_id = uuid::Uuid::parse_str(&parent)?;
+        let child_id = uuid::Uuid::parse_str(&child)?;
+        ensure!(
+            parent_id.to_string() == parent && child_id.to_string() == child,
+            "noncanonical spawn relationship identity"
+        );
+        graph.add_parent(child_id, parent_id);
+    }
+    Ok(())
+}
+
+/// Called in the same state transaction as owner deletion, never as a sweep.
+pub(crate) fn delete_spawn_edges(c: &Connection, threads: &[Thread]) -> Result<()> {
+    let mut query =
+        c.prepare("DELETE FROM thread_spawn_edges WHERE parent_thread_id=? OR child_thread_id=?")?;
+    for thread in threads {
+        query.execute([&thread.id, &thread.id])?;
+    }
+    Ok(())
+}

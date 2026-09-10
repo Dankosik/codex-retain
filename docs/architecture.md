@@ -48,30 +48,44 @@ schema comparison includes tables, indexes and triggers, plus migration version,
 success and checksum. This deliberately rejects unknown schema extensions and
 future databases. No automatic SQL migration guesses are made.
 
-Deletion supports flat archived legacy and paginated JSONL/zstd files. A database
-logical `.jsonl` path may resolve to its sole `.jsonl.zst` representation.
-Legacy files still require filename UUID and first-record thread identity to
-match. Paginated immutable rollout IDs can differ from their stable thread owner
-after revert. Native reverted filenames encode `OWNER_UUID_ROLLOUT_UUID`; both
-IDs are validated against the metadata and journal. The complete
-ownership/reference scan reads bounded first records
-from both active and archived trees, including rollouts without database rows.
-All owned segments must be paginated and in the flat archive. The selected DB
-path must name one of them. Any incoming reference from a different owner keeps
-the entire source thread. Internal references between one thread's segments are
-removed together; a leaf's outgoing reference never authorizes deleting its base.
+Deletion supports legacy and paginated JSONL/zstd files below both managed roots,
+`sessions` and `archived_sessions`, including nested directories. The database
+row's archive state and captured epoch authorize retention; a path's directory
+name does not. An active row is never eligible merely because its file is in
+the archive, and an archived owner's validated copy in `sessions` is not lost
+from the cleanup inventory.
 
-Unreadable/invalid reference metadata, duplicate rollout IDs, unknown formats,
-symlinks and hardlinks prevent paginated deletion. Discovery is bounded to 500,000
-entries and 1 MiB per first record, with an 8 MiB zstd decoder window. The reference
-scan is repeated under candidate writer locks and the state transaction before
-staging; preview is not deletion authorization. Native pins use the current
-pinned-section ID and legacy bit. Spawn-related threads remain protected.
+Legacy files require filename UUID and first-record owner identity to match.
+Paginated immutable rollout IDs can differ from their stable owner after revert.
+Native reverted filenames encode `OWNER_UUID_ROLLOUT_UUID`; metadata identifies
+the owner while `history_base.thread_id` identifies the referenced rollout.
+The scan reads bounded first records from both trees, including orphan files.
+It retains every physical copy for candidate owners, including simultaneous
+plain/compressed copies and copies of the same rollout in both roots. Copies
+must agree on owner; their contents need not be equal. Each copy's metadata,
+references, path ownership and inode are checked independently. A conflicting
+owner remains an error. The selected database path must resolve to an owned copy.
 
-No active file or child is recursively removed. Other local stores and global
-indexes are deliberately retained; deleting a selected row may cascade only
-the reviewed foreign-key metadata owned by that same thread. The migration
-contract does not establish support for a differently versioned desktop client.
+Organizational parent links from rollout metadata and SQL spawn edges combine
+with shared-history references in a dependency graph. Deletion proceeds from
+leaves toward their prerequisites. A fully eligible family can close in one run;
+a surviving child or history consumer protects the parent/base and propagates
+that protection upward. Internal history links within one owner disappear with
+that owner's files. Cycles stay protected. A child's outgoing link does not
+grant permission to delete its parent or base. Each source must qualify itself.
+
+Unreadable/invalid metadata, conflicting ownership, unknown formats, symlinks,
+hardlinks and ambiguous path aliases stop unsafe removal. Discovery is bounded
+to 500,000 entries and 1 MiB per first record, with an 8 MiB zstd decoder window.
+The graph and inventory are rebuilt under writer locks and the state transaction
+before staging. Native pins use the current pinned-section ID and legacy bit.
+See [related-thread design](related-support.md) and
+[paginated ownership](paginated-support.md).
+
+No active thread is recursively removed. Other local stores and global indexes
+are retained. Deleting individually checked rows also removes their incident
+spawn edges and reviewed foreign-key metadata in the same transaction. The
+migration contract does not certify a differently versioned desktop client.
 
 ## Mutation and crash protocol
 
@@ -82,19 +96,27 @@ that bound; a single owner with more than 128 files is retained. For each group:
 
 1. Acquire Codex's `.tmp/rollout-maintenance.lock`, excluding supported
    compression and rollout migration. Busy means skip.
-2. Acquire `thread-writer-locks/.coordination.lock`, then each UUID writer lock.
+2. Acquire `thread-writer-locks/.coordination.lock`, then each candidate and every
+   organizational ancestor's UUID writer lock. The whole guard set is capped at
+   128; exceeding it retains the affected candidate. A loaded parent can therefore
+   block deletion of an archived child. Shared-history sources are dependencies,
+   not organizational ancestors for this guard traversal.
    Release coordination once all UUID locks are owned, matching Codex's native
    acquisition protocol. Those UUID locks remain held through finalization;
    unrelated writers can acquire their own locks while cleanup does I/O.
 3. Begin an immediate SQLite transaction. Verify schema, recorder, current row,
    epoch, native pin, exclusion, history mode, path and file identity for every
-   member again.
+   member again. Rebuild parent/history dependencies and verify that the fresh
+   ancestor set is covered by the acquired guards. A new ancestor or surviving
+   dependent blocks the group; stale planning never authorizes removal.
 4. Serialize the intent through a 64 KiB buffer, explicitly flush it, then
    atomically write and fsync a single `pending.json` naming every member.
-   Rename those exact rollouts to fixed hidden staging filenames in the same
-   archive directory (schema 3 binds both owner and rollout UUID); fsync the directory once for the group.
-5. Conditionally delete only those individually checked rows and commit the
-   group atomically with synchronous FULL.
+   Rename those exact rollouts to hidden staging files in `archived_sessions`.
+   Schema 4 records owner UUID, rollout UUID and a unique per-file slot, so
+   physical copies cannot collide. Fsync each affected source directory and
+   the staging directory.
+5. Conditionally delete only those individually checked rows, remove incident
+   spawn edges, and commit the group atomically with synchronous FULL.
 6. Verify each staged inode and unlink it, fsync the archive once, then durably
    remove the intent. No long-term backup is created.
 
@@ -137,7 +159,8 @@ about 25 seconds for a 1,000-chat preflight and exceeded a 300-second test limit
 at 10,000. The subsequent profiling and 128-item optimization are documented
 in [the cleanup performance report](cleanup-performance.md).
 
-After interruption, recovery obtains the same locks before doing new cleanup.
+After interruption, recovery obtains the maintenance lock and journal owners'
+writer locks before doing new cleanup.
 The complete journal's thread IDs and paths are validated before touching any
 member. Each physical inode is checked before its own operation; a later inode
 conflict can leave an already recovered prefix, which is safe to revisit.
@@ -145,11 +168,14 @@ If a staged file remains and its row exists, restore it without overwriting
 an existing destination. If the row is absent, finish removal of the already
 authorized staged file. If the intent preceded the rename or cleanup completed,
 clear the receipt. Partial staging, restore and unlink prefixes are restartable.
-Schema 3 records owner and immutable rollout IDs separately. Recovery validates
-both path identities and each staged header's stable owner before restoring or
-unlinking it. Schema 1 single-file and schema 2 legacy group journals remain
-recognized. Version 0.1.0 cannot recover schema 3: finish recovery using the newer
-executable before downgrading. Earlier 32-item group journals are also recognized.
+Schema 4 records a distinct slot for every physical file alongside owner and
+immutable rollout IDs. Recovery validates source paths inside either managed
+tree, staged identities, slots and each header's stable owner before restoring
+or unlinking. A missing safe source directory may be recreated for recovery;
+symlinked or otherwise unsafe ancestors are rejected. Schema 1 single-file,
+schema 2 legacy group and schema 3 rollout journals remain recognized. Older
+versions cannot recover schema 4: finish recovery using the newer executable
+before downgrading. Earlier 32-item group journals are also recognized.
 Before downgrading to a build limited to 32 items, finish recovery or disable
 with the newer executable. The old reader rejects larger pending groups before
 mutation; it cannot finish their recovery. Identity conflict, access failure or
@@ -194,11 +220,12 @@ process termination and filesystem errors are expected and fail closed.
 
 The metadata query streams rows and caps the archive at 100,000. The complete
 initial read finishes before deletion, so discovering an oversized archive
-cannot leave a deleted prefix. Only initially eligible rows are retained for
-file inspection. The expired-file inventory still visits and validates every
-entry in both session trees, capped at 500,000 entries, but retains only
-candidate IDs as missing, unique-path, or ambiguous. No transcript is read for
-unexpired threads. Due files read at most a 1 MiB first record, with 16 KiB
+cannot leave a deleted prefix. When no row is initially eligible, the full
+lineage scan is skipped. Otherwise it visits both session trees, capped at
+500,000 entries, and reads bounded first records for ownership and dependencies,
+including active and unexpired owners. It retains physical paths and identities
+for candidate owners plus the graph's ownership/reference information. It does
+not read full transcripts. First records are limited to 1 MiB, with 16 KiB
 read-ahead and an 8 MiB maximum zstd decoder window. A selective parser validates
 the complete JSON record while retaining only the metadata checks; ignored
 values, duplicate keys, invalid UTF-8, numbers and nesting keep the existing
@@ -217,6 +244,15 @@ candidate paths, IDs, inventory and owner keys still grow with the number of
 due candidates. The replace-in-place last-run
 report keeps its existing schema. Stdout uses a 64 KiB buffer with explicit
 flush and BrokenPipe handling, independently of the durable journal buffer.
+
+`preview --at <RFC3339>` runs retention assessment and dependency planning at a
+requested current-or-future timestamp against the profile as it exists now.
+It opens the database read-only, does not age capture, write a last-run receipt,
+or apply deletion. Forecast JSON uses `evaluated_at` for the requested time and
+keeps `started_at` at the actual observation time; ordinary preview omits the
+extra field. The forecast cannot predict future restores, pins, dependencies
+or writer contention. `run` has no time override. These behaviors do not claim
+an independent clock oracle or guarantee a future cleanup.
 
 Separate paginated projection caches are not purged; the same narrow deletion
 scope retains other secondary stores and global traces. No SQLite VACUUM,

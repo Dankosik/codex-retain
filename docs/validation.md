@@ -3,6 +3,26 @@
 Local validation on 2026-09-09, Apple M5 / 16 GiB / macOS 26.4 ARM64.
 Rust 1.98.1, Codex CLI 0.153.4, Codex Retain 0.1.0.
 
+## Related archives and physical copies (0.1.2, 2026-09-10)
+
+The [dependency and recovery record](related-support.md) describes the updated
+contract. Both debug and release suites passed 186 Rust tests. `make check` also passed
+formatting and Clippy with warnings
+denied. Release and skill-maintenance tooling passed 26 and 7 tests respectively;
+ShellCheck and actionlint passed. Local release binary SHA-256:
+`0e0e2e202063aeab1a3e81f8d59634b17b4eac3f13b0d5363937a1297cf3c578`.
+
+The npm CLI and tested Desktop embedded Codex 0.153.4 each passed 15 organizational
+fixture checks and 13 paginated checks against that binary. Receipts are in
+[evidence/related-0.1.2](evidence/related-0.1.2). Organizational fixtures construct
+parent metadata and SQL edges after native creation and shutdown; they do not
+claim model-driven native spawn conformance. Recovery tests include retrying
+failed cross-directory fsync barriers and restoring missing source ancestors.
+
+These local results supplement, rather than substitute for, exact-candidate CI
+and native release tests on the published architectures. No performance rerun or
+complete-erasure claim is made by this change.
+
 ## Paginated support follow-up (0.1.1, 2026-09-10)
 
 The [paginated support record](paginated-support.md) identifies the final local

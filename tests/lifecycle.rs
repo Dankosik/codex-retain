@@ -155,7 +155,7 @@ fn active_unknown_pinned_excluded_and_related_threads_are_preserved() {
         (&unknown, "unknown_archive_status"),
         (&pinned, "pinned_or_unknown_pin"),
         (&excluded, "excluded"),
-        (&parent, "related_thread"),
+        (&parent, "dependent_thread"),
     ] {
         assert_eq!(
             report
@@ -290,8 +290,8 @@ fn database_path_escape_never_touches_an_outside_file() {
 }
 
 #[test]
-fn symlink_hardlink_duplicate_and_database_alias_do_not_delete() {
-    for variant in 0..4 {
+fn symlink_hardlink_and_database_alias_do_not_delete() {
+    for variant in [0, 1, 3] {
         let mut f = Fixture::new();
         let id = f.add(60 + variant, 1);
         f.age(&id);
@@ -305,9 +305,6 @@ fn symlink_hardlink_duplicate_and_database_alias_do_not_delete() {
             }
             1 => {
                 fs::hard_link(&path, &other).unwrap();
-            }
-            2 => {
-                fs::copy(&path, f.path(&id, false)).unwrap();
             }
             _ => {
                 let alias = f.add(600, 0);
@@ -778,4 +775,15 @@ fn capture_installation_seeds_preexisting_archive_without_changing_native_rows()
     assert_eq!(fs::read(f.path(&active, false)).unwrap(), active_bytes);
     assert_eq!(f.policy.schema, 1);
     assert_eq!(f.run(true).unwrap().deleted, 0);
+}
+
+#[test]
+fn legacy_owner_cleanup_includes_same_owner_sessions_copy() {
+    let mut f = Fixture::new();
+    let id = f.add(63, 1);
+    f.age(&id);
+    fs::copy(f.path(&id, true), f.path(&id, false)).unwrap();
+    assert_eq!(f.run(true).unwrap().deleted, 1);
+    assert!(!f.exists(&id));
+    assert!(!f.path(&id, true).exists() && !f.path(&id, false).exists());
 }
