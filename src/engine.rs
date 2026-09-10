@@ -389,7 +389,7 @@ fn inspect_owned(
             "paginated rollout changed after reference discovery"
         );
         let line = crate::metadata::first_record(
-            file,
+            &file,
             rollout
                 .path
                 .extension()
@@ -706,7 +706,7 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
                     "restored source identity changed; manual recovery required"
                 );
                 let line = crate::metadata::first_record(
-                    file,
+                    &file,
                     item.artifact
                         .path
                         .extension()
@@ -730,7 +730,7 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
         );
         if intent.schema >= 3 {
             let line = crate::metadata::first_record(
-                file,
+                &file,
                 item.artifact
                     .path
                     .extension()
@@ -783,6 +783,7 @@ struct Cleanup<'run, 'connection> {
     now: i64,
     graph: &'run crate::relations::Dependencies,
     owners: RolloutOwners<'connection>,
+    headers: crate::lineage::HeaderCache,
     detail: ReportDetail,
     #[cfg(test)]
     completed_batches: usize,
@@ -827,8 +828,8 @@ impl Cleanup<'_, '_> {
         drop(thread_query);
         // File metadata also carries parent ownership when SQL edges are absent.
         // Rebuild both dependency kinds after locks and the live state transaction.
-        let lineage =
-            crate::lineage::scan(&p.codex_home, &deleting).context(GlobalCleanupFailure)?;
+        let lineage = crate::lineage::scan(&p.codex_home, &deleting, Some(&mut self.headers))
+            .context(GlobalCleanupFailure)?;
         let mut fresh = crate::relations::Dependencies::default();
         database::add_spawn_dependencies(&tx, &mut fresh).context(GlobalCleanupFailure)?;
         lineage.add_dependencies(&mut fresh);
@@ -903,7 +904,7 @@ impl Cleanup<'_, '_> {
                 "staged file identity changed before commit"
             );
             let line = crate::metadata::first_record(
-                file,
+                &file,
                 item.artifact
                     .path
                     .extension()
@@ -911,10 +912,10 @@ impl Cleanup<'_, '_> {
             )?;
             crate::lineage::validate_owner(&line, uuid::Uuid::parse_str(&item.thread_id)?)?;
         }
+        source_parents.insert(&archive);
         for parent in source_parents {
             fsutil::sync_dir(parent)?;
         }
-        fsutil::sync_dir(&archive)?;
         database::delete_rows(delete_query, &threads)?;
         database::delete_spawn_edges(&tx, &threads)?;
         tx.commit()?;
@@ -1179,14 +1180,18 @@ fn execute_with_detail(
         })
         .collect();
     let mut graph = crate::relations::Dependencies::default();
+    // Preview has no later scan to reuse these headers.
+    let mut headers = crate::lineage::HeaderCache::default();
     let lineage = if candidates.is_empty() {
         Ok(crate::lineage::LineageIndex::default())
     } else {
-        crate::lineage::scan(&p.codex_home, &candidate_ids).and_then(|lineage| {
-            database::add_spawn_dependencies(c, &mut graph)?;
-            lineage.add_dependencies(&mut graph);
-            Ok(lineage)
-        })
+        crate::lineage::scan(&p.codex_home, &candidate_ids, apply.then_some(&mut headers)).and_then(
+            |lineage| {
+                database::add_spawn_dependencies(c, &mut graph)?;
+                lineage.add_dependencies(&mut graph);
+                Ok(lineage)
+            },
+        )
     };
     let mut selected_paths = HashMap::new();
     let before = apply
@@ -1302,6 +1307,7 @@ fn execute_with_detail(
             now,
             graph: &graph,
             owners,
+            headers,
             detail,
             #[cfg(test)]
             completed_batches: 0,
@@ -1375,6 +1381,105 @@ mod test_support;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cached_inventory_rechecks_orphan_parents_between_committed_groups() {
+        for change in ["new", "rewrite", "replace"] {
+            let fixture = test_support::Fixture::new();
+            let first = fixture.add(1, 1);
+            let second = fixture.add(2, 1);
+            fixture.age(&first);
+            fixture.age(&second);
+            let orphan = uuid::Uuid::from_u128(3);
+            let path = fixture
+                .home
+                .join("sessions")
+                .join(format!("rollout-2026-09-10T00-00-00-{orphan}.jsonl"));
+            let record = |parent: uuid::Uuid| {
+                format!(
+                    "{}\n",
+                    serde_json::json!({
+                        "type":"session_meta", "payload": {
+                            "id":orphan, "history_mode":"legacy", "parent_thread_id":parent
+                        }
+                    })
+                )
+            };
+            if change != "new" {
+                fs::write(&path, record(uuid::Uuid::from_u128(4))).unwrap();
+            }
+            let ids = [&first, &second].map(|id| uuid::Uuid::parse_str(id).unwrap());
+            let mut headers = crate::lineage::HeaderCache::default();
+            let lineage =
+                crate::lineage::scan(&fixture.home, &HashSet::from(ids), Some(&mut headers))
+                    .unwrap();
+            let mut graph = crate::relations::Dependencies::default();
+            lineage.add_dependencies(&mut graph);
+            let mut cleanup = Cleanup {
+                policy: &fixture.policy,
+                store: &fixture.store,
+                now: test_support::now(),
+                graph: &graph,
+                owners: RolloutOwners::new(&fixture.c, ""),
+                headers,
+                detail: ReportDetail::Full,
+                completed_batches: 0,
+            };
+            let mut attempted = false;
+            cleanup
+                .delete_batch(&fixture.c, &[&first], &mut attempted)
+                .unwrap();
+            assert!(attempted);
+            assert!(!fixture.exists(&first));
+            let data_version: i64 = fixture
+                .c
+                .query_row("PRAGMA main.data_version", [], |row| row.get(0))
+                .unwrap();
+            if change == "replace" {
+                fs::rename(&path, fixture.home.join("saved-orphan")).unwrap();
+            }
+            fs::write(&path, record(ids[1])).unwrap();
+            assert_eq!(
+                fixture
+                    .c
+                    .query_row("PRAGMA main.data_version", [], |row| row.get::<_, i64>(0))
+                    .unwrap(),
+                data_version
+            );
+            attempted = false;
+            let error = cleanup
+                .delete_batch(&fixture.c, &[&second], &mut attempted)
+                .unwrap_err();
+            assert!(
+                error.to_string().contains("surviving child"),
+                "{change}: {error:#}"
+            );
+            assert!(!attempted, "fresh dependency must veto before journaling");
+            assert!(fixture.exists(&second));
+            assert!(fixture.path(&second, true).exists());
+            assert!(path.exists());
+            assert!(!fixture.store.root.join("pending.json").exists());
+        }
+    }
+
+    #[test]
+    fn flat_batch_syncs_the_archive_once_per_durability_barrier() {
+        let mut fixture = test_support::Fixture::new();
+        let id = fixture.add(1, 1);
+        fixture.age(&id);
+        fsutil::trace_directory_syncs(None);
+        let report = fixture.run(true).unwrap();
+        let trace = fsutil::take_directory_sync_trace();
+        assert_eq!(report.deleted, 1);
+        assert_eq!(
+            trace
+                .iter()
+                .filter(|path| **path == fixture.home.join("archived_sessions"))
+                .count(),
+            2,
+            "one barrier before SQL commit and one after staged unlink"
+        );
+    }
 
     #[test]
     fn reason_tokens_keep_the_report_schema_and_attention_policy() {
@@ -1510,7 +1615,7 @@ mod tests {
         }
         let owner = uuid::Uuid::parse_str(&due).unwrap();
         let candidates = HashSet::from([owner]);
-        let inventory = crate::lineage::scan(&fixture.home, &candidates).unwrap();
+        let inventory = crate::lineage::scan(&fixture.home, &candidates, None).unwrap();
         assert_eq!(inventory.owned(owner).len(), 1);
         assert_eq!(inventory.owned(owner)[0].path, fixture.path(&due, true));
         assert!(inventory.owned(uuid::Uuid::from_u128(2)).is_empty());
@@ -1520,7 +1625,7 @@ mod tests {
             .join(fixture.path(&due, true).file_name().unwrap());
         fs::copy(fixture.path(&due, true), &duplicate).unwrap();
         assert_eq!(
-            crate::lineage::scan(&fixture.home, &candidates)
+            crate::lineage::scan(&fixture.home, &candidates, None)
                 .unwrap()
                 .owned(owner)
                 .len(),
@@ -1528,7 +1633,7 @@ mod tests {
         );
         std::os::unix::fs::symlink("missing", fixture.home.join("sessions/unrelated-link"))
             .unwrap();
-        assert!(crate::lineage::scan(&fixture.home, &candidates).is_err());
+        assert!(crate::lineage::scan(&fixture.home, &candidates, None).is_err());
     }
 
     #[test]

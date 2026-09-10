@@ -1,0 +1,13 @@
+{
+  "benchmark_root": "/private/tmp/codex-retain-inventory-20260910-paginated",
+  "binary": "/Users/daniil/Projects/Opensource/codex-retain/target/release/codex-retain",
+  "busy_ids": [],
+  "codex_bin": "/Applications/ChatGPT.app/Contents/Resources/codex",
+  "fixture_key": "cleanup-10000",
+  "fixture_root": "/private/tmp/codex-retain-inventory-20260910-paginated/fixtures/cleanup-10000",
+  "held_locks": [],
+  "now": 1789060350,
+  "scenario": "cleanup-10000",
+  "tool": "candidate",
+  "zstd": null
+}

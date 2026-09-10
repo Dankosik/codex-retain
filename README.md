@@ -27,10 +27,11 @@ enabled, ordinary runs need no further confirmation. The utility needs no cloud
 service, subscription, account, or LLM, and leaves no process running between checks.
 
 > **Check compatibility before enabling.** The current adapter supports Codex CLI
-> **0.153.4** local history on macOS. An installed CLI does not establish
-> compatibility with Codex Desktop's embedded server. Cleanup removes eligible
-> dependent chats before their parents or shared history. Surviving dependents
-> keep those sources protected. See [the full compatibility boundary](#compatibility).
+> **0.153.4** local history on macOS. Native conformance tests cover both the
+> CLI and the Desktop-embedded 0.153.4 executable; a different Desktop build
+> still needs its own compatibility check. Cleanup removes eligible dependent
+> chats before their parents or shared history. Surviving dependents keep those
+> sources protected. See [the full compatibility boundary](#compatibility).
 
 ## Quick start
 
@@ -47,7 +48,7 @@ codex-retain doctor
 
 The installer checks SHA-256 and installs to `~/.local/bin`. Add that directory
 to your shell's PATH permanently if needed. Installation never enables retention.
-For a specific release, use `CODEX_RETAIN_VERSION=0.1.2 sh /tmp/codex-retain-install.sh`.
+For a specific release, use `CODEX_RETAIN_VERSION=0.1.3 sh /tmp/codex-retain-install.sh`.
 Set `CODEX_RETAIN_INSTALL_DIR` to choose a different absolute installation directory.
 
 ### Homebrew
@@ -66,7 +67,7 @@ This tap installs the same prebuilt binaries and shell completions. Enable using
 To compile the tagged source, install Rust 1.98.1 and a C toolchain, then run:
 
 ```sh
-cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.2 --locked codex-retain
+cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.3 --locked codex-retain
 ```
 
 Or download the matching archive and `SHA256SUMS` from
@@ -262,7 +263,7 @@ Space reports keep different measurements separate:
 | --- | --- |
 | macOS with Codex CLI 0.153.4 | Supported adapter; native conformance tested on macOS 26.4 ARM64 |
 | Local legacy JSONL and zstd rollouts in `state_5.sqlite` | Supported within the reviewed schema |
-| Codex Desktop's embedded server | Not certified by the version of a separate installed CLI; every writer must use the supported protocol |
+| Codex Desktop-embedded 0.153.4 | Native paginated and organizational conformance tested on macOS 26.4 ARM64; other embedded versions are not covered |
 | Threads with spawn relationships (0.1.2+) | Eligible children can be removed; surviving descendants preserve ancestors |
 | Paginated JSONL/zstd (0.1.1+) | All owned physical copies are checked; surviving references preserve their sources |
 | Linux | Experimental core, doctor, and preview paths; destructive commands and scheduling disabled |
@@ -280,99 +281,89 @@ or notarized. Browser downloads may require approval in macOS Privacy & Security
 
 ## Measured performance
 
-These historical measurements use legacy-history fixtures. Paginated reference
-discovery, dependency ordering, and the broader copy inventory in 0.1.2 are not
-represented by these timings; no performance improvement is claimed for them.
+Version 0.1.3 reuses unchanged rollout headers between deletion groups and
+removes a duplicate directory sync. Every group still discovers files and
+rechecks dependencies, eligibility, ownership and writer locks. The cache lasts
+for one run; it does not store deletion permission or persist across invocations.
 
-The latest benchmarks were recorded on September 10, 2026, on an Apple M5
-with 16 GiB RAM and macOS 26.4, using a Rust 1.98.1 release build with Thin LTO.
-Each scenario used a synthetic fixture, three warmups and five timed runs on
-a shared desktop with warm filesystem caches. Preparation and verification
-were outside the timing.
+The September 10, 2026 comparison used installed **0.1.2** and the optimization
+candidate on ARM64 macOS 26.4. Each pair shared a synthetic profile and policy,
+with three warmups and five timed runs. Fixture restoration and result checks
+were outside the timer. These are warm-cache results on a shared desktop,
+measured before the candidate's version was bumped to 0.1.3; they are not timings
+of the subsequently published archives.
 
-Durations below are **mean ± standard deviation**:
+| Workload | 0.1.2 median | Optimization candidate median |
+| --- | ---: | ---: |
+| Delete 1,000 independent paginated archives | 1.369 s | 1.492 s |
+| Delete 1,000 legacy archives | 557 ms | 537 ms |
+| Delete 10,000 legacy archives | 12.799 s | **7.589 s (41% less time)** |
+| Scheduled check: 100,000 archives, none due | 375 ms | 358 ms |
+| Preview: 99,000 active + 1,000 unexpired archives | 179 ms | 148 ms |
+| Preview: the same profile, one archive due | 13.561 s | 14.138 s |
 
-| Workload | Codex Retain |
-| --- | ---: |
-| Cleanup: 1,000 expired archives, 4 KiB each | 409.4 ± 12.8 ms |
-| Cleanup: 10,000 expired archives, 4 KiB each | **4.934 ± 0.052 s** |
-| Cleanup: 128 archives, one busy writer; delete the other 127 | **84.8 ± 2.3 ms** |
-| Preview: 1,000 archives + 99,000 active sessions, one archive due | **148.3 ± 13.0 ms** |
-| Preview: the same mixed profile, no archives due | 94.6 ± 0.7 ms |
-| Scheduled run: 100,000 archives, none due | **220.3 ± 13.8 ms** |
+The large cleanup improvement is supported by non-overlapping ranges:
+12.351–14.504 s versus 7.260–7.858 s. Small workloads remain noisy. An additional
+fixed series of five alternating paginated pairs gave medians of 911 ms versus
+884 ms, while the candidate's mean remained higher. A small paginated regression
+cannot be ruled out; a speedup for that workload is not established.
 
-Cleanup preserves busy threads and their locks. It rechecks eligibility,
-updates supported SQLite thread state, and retains the journal and disk
-synchronization needed to recover interrupted deletion.
+The first full header inventory remains expensive. Preview does not use the
+run cache, and its 100,000-file case has no demonstrated improvement. The
+scheduled no-candidate path remains short and skips that inventory entirely.
+For the 10,000-file cleanup, separately sampled process RSS was 26.1 MiB versus
+31.6 MiB; samples can miss the peak and exclude child processes. The header
+cache trades memory proportional to the file inventory for fewer repeated reads.
 
-| Workload | Sampled Retain process RSS |
-| --- | ---: |
-| Cleanup: 10,000 expired archives | 17.8 MiB |
-| Mixed profile: 1,000 archives + 99,000 active sessions, one archive due | **7.1 MiB** |
-| Scheduled run: 100,000 archives, none due | **6.8 MiB** |
+All 70 timed runs passed their result checks. Native Codex conformance also
+covers paginated fork/revert, retained history, organizational dependencies and
+writer contention. These synthetic checks do not establish cold-cache behavior,
+live-writer latency or performance on another host.
 
-RSS was sampled separately from the Retain process using `ps`. These observations
-can miss the exact peak and exclude the Codex child process. File hashes,
-surviving and deleted IDs, SQLite integrity, capture epochs, and held lock
-identities were checked. Cold caches, other machines, and live writer latency
-were not measured.
-
-[Full optimization report and reproduction](docs/performance-implementation-2026-09-10.md) ·
-[All timing samples, medians, CPU and RSS](docs/evidence/performance-implementation-2026-09-10/final/comparison.json) ·
-[Environment and binary identities](docs/evidence/performance-implementation-2026-09-10/final/environment.json)
+[Full comparison, limits and reproduction](docs/inventory-performance-2026-09-10.md) ·
+[All main-series samples and RSS](docs/evidence/inventory-optimization-2026-09-10/comparison.json) ·
+[Alternating paginated pairs](docs/evidence/inventory-optimization-2026-09-10/paginated-interleaved/comparison.json) ·
+[Earlier narrower legacy measurements](docs/performance-implementation-2026-09-10.md)
 
 We also [reviewed five existing Codex cleanup tools](docs/competitors.md) and
 [compared seven retention scenarios](docs/evidence/semantic-comparison.json).
 The differences concern their actual cleanup rules and effects.
 
-## Update or uninstall
+## Recovery and compatibility changes
 
-To update from this checkout, replace the executable at its existing path:
-
-```sh
-git pull --ff-only
-cargo install --path . --locked --force
-```
-
-Your policy and exclusions persist. If you move the executable or its Node.js
-launcher runtime, disable the schedule and re-enable from the new location.
 **Disable Retain before upgrading Codex** so the next storage version can be
-reviewed before the SQLite extension is used with it.
+reviewed before the SQLite extension is used with it. Your policy and exclusions
+persist through ordinary Retain updates at the same installation path.
 
 Before downgrading Retain, finish pending recovery or disable using the newer
-executable. Version 0.1.2 writes schema 4 journals with a separate slot for every
-physical file. Older versions cannot recover that format; older 32-chat builds
-also reject larger groups. The current reader accepts journal schemas 1–4.
+executable. Versions 0.1.2 and 0.1.3 write schema 4 journals with a separate slot
+for every physical file. Earlier versions cannot recover that format; older
+32-chat builds also reject larger groups. The current reader accepts journal
+schemas 1–4. Version 0.1.3 does not change the policy, capture or journal format.
 
-To remove the utility:
-
-```sh
-codex-retain uninstall
-cargo uninstall codex-retain
-```
-
-`uninstall` disables deletion, removes the schedule and transition recorder, and
-handles pending recovery. The small policy and report remain for inspection. If
-Codex data is unavailable, the policy is already disabled; keep the executable
-until the reported unfinished step succeeds. Remove a manually installed binary
-after `uninstall` succeeds.
+`uninstall` handles pending recovery as well as disabling deletion and removing
+the schedule and transition recorder. The small policy and report remain for
+inspection. If Codex data is unavailable, the policy is already disabled;
+keep the executable until the reported unfinished step succeeds.
 
 Deleting the binary directly cannot run an uninstall hook. It can leave a stale
 launchd entry, but no hidden copy exists to keep cleaning chats. Reinstall at
-the same path and run `uninstall` to remove that entry.
+the same path and run `uninstall` to remove that entry. See
+[update and uninstall commands](#update-or-uninstall).
 
 ## Development and help
 
 ```sh
-make check
-make maintenance-check
+make verify
 cargo build --release --locked
 ```
 
-The [latest optimization validation](docs/performance-implementation-2026-09-10.md)
-records 127 passing Rust tests and 20 benchmark-harness tests. The broader
-[validation record](docs/validation.md) covers native Codex conformance,
-interruption recovery, and scheduler integration. All destructive tests use
+The [latest optimization validation](docs/inventory-performance-2026-09-10.md)
+covers file-cache invalidation, fresh orphan dependencies, recovery and native
+Codex conformance. CI runs the Rust and maintenance checks on the declared
+toolchain; release jobs additionally test and package each macOS architecture
+on its native runner. The [validation record](docs/validation.md) preserves
+earlier compatibility and scheduler evidence. All destructive tests use
 synthetic profiles.
 
 For setup problems or feature requests, [open an issue](https://github.com/Dankosik/codex-retain/issues).

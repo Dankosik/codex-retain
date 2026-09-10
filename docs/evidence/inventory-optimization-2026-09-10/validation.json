@@ -1,0 +1,526 @@
+{
+  "candidate_sha256": "25fbc2e232bebc95f122eddc5fb9781d8aa081e7f7f683d5ae46e1f59feee3d1",
+  "main_matrix_timed_runs": 60,
+  "alternating_pair_timed_runs": 10,
+  "main_matrix": [
+    {
+      "case": "legacy/cleanup-1000-baseline",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "e18ca893811d80b09c355cff324bc1182fbf6a6cd9b048bb472b712f48bac5ea",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "0f4d715a257d8d920ab1c17cca4e3a36d6b01fbc03458be68a69d47f7a0db055",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "29af8899914019d41eac9aef9f030f12baa02cc38359948a5bc4d6f06d231417",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/cleanup-1000-candidate",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "1708a83a1c973457354cb630ff052ee45d342968aa07d80e4eb5bf16d77b50b8",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "a31811e417b0f85bc90e59624636bd9ab44b6671c63909bfc9c85fefb1d4d4a0",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "1916b2d4b623c9c40460ca54aaf12756d01009b8abb463cf4bddaa23d0264c28",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/cleanup-10000-baseline",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "b3c2009aeb67b574877565e0d3412f4c082653b4503642faf014ea58e00bd03d",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "360cd8ee29d0db749a20b2910a683b6b45a1f73bcdfdb65676c498d7923a08c1",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "aa2f79cce107659385992c1a9fedb22744f03a4c4cdeb68a1c7663dbe75db2cd",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/cleanup-10000-candidate",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "e6297330a75dd2e1660b02bac0fc7a9eabc62f63ed277c0a490db616bc941a34",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "3e1c3e6a203d190ab3bdb3e22827260cfc2d348effa1831323587dcb39e3bcb1",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "f4712da059e2850d6392702572570357190869c083fa0ed71b75c8f8133c7fc5",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/summary-baseline",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "d6dae8d03e5c53bc9b485cbcb559cdbc399457bf318336b88243a6a11c22f78c",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 100000,
+            "skipped": 100000
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "d6dae8d03e5c53bc9b485cbcb559cdbc399457bf318336b88243a6a11c22f78c",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 100000,
+            "skipped": 100000
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "2f90c7a3e903994ba402bc6648c14cc4e74b3367682c01c406734c48ab586d2a",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 100000,
+            "skipped": 100000
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/summary-candidate",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "d6dae8d03e5c53bc9b485cbcb559cdbc399457bf318336b88243a6a11c22f78c",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 100000,
+            "skipped": 100000
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "d6dae8d03e5c53bc9b485cbcb559cdbc399457bf318336b88243a6a11c22f78c",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 100000,
+            "skipped": 100000
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "d71e63db779d7d737d2b83e324a2fd1bac0862cff106d3fb328925489d1b683c",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 100000,
+            "skipped": 100000
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/mixed-none-baseline",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "f431ec57158b648de16ee0e366deb8588888ab5c7057847d042925a86906cb26",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 1000,
+            "skipped": 1000
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "117ca352cc7a7dad2403029785b7300b2ee2ea3da4d50d9bf1ad9b72e7951a98",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 1000,
+            "skipped": 1000
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "0ed6e695e5b7ca7b8b28f58c452822a3de26feb8f0708da469f5e338ad9c3380",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 1000,
+            "skipped": 1000
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/mixed-none-candidate",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "6085c31859ee66aaa0f7ba7e2b8ebc4f5a15c5b78f27292578baead4520e97aa",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 1000,
+            "skipped": 1000
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "c80828bcd11c55a4c03ed339c381986b90edf0a6af52ae3d92288097c4727fa7",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 1000,
+            "skipped": 1000
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "d440b5f6bcb5f3ad3dff4277da729065cf3288912495b52ebc0600449d9eafcb",
+          "counts": {
+            "deleted": 0,
+            "eligible": 0,
+            "examined": 1000,
+            "skipped": 1000
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/mixed-one-baseline",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "28a4f183aa595a70865daa569c24d757e7f298590d0df2c1ce2d1b4ac2ba8d31",
+          "counts": {
+            "deleted": 0,
+            "eligible": 1,
+            "examined": 1000,
+            "skipped": 999
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "ced1cf42990db1db7c5f40b16344a5fcc8c74470d3e09cbae992acf36720f674",
+          "counts": {
+            "deleted": 0,
+            "eligible": 1,
+            "examined": 1000,
+            "skipped": 999
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "ddc7b37677b79552e128d50dd5e7d1cbcf3fb87cce1250d5765d024373666982",
+          "counts": {
+            "deleted": 0,
+            "eligible": 1,
+            "examined": 1000,
+            "skipped": 999
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "legacy/mixed-one-candidate",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "a1f4e244ad2bf59add1ff68ab5e0f93fea872ac832dc1f8c2e985c8cfd5b7e23",
+          "counts": {
+            "deleted": 0,
+            "eligible": 1,
+            "examined": 1000,
+            "skipped": 999
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "2e79c79a2c2bb65e658d5db921268d4cc8ecde410e93ec3eb4579027762addb8",
+          "counts": {
+            "deleted": 0,
+            "eligible": 1,
+            "examined": 1000,
+            "skipped": 999
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "f7d0cf75946bef2e8aa64d80f3ccab47eb2d8fc9ae55bb69451aaa76f5deca07",
+          "counts": {
+            "deleted": 0,
+            "eligible": 1,
+            "examined": 1000,
+            "skipped": 999
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "paginated/cleanup-1000-baseline",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "401d3827df4f3c1a5940f6ff08f2da8dbc2fb2827c5a3d4fda38b01ccef811a5",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "0675443dcba9f831d8b667e9a24b0e65b23cd470a1fc065b0ac394a9910bba31",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "066c28f97efda42f1306a5d8b4eeb09b7730e23e9e047ad46db1d2b56d0f9790",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        }
+      }
+    },
+    {
+      "case": "paginated/cleanup-1000-candidate",
+      "timed_exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "receipts": {
+        "preflight": {
+          "sha256": "56ac1814f6338716520648758f5cd83ff6f93ee38b7c5f00f0641d43e047e085",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "postflight": {
+          "sha256": "a93ef1e103830af52dd74645ba1e564f08d0bd188891969641385e054fd64289",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        },
+        "result": {
+          "sha256": "d5ea706e281393be654e4253b5fda728a2a3a5ab34ece7d70bde1e7384bc8994",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          },
+          "verified": true
+        }
+      }
+    }
+  ],
+  "paired_runs_verified": true,
+  "native": [
+    {
+      "receipt": "native-paginated.json",
+      "checks": 13,
+      "passed": true,
+      "sha256": "fee34be4ba236c33c5345532afe3b36debefebbaee4bc03a1f5f9df5e1549062"
+    },
+    {
+      "receipt": "native-related.json",
+      "checks": 15,
+      "passed": true,
+      "sha256": "1d6204362b7defa2bbcd631ce68142dc2d28e6c1b28695eeb7f02d7f43b0cc83"
+    }
+  ]
+}

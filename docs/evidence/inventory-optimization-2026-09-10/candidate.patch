@@ -1,0 +1,655 @@
+diff --git a/src/engine.rs b/src/engine.rs
+index 3cf1546..cab4d63 100644
+--- a/src/engine.rs
++++ b/src/engine.rs
+@@ -389,7 +389,7 @@ fn inspect_owned(
+             "paginated rollout changed after reference discovery"
+         );
+         let line = crate::metadata::first_record(
+-            file,
++            &file,
+             rollout
+                 .path
+                 .extension()
+@@ -706,7 +706,7 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
+                     "restored source identity changed; manual recovery required"
+                 );
+                 let line = crate::metadata::first_record(
+-                    file,
++                    &file,
+                     item.artifact
+                         .path
+                         .extension()
+@@ -730,7 +730,7 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
+         );
+         if intent.schema >= 3 {
+             let line = crate::metadata::first_record(
+-                file,
++                &file,
+                 item.artifact
+                     .path
+                     .extension()
+@@ -783,6 +783,7 @@ struct Cleanup<'run, 'connection> {
+     now: i64,
+     graph: &'run crate::relations::Dependencies,
+     owners: RolloutOwners<'connection>,
++    headers: crate::lineage::HeaderCache,
+     detail: ReportDetail,
+     #[cfg(test)]
+     completed_batches: usize,
+@@ -827,8 +828,8 @@ impl Cleanup<'_, '_> {
+         drop(thread_query);
+         // File metadata also carries parent ownership when SQL edges are absent.
+         // Rebuild both dependency kinds after locks and the live state transaction.
+-        let lineage =
+-            crate::lineage::scan(&p.codex_home, &deleting).context(GlobalCleanupFailure)?;
++        let lineage = crate::lineage::scan(&p.codex_home, &deleting, Some(&mut self.headers))
++            .context(GlobalCleanupFailure)?;
+         let mut fresh = crate::relations::Dependencies::default();
+         database::add_spawn_dependencies(&tx, &mut fresh).context(GlobalCleanupFailure)?;
+         lineage.add_dependencies(&mut fresh);
+@@ -903,7 +904,7 @@ impl Cleanup<'_, '_> {
+                 "staged file identity changed before commit"
+             );
+             let line = crate::metadata::first_record(
+-                file,
++                &file,
+                 item.artifact
+                     .path
+                     .extension()
+@@ -911,10 +912,10 @@ impl Cleanup<'_, '_> {
+             )?;
+             crate::lineage::validate_owner(&line, uuid::Uuid::parse_str(&item.thread_id)?)?;
+         }
++        source_parents.insert(&archive);
+         for parent in source_parents {
+             fsutil::sync_dir(parent)?;
+         }
+-        fsutil::sync_dir(&archive)?;
+         database::delete_rows(delete_query, &threads)?;
+         database::delete_spawn_edges(&tx, &threads)?;
+         tx.commit()?;
+@@ -1179,14 +1180,18 @@ fn execute_with_detail(
+         })
+         .collect();
+     let mut graph = crate::relations::Dependencies::default();
++    // Preview has no later scan to reuse these headers.
++    let mut headers = crate::lineage::HeaderCache::default();
+     let lineage = if candidates.is_empty() {
+         Ok(crate::lineage::LineageIndex::default())
+     } else {
+-        crate::lineage::scan(&p.codex_home, &candidate_ids).and_then(|lineage| {
+-            database::add_spawn_dependencies(c, &mut graph)?;
+-            lineage.add_dependencies(&mut graph);
+-            Ok(lineage)
+-        })
++        crate::lineage::scan(&p.codex_home, &candidate_ids, apply.then_some(&mut headers)).and_then(
++            |lineage| {
++                database::add_spawn_dependencies(c, &mut graph)?;
++                lineage.add_dependencies(&mut graph);
++                Ok(lineage)
++            },
++        )
+     };
+     let mut selected_paths = HashMap::new();
+     let before = apply
+@@ -1302,6 +1307,7 @@ fn execute_with_detail(
+             now,
+             graph: &graph,
+             owners,
++            headers,
+             detail,
+             #[cfg(test)]
+             completed_batches: 0,
+@@ -1376,6 +1382,105 @@ mod test_support;
+ mod tests {
+     use super::*;
+ 
++    #[test]
++    fn cached_inventory_rechecks_orphan_parents_between_committed_groups() {
++        for change in ["new", "rewrite", "replace"] {
++            let fixture = test_support::Fixture::new();
++            let first = fixture.add(1, 1);
++            let second = fixture.add(2, 1);
++            fixture.age(&first);
++            fixture.age(&second);
++            let orphan = uuid::Uuid::from_u128(3);
++            let path = fixture
++                .home
++                .join("sessions")
++                .join(format!("rollout-2026-09-10T00-00-00-{orphan}.jsonl"));
++            let record = |parent: uuid::Uuid| {
++                format!(
++                    "{}\n",
++                    serde_json::json!({
++                        "type":"session_meta", "payload": {
++                            "id":orphan, "history_mode":"legacy", "parent_thread_id":parent
++                        }
++                    })
++                )
++            };
++            if change != "new" {
++                fs::write(&path, record(uuid::Uuid::from_u128(4))).unwrap();
++            }
++            let ids = [&first, &second].map(|id| uuid::Uuid::parse_str(id).unwrap());
++            let mut headers = crate::lineage::HeaderCache::default();
++            let lineage =
++                crate::lineage::scan(&fixture.home, &HashSet::from(ids), Some(&mut headers))
++                    .unwrap();
++            let mut graph = crate::relations::Dependencies::default();
++            lineage.add_dependencies(&mut graph);
++            let mut cleanup = Cleanup {
++                policy: &fixture.policy,
++                store: &fixture.store,
++                now: test_support::now(),
++                graph: &graph,
++                owners: RolloutOwners::new(&fixture.c, ""),
++                headers,
++                detail: ReportDetail::Full,
++                completed_batches: 0,
++            };
++            let mut attempted = false;
++            cleanup
++                .delete_batch(&fixture.c, &[&first], &mut attempted)
++                .unwrap();
++            assert!(attempted);
++            assert!(!fixture.exists(&first));
++            let data_version: i64 = fixture
++                .c
++                .query_row("PRAGMA main.data_version", [], |row| row.get(0))
++                .unwrap();
++            if change == "replace" {
++                fs::rename(&path, fixture.home.join("saved-orphan")).unwrap();
++            }
++            fs::write(&path, record(ids[1])).unwrap();
++            assert_eq!(
++                fixture
++                    .c
++                    .query_row("PRAGMA main.data_version", [], |row| row.get::<_, i64>(0))
++                    .unwrap(),
++                data_version
++            );
++            attempted = false;
++            let error = cleanup
++                .delete_batch(&fixture.c, &[&second], &mut attempted)
++                .unwrap_err();
++            assert!(
++                error.to_string().contains("surviving child"),
++                "{change}: {error:#}"
++            );
++            assert!(!attempted, "fresh dependency must veto before journaling");
++            assert!(fixture.exists(&second));
++            assert!(fixture.path(&second, true).exists());
++            assert!(path.exists());
++            assert!(!fixture.store.root.join("pending.json").exists());
++        }
++    }
++
++    #[test]
++    fn flat_batch_syncs_the_archive_once_per_durability_barrier() {
++        let mut fixture = test_support::Fixture::new();
++        let id = fixture.add(1, 1);
++        fixture.age(&id);
++        fsutil::trace_directory_syncs(None);
++        let report = fixture.run(true).unwrap();
++        let trace = fsutil::take_directory_sync_trace();
++        assert_eq!(report.deleted, 1);
++        assert_eq!(
++            trace
++                .iter()
++                .filter(|path| **path == fixture.home.join("archived_sessions"))
++                .count(),
++            2,
++            "one barrier before SQL commit and one after staged unlink"
++        );
++    }
++
+     #[test]
+     fn reason_tokens_keep_the_report_schema_and_attention_policy() {
+         let cases = [
+@@ -1510,7 +1615,7 @@ mod tests {
+         }
+         let owner = uuid::Uuid::parse_str(&due).unwrap();
+         let candidates = HashSet::from([owner]);
+-        let inventory = crate::lineage::scan(&fixture.home, &candidates).unwrap();
++        let inventory = crate::lineage::scan(&fixture.home, &candidates, None).unwrap();
+         assert_eq!(inventory.owned(owner).len(), 1);
+         assert_eq!(inventory.owned(owner)[0].path, fixture.path(&due, true));
+         assert!(inventory.owned(uuid::Uuid::from_u128(2)).is_empty());
+@@ -1520,7 +1625,7 @@ mod tests {
+             .join(fixture.path(&due, true).file_name().unwrap());
+         fs::copy(fixture.path(&due, true), &duplicate).unwrap();
+         assert_eq!(
+-            crate::lineage::scan(&fixture.home, &candidates)
++            crate::lineage::scan(&fixture.home, &candidates, None)
+                 .unwrap()
+                 .owned(owner)
+                 .len(),
+@@ -1528,7 +1633,7 @@ mod tests {
+         );
+         std::os::unix::fs::symlink("missing", fixture.home.join("sessions/unrelated-link"))
+             .unwrap();
+-        assert!(crate::lineage::scan(&fixture.home, &candidates).is_err());
++        assert!(crate::lineage::scan(&fixture.home, &candidates, None).is_err());
+     }
+ 
+     #[test]
+diff --git a/src/lineage.rs b/src/lineage.rs
+index 2dd0a49..c790e0d 100644
+--- a/src/lineage.rs
++++ b/src/lineage.rs
+@@ -8,6 +8,7 @@ use serde::Deserialize;
+ use serde_json::Value;
+ use std::collections::{HashMap, HashSet};
+ use std::fs;
++use std::os::unix::fs::MetadataExt;
+ use std::path::{Path, PathBuf};
+ use uuid::Uuid;
+ 
+@@ -58,7 +59,126 @@ impl LineageIndex {
+     }
+ }
+ 
+-pub(crate) fn scan(home: &Path, candidate_owners: &HashSet<Uuid>) -> Result<LineageIndex> {
++/// Run-local header reuse only. Directory discovery, graph construction and
++/// candidate validation remain live; SQLite versions cannot describe orphans.
++#[derive(Default)]
++pub(crate) struct HeaderCache {
++    entries: HashMap<PathBuf, CachedHeader>,
++    generation: bool,
++    #[cfg(test)]
++    reads: usize,
++}
++
++struct CachedHeader {
++    stamp: FileStamp,
++    parsed: ParsedHeader,
++    generation: bool,
++}
++
++#[derive(PartialEq, Eq)]
++struct FileStamp {
++    identity: crate::fsutil::Identity,
++    len: u64,
++    modified: (i64, i64),
++    changed: (i64, i64),
++    mode: u32,
++    uid: u32,
++    gid: u32,
++    links: u64,
++}
++
++impl FileStamp {
++    fn of(metadata: &fs::Metadata) -> Self {
++        Self {
++            identity: crate::fsutil::Identity::of(metadata),
++            len: metadata.len(),
++            modified: (metadata.mtime(), metadata.mtime_nsec()),
++            changed: (metadata.ctime(), metadata.ctime_nsec()),
++            mode: metadata.mode(),
++            uid: metadata.uid(),
++            gid: metadata.gid(),
++            links: metadata.nlink(),
++        }
++    }
++}
++
++fn read_header(
++    path: &Path,
++    compressed: bool,
++    mut cache: Option<&mut HeaderCache>,
++) -> Result<(ParsedHeader, crate::fsutil::Identity)> {
++    if let Some(cache) = cache.as_deref_mut()
++        && let Some(cached) = cache.entries.get_mut(path)
++    {
++        // lstat on every hit detects replaced paths, symlinks, hardlinks,
++        // appends, in-place edits and permission changes. Never use directory
++        // timestamps or a database-only freshness token for header reuse.
++        let metadata = fs::symlink_metadata(path)
++            .with_context(|| format!("inspect rollout {}", path.display()))?;
++        if FileStamp::of(&metadata) == cached.stamp {
++            let parsed = cached.parsed;
++            let identity = cached.stamp.identity.clone();
++            cached.generation = cache.generation;
++            return Ok((parsed, identity));
++        }
++    }
++    let (file, metadata) = crate::fsutil::regular_with_metadata(path, false, false)?;
++    let stamp = FileStamp::of(&metadata);
++    let line = crate::metadata::first_record(&file, compressed)
++        .with_context(|| format!("read rollout header {}", path.display()))?;
++    let parsed =
++        header(&line).with_context(|| format!("invalid rollout header {}", path.display()))?;
++    let identity = stamp.identity.clone();
++    if let Some(cache) = cache {
++        // Bind a successful parse to the same opened object's stable metadata.
++        // A changing file fails this scan rather than seeding a stale cache.
++        ensure!(
++            FileStamp::of(&file.metadata()?) == stamp,
++            "rollout changed while reading header: {}",
++            path.display()
++        );
++        cache.entries.insert(
++            path.to_path_buf(),
++            CachedHeader {
++                stamp,
++                parsed,
++                generation: cache.generation,
++            },
++        );
++        #[cfg(test)]
++        {
++            cache.reads += 1;
++        }
++    }
++    Ok((parsed, identity))
++}
++
++pub(crate) fn scan(
++    home: &Path,
++    candidate_owners: &HashSet<Uuid>,
++    mut cache: Option<&mut HeaderCache>,
++) -> Result<LineageIndex> {
++    if let Some(cache) = cache.as_mut() {
++        cache.generation = !cache.generation;
++    }
++    let result = scan_inventory(home, candidate_owners, cache.as_deref_mut());
++    if let Some(cache) = cache {
++        if result.is_ok() {
++            cache
++                .entries
++                .retain(|_, header| header.generation == cache.generation);
++        } else {
++            cache.entries.clear();
++        }
++    }
++    result
++}
++
++fn scan_inventory(
++    home: &Path,
++    candidate_owners: &HashSet<Uuid>,
++    mut cache: Option<&mut HeaderCache>,
++) -> Result<LineageIndex> {
+     let mut index = LineageIndex::default();
+     let mut entries = 0usize;
+     for root in [home.join("sessions"), home.join("archived_sessions")] {
+@@ -102,13 +222,8 @@ pub(crate) fn scan(home: &Path, candidate_owners: &HashSet<Uuid>) -> Result<Line
+                 continue;
+             };
+             let rollout_id = filename.rollout;
+-            let (file, metadata) =
+-                crate::fsutil::regular_with_metadata(entry.path(), false, false)?;
+-            let identity = crate::fsutil::Identity::of(&metadata);
+-            let line = crate::metadata::first_record(file, filename.compressed)
+-                .with_context(|| format!("read rollout header {}", entry.path().display()))?;
+-            let parsed = header(&line)
+-                .with_context(|| format!("invalid rollout header {}", entry.path().display()))?;
++            let (parsed, identity) =
++                read_header(entry.path(), filename.compressed, cache.as_deref_mut())?;
+             let ParsedHeader {
+                 owner,
+                 paginated,
+@@ -253,7 +368,7 @@ struct SpawnSource {
+     parent_thread_id: String,
+ }
+ 
+-#[derive(Debug, PartialEq, Eq)]
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ struct ParsedHeader {
+     owner: Uuid,
+     paginated: bool,
+@@ -425,7 +540,7 @@ mod tests {
+                 compressed,
+             );
+             // No database exists: an orphan rollout still carries a real edge.
+-            let index = scan(home.path(), &HashSet::from([OWNER])).unwrap();
++            let index = scan(home.path(), &HashSet::from([OWNER]), None).unwrap();
+             assert!(index.externally_referenced(OWNER, OWNER));
+             assert_eq!(index.owned(OWNER).len(), 1);
+             assert!(index.owned(OWNER)[0].paginated);
+@@ -433,6 +548,162 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn cached_scans_discover_new_copies_and_forget_removed_references() {
++        for compressed in [false, true] {
++            let home = tempfile::tempdir().unwrap();
++            let source = write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
++            let candidates = HashSet::from([OWNER]);
++            let mut cache = HeaderCache::default();
++            scan(home.path(), &candidates, Some(&mut cache)).unwrap();
++            scan(home.path(), &candidates, Some(&mut cache)).unwrap();
++            assert_eq!(cache.reads, 1, "unchanged headers must not be reopened");
++
++            let child = write(
++                home.path(),
++                "sessions/nested",
++                CHILD,
++                CHILD,
++                Some(OWNER),
++                compressed,
++            );
++            let copy = home
++                .path()
++                .join("sessions")
++                .join(source.file_name().unwrap());
++            fs::copy(&source, &copy).unwrap();
++            let index = scan(home.path(), &candidates, Some(&mut cache)).unwrap();
++            assert!(index.externally_referenced(OWNER, OWNER));
++            assert_eq!(index.owned(OWNER).len(), 2);
++            assert_eq!(cache.reads, 3);
++
++            fs::remove_file(child).unwrap();
++            fs::remove_file(copy).unwrap();
++            let index = scan(home.path(), &candidates, Some(&mut cache)).unwrap();
++            assert!(!index.externally_referenced(OWNER, OWNER));
++            assert_eq!(index.owned(OWNER).len(), 1);
++            assert_eq!(cache.entries.len(), 1);
++            assert_eq!(cache.reads, 3);
++        }
++    }
++
++    #[test]
++    fn cached_header_edits_cannot_hide_new_dependencies() {
++        use std::io::Write;
++        for change in [
++            "same-size",
++            "restored-mtime",
++            "replace",
++            "append",
++            "compressed",
++        ] {
++            let home = tempfile::tempdir().unwrap();
++            let compressed = change == "compressed";
++            write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
++            let child = write(home.path(), "sessions", CHILD, CHILD, Some(OLD), compressed);
++            let candidates = HashSet::from([OWNER]);
++            let mut cache = HeaderCache::default();
++            let initial = scan(home.path(), &candidates, Some(&mut cache)).unwrap();
++            assert!(!initial.externally_referenced(OWNER, OWNER));
++            let before = fs::metadata(&child).unwrap();
++            if change == "append" {
++                fs::OpenOptions::new()
++                    .append(true)
++                    .open(&child)
++                    .unwrap()
++                    .write_all(b"another record\n")
++                    .unwrap();
++            } else {
++                if change == "replace" {
++                    fs::rename(&child, home.path().join("old-inode")).unwrap();
++                }
++                write(
++                    home.path(),
++                    "sessions",
++                    CHILD,
++                    CHILD,
++                    Some(OWNER),
++                    compressed,
++                );
++                if change == "restored-mtime" {
++                    fs::File::options()
++                        .write(true)
++                        .open(&child)
++                        .unwrap()
++                        .set_modified(before.modified().unwrap())
++                        .unwrap();
++                }
++            }
++            if matches!(change, "same-size" | "restored-mtime" | "replace") {
++                assert_eq!(fs::metadata(&child).unwrap().len(), before.len());
++            }
++            let index = scan(home.path(), &candidates, Some(&mut cache)).unwrap();
++            assert_eq!(
++                index.externally_referenced(OWNER, OWNER),
++                change != "append",
++                "{change}"
++            );
++            assert_eq!(
++                cache.reads, 3,
++                "changed header must be read again: {change}"
++            );
++        }
++    }
++
++    #[test]
++    fn cache_hits_do_not_bypass_filesystem_or_header_failures() {
++        use std::os::unix::fs::{PermissionsExt, symlink};
++        for change in [
++            "symlink",
++            "hardlink",
++            "permissions",
++            "malformed",
++            "pending",
++            "root-symlink",
++        ] {
++            let home = tempfile::tempdir().unwrap();
++            let source = write(home.path(), "sessions", OWNER, OWNER, None, false);
++            let candidates = HashSet::from([OWNER]);
++            let mut cache = HeaderCache::default();
++            scan(home.path(), &candidates, Some(&mut cache)).unwrap();
++            match change {
++                "symlink" => {
++                    let saved = home.path().join("saved");
++                    fs::rename(&source, &saved).unwrap();
++                    symlink(saved, &source).unwrap();
++                }
++                "hardlink" => fs::hard_link(&source, home.path().join("extra-link")).unwrap(),
++                "permissions" => {
++                    fs::set_permissions(&source, fs::Permissions::from_mode(0o000)).unwrap()
++                }
++                "malformed" => fs::write(&source, b"invalid header\n").unwrap(),
++                "pending" => {
++                    fs::write(home.path().join("sessions/.codex-retain-pending-test"), b"").unwrap()
++                }
++                "root-symlink" => {
++                    let saved = home.path().join("saved-root");
++                    fs::rename(home.path().join("sessions"), &saved).unwrap();
++                    symlink(saved, home.path().join("sessions")).unwrap();
++                }
++                _ => unreachable!(),
++            }
++            let result = scan(home.path(), &candidates, Some(&mut cache));
++            if change == "permissions" {
++                fs::set_permissions(&source, fs::Permissions::from_mode(0o600)).unwrap();
++                // A privileged test runner may still be able to read mode 000.
++                if result.is_ok() {
++                    assert_eq!(cache.reads, 2);
++                    continue;
++                }
++            }
++            assert!(result.is_err(), "{change}");
++            assert!(
++                cache.entries.is_empty(),
++                "failed scans discard cached headers"
++            );
++        }
++    }
++
+     #[test]
+     fn owns_reverted_rollouts_without_treating_internal_edges_as_external() {
+         let home = tempfile::tempdir().unwrap();
+@@ -446,12 +717,12 @@ mod tests {
+             false,
+         );
+         let candidates = HashSet::from([OWNER]);
+-        let index = scan(home.path(), &candidates).unwrap();
++        let index = scan(home.path(), &candidates, None).unwrap();
+         assert_eq!(index.owned(OWNER).len(), 2);
+         assert!(!index.externally_referenced(OLD, OWNER));
+         assert_eq!(index.owned(OWNER)[0].rollout_id, OWNER);
+         write(home.path(), "sessions", CHILD, CHILD, Some(OLD), false);
+-        let index = scan(home.path(), &candidates).unwrap();
++        let index = scan(home.path(), &candidates, None).unwrap();
+         assert!(index.externally_referenced(OLD, OWNER));
+         assert!(!index.externally_referenced(OWNER, OWNER));
+     }
+@@ -463,7 +734,7 @@ mod tests {
+             write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
+             write(home.path(), directory, OWNER, OWNER, None, compressed);
+             assert_eq!(
+-                scan(home.path(), &HashSet::from([OWNER]))
++                scan(home.path(), &HashSet::from([OWNER]), None)
+                     .unwrap()
+                     .owned(OWNER)
+                     .len(),
+@@ -482,7 +753,7 @@ mod tests {
+             let home = tempfile::tempdir().unwrap();
+             let path = write(home.path(), "sessions", CHILD, CHILD, None, false);
+             fs::write(path, invalid).unwrap();
+-            assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
++            assert!(scan(home.path(), &HashSet::from([OWNER]), None).is_err());
+         }
+     }
+ 
+@@ -535,7 +806,7 @@ mod tests {
+         let wrong =
+             original.with_file_name(format!("rollout-2026-09-10T00-00-00-{CHILD}_{OLD}.jsonl"));
+         fs::rename(original, wrong).unwrap();
+-        assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
++        assert!(scan(home.path(), &HashSet::from([OWNER]), None).is_err());
+         for name in [
+             format!("rollout-2026-02-31T00-00-00-{OWNER}.jsonl"),
+             format!("rollout-2026-09-10T00-00-00-{OWNER}_{OLD}_{CHILD}.jsonl"),
+@@ -559,12 +830,12 @@ mod tests {
+                     fs::write(home.path().join("sessions/.codex-retain-pending-test"), b"").unwrap()
+                 }
+             }
+-            assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
++            assert!(scan(home.path(), &HashSet::from([OWNER]), None).is_err());
+         }
+         let home = tempfile::tempdir().unwrap();
+         std::os::unix::fs::symlink(home.path().join("missing"), home.path().join("sessions"))
+             .unwrap();
+-        assert!(scan(home.path(), &HashSet::new()).is_err());
++        assert!(scan(home.path(), &HashSet::new(), None).is_err());
+     }
+ 
+     #[test]
+@@ -587,7 +858,7 @@ mod tests {
+                 format!("{}\n", json!({"type":"session_meta","payload":payload})),
+             )
+             .unwrap();
+-            let index = scan(home.path(), &HashSet::from([OWNER])).unwrap();
++            let index = scan(home.path(), &HashSet::from([OWNER]), None).unwrap();
+             let mut graph = crate::relations::Dependencies::default();
+             index.add_dependencies(&mut graph);
+             assert_eq!(
+diff --git a/src/metadata.rs b/src/metadata.rs
+index 2bd4298..2d69e32 100644
+--- a/src/metadata.rs
++++ b/src/metadata.rs
+@@ -6,9 +6,9 @@ use serde::{Deserialize, Deserializer};
+ use std::fmt;
+ 
+ /// Read only the first metadata record, with the same bounds for every format.
+-pub(crate) fn first_record(file: std::fs::File, compressed: bool) -> Result<Vec<u8>> {
++pub(crate) fn first_record(file: &std::fs::File, compressed: bool) -> Result<Vec<u8>> {
+     use std::io::{BufRead, BufReader, Read};
+-    let reader: Box<dyn Read> = if compressed {
++    let reader: Box<dyn Read + '_> = if compressed {
+         let mut decoder =
+             zstd::stream::read::Decoder::with_buffer(BufReader::with_capacity(16384, file))?;
+         decoder.window_log_max(23)?;

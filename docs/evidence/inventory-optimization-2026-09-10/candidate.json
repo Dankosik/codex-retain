@@ -1,0 +1,31 @@
+{
+  "base_commit": "03f9a649a7f7972022cd4aea81a7b28565be123e",
+  "candidate_binary": "/Users/daniil/Projects/Opensource/codex-retain/target/release/codex-retain",
+  "candidate_sha256": "25fbc2e232bebc95f122eddc5fb9781d8aa081e7f7f683d5ae46e1f59feee3d1",
+  "sources": {
+    "src/engine.rs": "3f574af8e664cadc035c32b5896f2e6b04a88d5e2ed71a6e6475aace1489003d",
+    "src/lineage.rs": "f91196da43d67a039c52af06845a6100a367c6afc315b625a8a1e1eb038ff03e",
+    "src/metadata.rs": "240b9962d9d620d80dff25da9da9397e76f50e8f5fdadd99e904fe97823a082c",
+    "Cargo.toml": "b378349012c7c2d9e3584f67356c48f551025398c2088ae792bbe78043935f6c",
+    "Cargo.lock": "b92413248b255b0bd10d3c1a6ab58d141d05d0796a1bed93e7cd39cf999fc113",
+    "rust-toolchain.toml": "887f9be066a15585a2c583578e84b0fcb541126d81546276bad3d2ff00d61167"
+  },
+  "checks": [
+    "make check: passed formatting, Clippy -D warnings, all-target tests and doctests",
+    "cargo build --locked --release: compiled successfully; initial debug stripping warned about local LLVM lookup",
+    "rust-objcopy --strip-debug with toolchain lib in DYLD_LIBRARY_PATH: passed",
+    "codesign --verify target/release/codex-retain: passed",
+    "Native paginated conformance: 13 checks passed on embedded Codex 0.153.4",
+    "Native organizational conformance: 15 checks passed on embedded Codex 0.153.4",
+    "60 timed matrix runs and 10 fixed alternating-pair timed runs: all result checks passed"
+  ],
+  "toolchain": "Rust 1.98.1, aarch64-apple-darwin, release profile with thin LTO and strip=debuginfo",
+  "scope": "Uncommitted local candidate; synthetic validation only; no installed binary, schedule or real chat changes",
+  "experiment_scripts": {
+    "scripts/performance_matrix.py": "af26c8317d87ecede18747223245c1ec6333240be98397e13a7bcdd98859997a",
+    "scripts/benchmark.py": "939ecccf847298f0eb4401cb9bc4933072e80581e1cde5a2d5061783ca2f2a96",
+    "scripts/fixture.py": "76c9bc7570f4615a75160ecaa328ecef1ebc6e654a50e2520adc2fa209c174cb",
+    "docs/evidence/inventory-optimization-2026-09-10/paginated_matrix.py": "33019b1250059029f48d720f6df5fc8465e579537cab8248dcd03044a7bd6325",
+    "docs/evidence/inventory-optimization-2026-09-10/paginated_interleaved.py": "7ed39871d3caca8e385fdb125c5d25d1180eea1a21c59cda9cc764304491edf6"
+  }
+}

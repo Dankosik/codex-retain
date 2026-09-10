@@ -1,0 +1,20 @@
+{
+  "profiled_seconds": 13.651500834035687,
+  "sample_exit": 0,
+  "sample_stdout": "",
+  "sample_stderr": "Sampling process 26208 for 3 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 26208 written to file /Users/daniil/Projects/Opensource/codex-retain/docs/evidence/performance-0.1.2/profile-mixed-one.txt\n",
+  "command": [
+    "/opt/homebrew/Cellar/codex-retain/0.1.2/bin/codex-retain",
+    "--state-dir",
+    "/private/tmp/codex-retain-011-012-performance-20260910/fixtures/mixed-one/state",
+    "--json",
+    "preview"
+  ],
+  "result": {
+    "examined": 1000,
+    "eligible": 1,
+    "deleted": 0,
+    "skipped": 999
+  },
+  "scope": "Separate synthetic read-only profiling run; excluded from Hyperfine samples"
+}

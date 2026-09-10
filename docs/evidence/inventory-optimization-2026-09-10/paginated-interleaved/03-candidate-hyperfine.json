@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "command": "pair-2-candidate",
+      "mean": 1.338396542,
+      "stddev": null,
+      "median": 1.338396542,
+      "user": 0.101142,
+      "system": 0.572696,
+      "min": 1.338396542,
+      "max": 1.338396542,
+      "times": [
+        1.338396542
+      ],
+      "memory_usage_byte": [
+        38158336
+      ],
+      "exit_codes": [
+        0
+      ]
+    }
+  ]
+}

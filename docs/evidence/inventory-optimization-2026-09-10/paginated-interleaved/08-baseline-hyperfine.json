@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "command": "pair-4-baseline",
+      "mean": 0.922385333,
+      "stddev": null,
+      "median": 0.922385333,
+      "user": 0.09787799999999999,
+      "system": 0.543285,
+      "min": 0.922385333,
+      "max": 0.922385333,
+      "times": [
+        0.922385333
+      ],
+      "memory_usage_byte": [
+        38141952
+      ],
+      "exit_codes": [
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "removed_marked_synthetic_fixtures": [
+    "/private/tmp/codex-retain-011-012-performance-20260910/fixtures/mixed-none",
+    "/private/tmp/codex-retain-011-012-performance-20260910/fixtures/mixed-one",
+    "/private/tmp/codex-retain-011-012-performance-20260910/fixtures/cleanup-1000",
+    "/private/tmp/codex-retain-011-012-performance-20260910/fixtures/cleanup-10000",
+    "/private/tmp/codex-retain-011-012-performance-20260910/fixtures/summary",
+    "/private/tmp/codex-retain-011-012-paginated-performance-20260910/fixtures/cleanup-1000"
+  ],
+  "raw_measurements_preserved": true
+}

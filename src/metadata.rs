@@ -6,9 +6,9 @@ use serde::{Deserialize, Deserializer};
 use std::fmt;
 
 /// Read only the first metadata record, with the same bounds for every format.
-pub(crate) fn first_record(file: std::fs::File, compressed: bool) -> Result<Vec<u8>> {
+pub(crate) fn first_record(file: &std::fs::File, compressed: bool) -> Result<Vec<u8>> {
     use std::io::{BufRead, BufReader, Read};
-    let reader: Box<dyn Read> = if compressed {
+    let reader: Box<dyn Read + '_> = if compressed {
         let mut decoder =
             zstd::stream::read::Decoder::with_buffer(BufReader::with_capacity(16384, file))?;
         decoder.window_log_max(23)?;

@@ -1,0 +1,52 @@
+{
+  "installed_binary_sha256": "7d918421f0e8900290a1d445bc46188c99716c64a6815e2f3e6a5a0513803c9c",
+  "only_expired_legacy_deleted": true,
+  "pause_preserved_expired_chat": true,
+  "real_profile_mutated": false,
+  "repeat_deleted": 0,
+  "scenarios": {
+    "active": {
+      "file_preserved": true,
+      "preview_reason": "not_archived",
+      "row_preserved": true
+    },
+    "excluded": {
+      "file_preserved": true,
+      "preview_reason": "excluded",
+      "row_preserved": true
+    },
+    "expired_legacy": {
+      "file_preserved": false,
+      "preview_reason": "eligible",
+      "row_preserved": false
+    },
+    "expired_paginated": {
+      "file_preserved": true,
+      "preview_reason": "unsupported_history_mode",
+      "row_preserved": true
+    },
+    "fresh_grace": {
+      "file_preserved": true,
+      "preview_reason": "within_retention",
+      "row_preserved": true
+    },
+    "paused_candidate": {
+      "file_preserved": true,
+      "preview_reason": "within_retention",
+      "row_preserved": true
+    },
+    "pinned": {
+      "file_preserved": true,
+      "preview_reason": "pinned_or_unknown_pin",
+      "row_preserved": true
+    },
+    "rearchived": {
+      "file_preserved": true,
+      "preview_reason": "within_retention",
+      "row_preserved": true
+    }
+  },
+  "sqlite_integrity": "ok",
+  "status": "passed",
+  "synthetic_policy_disabled": true
+}

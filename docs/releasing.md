@@ -1,6 +1,6 @@
 # Distribution and releases
 
-Version tags match Cargo.toml exactly: `0.1.0`, without a `v` prefix. GitHub
+Version tags match Cargo.toml exactly: `0.1.3`, without a `v` prefix. GitHub
 Releases supplies native `aarch64-apple-darwin` and `x86_64-apple-darwin` archives.
 Both target macOS 15.0 and run tests on native macOS 15 runners. Linux remains
 experimental for core/preview; Windows is unsupported.
@@ -28,16 +28,16 @@ Download your architecture's archive and `SHA256SUMS` from the same release.
 For Apple Silicon, in a directory containing those two downloads:
 
 ```sh
-grep '  codex-retain-0.1.0-aarch64-apple-darwin.tar.gz$' SHA256SUMS > selected.sha256
+grep '  codex-retain-0.1.3-aarch64-apple-darwin.tar.gz$' SHA256SUMS > selected.sha256
 test -s selected.sha256 && shasum -a 256 -c selected.sha256
 ```
 
 Continue only after the checksum succeeds:
 
 ```sh
-tar -xzf codex-retain-0.1.0-aarch64-apple-darwin.tar.gz
+tar -xzf codex-retain-0.1.3-aarch64-apple-darwin.tar.gz
 mkdir -p "$HOME/.local/bin"
-install -m 755 codex-retain-0.1.0-aarch64-apple-darwin/codex-retain "$HOME/.local/bin/codex-retain"
+install -m 755 codex-retain-0.1.3-aarch64-apple-darwin/codex-retain "$HOME/.local/bin/codex-retain"
 "$HOME/.local/bin/codex-retain" --version
 ```
 

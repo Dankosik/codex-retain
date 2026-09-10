@@ -78,7 +78,18 @@ Unreadable/invalid metadata, conflicting ownership, unknown formats, symlinks,
 hardlinks and ambiguous path aliases stop unsafe removal. Discovery is bounded
 to 500,000 entries and 1 MiB per first record, with an 8 MiB zstd decoder window.
 The graph and inventory are rebuilt under writer locks and the state transaction
-before staging. Native pins use the current pinned-section ID and legacy bit.
+before staging. A run-local cache reuses parsed headers only after a fresh
+non-following file stat matches device/inode, length, nanosecond mtime/ctime,
+mode, owner/group and link count. New or changed paths are reopened with the
+regular-file guards and parsed again; metadata from that same handle must stay
+stable through the read before it can enter the cache. Every scan still walks
+both trees, discovers orphan files and copies, and reconstructs dependencies.
+Missing paths leave the cache after a successful scan; a failed scan clears it.
+Candidate and staged-file inspections still open and validate their headers
+independently. Preview does not retain the cache. See the
+[inventory performance comparison](inventory-performance-2026-09-10.md) for
+measurements and the remaining first-scan cost. Native pins use the current
+pinned-section ID and legacy bit.
 See [related-thread design](related-support.md) and
 [paginated ownership](paginated-support.md).
 
@@ -113,8 +124,8 @@ that bound; a single owner with more than 128 files is retained. For each group:
    atomically write and fsync a single `pending.json` naming every member.
    Rename those exact rollouts to hidden staging files in `archived_sessions`.
    Schema 4 records owner UUID, rollout UUID and a unique per-file slot, so
-   physical copies cannot collide. Fsync each affected source directory and
-   the staging directory.
+   physical copies cannot collide. Fsync the distinct set of affected source
+   and staging directories.
 5. Conditionally delete only those individually checked rows, remove incident
    spawn edges, and commit the group atomically with synchronous FULL.
 6. Verify each staged inode and unlink it, fsync the archive once, then durably
@@ -224,8 +235,10 @@ cannot leave a deleted prefix. When no row is initially eligible, the full
 lineage scan is skipped. Otherwise it visits both session trees, capped at
 500,000 entries, and reads bounded first records for ownership and dependencies,
 including active and unexpired owners. It retains physical paths and identities
-for candidate owners plus the graph's ownership/reference information. It does
-not read full transcripts. First records are limited to 1 MiB, with 16 KiB
+for candidate owners plus the graph's ownership/reference information. Cleanup
+also retains file stamps and parsed header fields by physical path for reuse
+between groups; it retains no header bytes or open file handles. It does not
+read full transcripts. First records are limited to 1 MiB, with 16 KiB
 read-ahead and an 8 MiB maximum zstd decoder window. A selective parser validates
 the complete JSON record while retaining only the metadata checks; ignored
 values, duplicate keys, invalid UTF-8, numbers and nesting keep the existing

@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-09-10T13:10:19.236694+00:00",
+  "version": "0.1.0",
+  "source_commit": "e71430f30510b7d8e2e678d9a0568c9f80507e72",
+  "policy_enabled": true,
+  "retention_days": 30,
+  "paused": false,
+  "scheduler": {
+    "detail": null,
+    "plist_present": true,
+    "registration": "registered",
+    "supported": true
+  },
+  "last_run": null,
+  "pending_recovery": false,
+  "archived_threads": 2113,
+  "history_modes": {
+    "paginated": 2113
+  },
+  "preview_reasons": {
+    "pinned_or_unknown_pin": 78,
+    "unsupported_history_mode": 2035
+  },
+  "eligible": 0,
+  "production_cleanup_invoked_by_verification": false,
+  "production_configuration_changed_by_verification": false
+}

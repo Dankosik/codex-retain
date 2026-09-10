@@ -1,0 +1,49 @@
+{
+  "pairs": [
+    {
+      "pair": 1,
+      "baseline": 0.5986014590000001,
+      "candidate": 0.6544685840000001,
+      "change_percent": 9.332941669291861
+    },
+    {
+      "pair": 2,
+      "candidate": 1.338396542,
+      "baseline": 0.9106382500000001,
+      "change_percent": 46.973459768464565
+    },
+    {
+      "pair": 3,
+      "baseline": 0.9614404580000001,
+      "candidate": 1.139588375,
+      "change_percent": 18.52927193958378
+    },
+    {
+      "pair": 4,
+      "candidate": 0.8838029580000001,
+      "baseline": 0.922385333,
+      "change_percent": -4.182891208223493
+    },
+    {
+      "pair": 5,
+      "baseline": 0.7647932500000001,
+      "candidate": 0.6459725000000001,
+      "change_percent": -15.536323052014389
+    }
+  ],
+  "aggregates": {
+    "baseline": {
+      "median_seconds": 0.9106382500000001,
+      "mean_seconds": 0.83157175,
+      "min_seconds": 0.5986014590000001,
+      "max_seconds": 0.9614404580000001
+    },
+    "candidate": {
+      "median_seconds": 0.8838029580000001,
+      "mean_seconds": 0.9324457918,
+      "min_seconds": 0.6459725000000001,
+      "max_seconds": 1.338396542
+    }
+  },
+  "candidate_median_change_percent": -2.9468663324871303
+}

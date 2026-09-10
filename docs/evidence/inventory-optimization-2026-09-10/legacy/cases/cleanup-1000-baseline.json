@@ -1,0 +1,14 @@
+{
+  "benchmark_root": "/private/tmp/codex-retain-inventory-20260910-legacy",
+  "binary": "/opt/homebrew/Cellar/codex-retain/0.1.2/bin/codex-retain",
+  "busy_ids": [],
+  "codex_bin": "/Applications/ChatGPT.app/Contents/Resources/codex",
+  "fixture_key": "cleanup-1000",
+  "fixture_root": "/private/tmp/codex-retain-inventory-20260910-legacy/fixtures/cleanup-1000",
+  "held_locks": [],
+  "now": 1789059211,
+  "policy_sha256": "fb527ca63a2fbda2ed2316ea63ebae128cb1ea06b4b74e646e9eae1014bf0c97",
+  "scenario": "cleanup-1000",
+  "tool": "baseline",
+  "zstd": null
+}

@@ -1,0 +1,13 @@
+{
+  "removed_marked_synthetic_fixtures": [
+    "/private/tmp/codex-retain-inventory-20260910-legacy/fixtures/cleanup-1000",
+    "/private/tmp/codex-retain-inventory-20260910-legacy/fixtures/cleanup-10000",
+    "/private/tmp/codex-retain-inventory-20260910-legacy/fixtures/mixed-none",
+    "/private/tmp/codex-retain-inventory-20260910-legacy/fixtures/mixed-one",
+    "/private/tmp/codex-retain-inventory-20260910-legacy/fixtures/summary",
+    "/private/tmp/codex-retain-inventory-20260910-paginated/fixtures/cleanup-1000"
+  ],
+  "all_removed": true,
+  "evidence_preserved": "/Users/daniil/Projects/Opensource/codex-retain/docs/evidence/inventory-optimization-2026-09-10",
+  "real_profiles_touched": false
+}

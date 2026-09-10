@@ -1,0 +1,14 @@
+{
+  "benchmark_root": "/private/tmp/codex-retain-inventory-20260910-legacy",
+  "binary": "/Users/daniil/Projects/Opensource/codex-retain/target/release/codex-retain",
+  "busy_ids": [],
+  "codex_bin": "/Applications/ChatGPT.app/Contents/Resources/codex",
+  "fixture_key": "mixed-none",
+  "fixture_root": "/private/tmp/codex-retain-inventory-20260910-legacy/fixtures/mixed-none",
+  "held_locks": [],
+  "now": 1789059211,
+  "policy_sha256": "f4d416435d007332833fcdb005c4c11dbe761d142bfaba75ea983eab6303956f",
+  "scenario": "mixed-none",
+  "tool": "candidate",
+  "zstd": null
+}
