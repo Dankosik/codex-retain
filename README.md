@@ -260,49 +260,46 @@ or notarized. Browser downloads may require approval in macOS Privacy & Security
 
 ## Measured performance
 
-On an Apple M5 with 16 GiB RAM and macOS 26.4, using 10,000 synthetic archived
-chats of 4 KiB each:
+The latest benchmarks were recorded on September 10, 2026, on an Apple M5
+with 16 GiB RAM and macOS 26.4, using a Rust 1.98.1 release build with Thin LTO.
+Each scenario used a synthetic fixture, three warmups and five timed runs on
+a shared desktop with warm filesystem caches. Preparation and verification
+were outside the timing.
 
-| Measurement | Codex Retain | codex-session-janitor |
-| --- | --- | --- |
-| Preview, median | **276 ms** | 797 ms |
-| Recorded maximum RSS during preview | **50.56 MiB** | 187.78 MiB |
-| Permanent cleanup, median | 7.76 s | **3.12 s** |
+Durations below are **mean ± standard deviation**:
 
-Preview was 2.89 times faster, with a 3.71 times lower recorded RSS. Cleanup was
-2.49 times slower.
+| Workload | Codex Retain |
+| --- | ---: |
+| Cleanup: 1,000 expired archives, 4 KiB each | 409.4 ± 12.8 ms |
+| Cleanup: 10,000 expired archives, 4 KiB each | **4.934 ± 0.052 s** |
+| Cleanup: 128 archives, one busy writer; delete the other 127 | **84.8 ± 2.3 ms** |
+| Preview: 1,000 archives + 99,000 active sessions, one archive due | **148.3 ± 13.0 ms** |
+| Preview: the same mixed profile, no archives due | 94.6 ± 0.7 ms |
+| Scheduled run: 100,000 archives, none due | **220.3 ± 13.8 ms** |
 
-Retain's cleanup removes both a conversation's rollout files and its supported
-SQLite thread state. A SQLite transaction cannot also commit a filesystem
-deletion, so Retain records an intent, stages the files, commits the database
-changes, then finishes removal. Synchronizing these steps to disk lets the next
-unattended run determine whether to restore staged files or finish deletion
-after an interruption. Retention and pins are also rechecked under locks because
-a conversation can change between the initial scan and deletion.
+Cleanup preserves busy threads and their locks. It rechecks eligibility,
+updates supported SQLite thread state, and retains the journal and disk
+synchronization needed to recover interrupted deletion.
 
-The compared Janitor mode removes rollout files and leaves SQLite rows. Retain's
-additional database work and ordered disk synchronization add time to each
-deletion group, even for small transcripts. Waiting for disk synchronization was
-the largest sampled cost in the previous Retain build. We have not separately
-measured each step's contribution to the remaining gap. Neither measured mode
-makes a backup or uses Trash.
+| Workload | Sampled Retain process RSS |
+| --- | ---: |
+| Cleanup: 10,000 expired archives | 17.8 MiB |
+| Mixed profile: 1,000 archives + 99,000 active sessions, one archive due | **7.1 MiB** |
+| Scheduled run: 100,000 archives, none due | **6.8 MiB** |
 
-Profiling led to buffered JSON writes, larger bounded deletion groups, and
-shorter global coordination. In a comparison against the previous Retain build,
-10,000-chat cleanup fell from **14.35 to 7.76 seconds**, a **1.85x speedup**.
+RSS was sampled separately from the Retain process using `ps`. These observations
+can miss the exact peak and exclude the Codex child process. File hashes,
+surviving and deleted IDs, SQLite integrity, capture epochs, and held lock
+identities were checked. Cold caches, other machines, and live writer latency
+were not measured.
 
-The updated comparison used a pinned Janitor revision, five timed runs and three
-warmups. Cleanup regenerated equivalent fixtures before each run; read-only
-preview reused one verified, unchanged fixture. These are warm-cache measurements
-on a shared desktop. RSS is one separate native accounting observation per case,
-not a measured peak for the combined process tree. The Retain executable was
-3.83 MiB. [Current samples, causes, tradeoffs, and the missed 2x cleanup target](docs/cleanup-performance.md).
-The [original ten-run benchmark](docs/performance.md) remains available separately.
+[Full optimization report and reproduction](docs/performance-implementation-2026-09-10.md) ·
+[All timing samples, medians, CPU and RSS](docs/evidence/performance-implementation-2026-09-10/final/comparison.json) ·
+[Environment and binary identities](docs/evidence/performance-implementation-2026-09-10/final/environment.json)
 
 We also [reviewed five existing Codex cleanup tools](docs/competitors.md) and
 [compared seven retention scenarios](docs/evidence/semantic-comparison.json).
-The differences concern their actual cleanup rules and effects, not just the
-language they are written in.
+The differences concern their actual cleanup rules and effects.
 
 ## Update or uninstall
 
@@ -347,9 +344,11 @@ make maintenance-check
 cargo build --release --locked
 ```
 
-The [validation record](docs/validation.md) covers 74 Rust tests, native Codex
-conformance, interruption recovery, and a temporary launchd integration test.
-All destructive tests use synthetic profiles.
+The [latest optimization validation](docs/performance-implementation-2026-09-10.md)
+records 127 passing Rust tests and 20 benchmark-harness tests. The broader
+[validation record](docs/validation.md) covers native Codex conformance,
+interruption recovery, and scheduler integration. All destructive tests use
+synthetic profiles.
 
 For setup problems or feature requests, [open an issue](https://github.com/Dankosik/codex-retain/issues).
 Include your platform, tool versions, and relevant skip or error message; remove
