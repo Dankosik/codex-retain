@@ -40,6 +40,21 @@ class ArchiveTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "macOS"):
                 self.info.archive_name(unsupported)
 
+    def test_homebrew_formula_uses_digests_of_both_verified_archives(self):
+        archives = [self.archive(target) for target in release.TARGETS]
+        formula = self.root / "generated" / "codex-retain.rb"
+        release.homebrew(self.info, self.root, formula)
+        source = formula.read_text()
+        for archive in archives:
+            self.assertIn(hashlib.sha256(archive.read_bytes()).hexdigest(), source)
+            self.assertIn(f"releases/download/2.3.4/{archive.name}", source)
+        self.assertIn('generate_completions_from_executable', source)
+
+    def test_homebrew_formula_requires_complete_release_set(self):
+        self.archive(release.TARGETS[0])
+        with self.assertRaisesRegex(ValueError, "incomplete release"):
+            release.homebrew(self.info, self.root, self.root / "formula.rb")
+
     def test_extracts_only_expected_binary_for_both_macos_targets(self):
         for target in release.TARGETS:
             with self.subTest(target=target):
@@ -183,7 +198,7 @@ class TagTests(unittest.TestCase):
         (self.root / "source").write_text("first\n")
         self.git("add", "source")
         self.commit()
-        self.git("tag", "v0.1.0")
+        self.git("tag", "0.1.0")
         self.root_patch = patch.object(release, "ROOT", self.root)
         self.root_patch.start()
         self.addCleanup(self.root_patch.stop)
@@ -195,25 +210,27 @@ class TagTests(unittest.TestCase):
         self.git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")
 
     def test_accepts_matching_tag_and_clean_source(self):
-        release.check_tag(self.info, "v0.1.0", "example/tool")
+        release.check_tag(self.info, "0.1.0", "example/tool")
 
     def test_rejects_version_and_repository_mismatch(self):
         with self.assertRaisesRegex(ValueError, "tag must equal"):
-            release.check_tag(self.info, "v9.9.9", "example/tool")
+            release.check_tag(self.info, "v0.1.0", "example/tool")
+        with self.assertRaisesRegex(ValueError, "tag must equal"):
+            release.check_tag(self.info, "9.9.9", "example/tool")
         with self.assertRaisesRegex(ValueError, "repository does not match"):
-            release.check_tag(self.info, "v0.1.0", "someone/else")
+            release.check_tag(self.info, "0.1.0", "someone/else")
 
     def test_rejects_source_modified_after_checkout(self):
         (self.root / "source").write_text("modified\n")
         with self.assertRaisesRegex(ValueError, "source files changed"):
-            release.check_tag(self.info, "v0.1.0", "example/tool")
+            release.check_tag(self.info, "0.1.0", "example/tool")
 
     def test_rejects_tag_pointing_to_a_different_commit(self):
         (self.root / "source").write_text("next\n")
         self.git("add", "source")
         self.commit()
         with self.assertRaisesRegex(ValueError, "checked-out commit"):
-            release.check_tag(self.info, "v0.1.0", "example/tool")
+            release.check_tag(self.info, "0.1.0", "example/tool")
 
 
 if __name__ == "__main__":

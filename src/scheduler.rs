@@ -7,6 +7,93 @@ use serde::Serialize;
 
 pub const LABEL: &str = "io.github.codex-retain";
 
+/// Preserve the invoked installation link (for example Homebrew's bin link),
+/// but only when it resolves to the executable that is actually running.
+pub fn installation_executable() -> Result<std::path::PathBuf> {
+    let current = std::env::current_exe()?.canonicalize()?;
+    let invoked = std::env::args_os()
+        .next()
+        .context("missing executable name")?;
+    installation_path(
+        &current,
+        Path::new(&invoked),
+        std::env::var_os("PATH").as_deref(),
+    )
+}
+
+fn installation_path(
+    current: &Path,
+    invoked: &Path,
+    search_path: Option<&std::ffi::OsStr>,
+) -> Result<std::path::PathBuf> {
+    let matches = |candidate: &Path| candidate.canonicalize().is_ok_and(|path| path == current);
+    if invoked.components().count() > 1 || invoked.is_absolute() {
+        let absolute = std::path::absolute(invoked)?;
+        if matches(&absolute) {
+            return Ok(absolute);
+        }
+    } else if let Some(search_path) = search_path {
+        for directory in std::env::split_paths(search_path) {
+            let candidate = std::path::absolute(directory.join(invoked))?;
+            if matches(&candidate) {
+                return Ok(candidate);
+            }
+        }
+    }
+    // An altered argv[0] or PATH must never schedule a different executable.
+    Ok(current.to_path_buf())
+}
+
+#[cfg(all(test, unix))]
+mod installation_tests {
+    use super::*;
+    use std::{fs, os::unix::fs::symlink};
+
+    #[test]
+    fn scheduled_link_follows_package_upgrade_after_old_version_is_removed() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let root = root.path().canonicalize()?;
+        let first = root.join("0.1.0");
+        let second = root.join("0.2.0");
+        let bin = root.join("bin");
+        fs::create_dir(&bin)?;
+        fs::write(&first, "first")?;
+        fs::write(&second, "second")?;
+        let link = bin.join("codex-retain");
+        symlink(&first, &link)?;
+        let selected = installation_path(&first, Path::new("codex-retain"), Some(bin.as_os_str()))?;
+        assert_eq!(selected, link);
+        assert_eq!(installation_path(&first, &link, None)?, link);
+        let rendered = plist_with_path(&root, &selected, "/usr/bin")?;
+        assert!(rendered.contains(&format!("<string>{}</string>", link.display())));
+        fs::remove_file(&link)?;
+        symlink(&second, &link)?;
+        fs::remove_file(&first)?;
+        assert_eq!(fs::read_to_string(selected)?, "second");
+        Ok(())
+    }
+
+    #[test]
+    fn different_or_missing_invoked_executable_falls_back_to_current() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let root = root.path().canonicalize()?;
+        let current = root.join("current");
+        let other = root.join("other");
+        fs::write(&current, "current")?;
+        fs::write(&other, "other")?;
+        assert_eq!(installation_path(&current, &other, None)?, current);
+        assert_eq!(
+            installation_path(&current, Path::new("missing"), None)?,
+            current
+        );
+        assert_eq!(
+            installation_path(&current, Path::new("other"), Some(root.as_os_str()))?,
+            current
+        );
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Registration {

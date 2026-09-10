@@ -33,16 +33,47 @@ service, subscription, account, or LLM, and leaves no process running between ch
 
 ## Quick start
 
-The project is **unreleased**: install from source with Rust 1.98.1, pinned in
-`rust-toolchain.toml`. Automatic cleanup requires a compatible Codex installation
+Install the latest release on **macOS 15+ (Apple Silicon or Intel)**. Rust is
+not required. Automatic cleanup also requires a compatible Codex installation
 and a macOS GUI login session.
 
 ```sh
-git clone https://github.com/Dankosik/codex-retain.git
-cd codex-retain
-cargo install --path . --locked
+curl -fsSL https://github.com/Dankosik/codex-retain/releases/latest/download/install.sh -o /tmp/codex-retain-install.sh
+sh /tmp/codex-retain-install.sh
+export PATH="$HOME/.local/bin:$PATH"
 codex-retain doctor
 ```
+
+The installer checks SHA-256 and installs to `~/.local/bin`. Add that directory
+to your shell's PATH permanently if needed. Installation never enables retention.
+For a specific release, use `CODEX_RETAIN_VERSION=0.1.0 sh /tmp/codex-retain-install.sh`.
+Set `CODEX_RETAIN_INSTALL_DIR` to choose a different absolute installation directory.
+
+### Homebrew
+
+```sh
+brew tap dankosik/codex-retain https://github.com/Dankosik/codex-retain
+brew install dankosik/codex-retain/codex-retain
+codex-retain doctor
+```
+
+This tap installs the same prebuilt binaries and shell completions. Enable using
+`codex-retain` on PATH, so the schedule retains Homebrew's stable link.
+
+### Cargo or manual download
+
+To compile the tagged source, install Rust 1.98.1 and a C toolchain, then run:
+
+```sh
+cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.0 --locked codex-retain
+```
+
+Or download the matching archive and `SHA256SUMS` from
+[GitHub Releases](https://github.com/Dankosik/codex-retain/releases/latest).
+See [manual installation and verification](docs/releasing.md#manual-installation).
+There is no crates.io package; use the explicit Git URL for Cargo.
+
+### Enable a policy
 
 `doctor` checks the selected Codex executable and local database without enabling
 retention. If it reports compatibility, choose your policy:
@@ -86,6 +117,28 @@ separate from, and not nested inside, the Codex profile. One automatic policy pe
 macOS user is supported; independent custom policies can use manual-only mode.
 
 </details>
+
+## Update or uninstall
+
+For an installer-based installation, rerun the installation command to get the
+latest release. Use the same `CODEX_RETAIN_INSTALL_DIR` if you customized it.
+The executable is replaced at the same path; your policy and schedule remain.
+For Homebrew:
+
+```sh
+brew update
+brew upgrade dankosik/codex-retain/codex-retain
+```
+
+For Cargo, repeat the install command with the new release tag and `--force`.
+Check `codex-retain --version` after updating. There is no background network
+updater. Avoid mixing installation methods: disable before moving to a different
+installation path, then enable from the new path.
+
+Before removing the executable, run `codex-retain uninstall` to remove its
+schedule and disable the policy. Then use `brew uninstall codex-retain`,
+`cargo uninstall codex-retain`, or remove `~/.local/bin/codex-retain`, according
+to how you installed it. Uninstalling does not delete additional chats.
 
 ## How archive retention works
 
@@ -200,8 +253,10 @@ modified transition recorder stop cleanup. There is no unsafe override.
 This is why some archived chats may remain after a run. See
 [the source review and real Codex tests](docs/compatibility-research.md).
 
-There are no version tags, GitHub Releases, registry packages, or deployments.
-Cargo's version field identifies development builds, not an official release.
+Release binaries target macOS 15 and later on Apple Silicon and Intel. Binary
+startup is tested separately on each architecture; this does not extend the
+Codex adapter compatibility boundary above. Builds are not Developer ID signed
+or notarized. Browser downloads may require approval in macOS Privacy & Security.
 
 ## Measured performance
 

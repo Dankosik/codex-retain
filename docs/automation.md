@@ -19,13 +19,15 @@ rules and run doctor before enabling; preview becomes available after activation
 The enable command saves the policy
 and registers the schedule; ordinary scheduled runs need no confirmation.
 
-The registration stores the absolute path of the executable that enabled it and
+The registration stores the verified absolute invocation path of the executable
+that enabled it (preserving installation symlinks such as Homebrew bin links) and
 the absolute state directory. It also captures the current `PATH`, so a Codex
 installation whose launcher uses `/usr/bin/env node` can find the same Node.js
 runtime during scheduled runs. The configured Codex executable and its runtime
 must remain available; the utility itself has no Node.js runtime requirement.
 Avoid enabling from a temporary Cargo build
-directory. `cargo install` supplies a stable executable path. One user has one
+directory. The release installer, Homebrew command on PATH, and `cargo install` supply
+stable executable paths. Do not enable using a versioned Homebrew Cellar path. One user has one
 LaunchAgent for this utility. Enabling with a different state directory is
 rejected while the original schedule exists; disable it using its original
 state directory first. Unknown or manually reformatted plists are also rejected

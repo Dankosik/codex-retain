@@ -197,7 +197,7 @@ fn enable_policy(
     store.save(&policy)?;
     let count = database::install_capture(&mut db, &policy.owner)?;
     if !no_schedule {
-        scheduler::install(&store.root, &std::env::current_exe()?)?;
+        scheduler::install(&store.root, &scheduler::installation_executable()?)?;
     }
     policy.enabled = true;
     store.save(&policy)?;

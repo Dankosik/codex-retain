@@ -32,7 +32,7 @@ test:
 check: fmt lint test
 
 maintenance-check:
-	$(PYTHON) -m unittest discover -s scripts/tests -p test_release.py
+	$(PYTHON) -m unittest discover -s scripts/tests -p 'test_release*.py'
 	$(PYTHON) -m unittest discover -s scripts/tests -p test_sync_skills.py
 
 verify: check maintenance-check
