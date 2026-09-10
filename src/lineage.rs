@@ -65,6 +65,7 @@ impl LineageIndex {
 pub(crate) struct HeaderCache {
     entries: HashMap<PathBuf, CachedHeader>,
     generation: bool,
+    stable_before: Option<i64>,
     #[cfg(test)]
     reads: usize,
 }
@@ -100,6 +101,45 @@ impl FileStamp {
             links: metadata.nlink(),
         }
     }
+
+    fn settled_before(&self, cutoff: Option<i64>) -> bool {
+        cutoff.is_some_and(|cutoff| self.changed.0 < cutoff && self.modified.0 < cutoff)
+    }
+}
+
+/// A nanosecond field does not guarantee nanosecond timestamp updates. Keep a
+/// complete wall-clock second between a cached stamp and this scan: writes in
+/// the current coarse clock tick must never reuse an indistinguishable stamp.
+fn cache_cutoff() -> Option<i64> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|duration| i64::try_from(duration.as_secs()).ok())
+        .and_then(|seconds| seconds.checked_sub(1))
+}
+
+#[cfg(test)]
+impl HeaderCache {
+    pub(crate) fn after_files_settle(paths: &[&Path]) -> Self {
+        use std::time::{Duration, Instant};
+        let newest = paths
+            .iter()
+            .map(|path| {
+                let metadata = fs::metadata(path).unwrap();
+                metadata.ctime().max(metadata.mtime())
+            })
+            .max()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while cache_cutoff().is_none_or(|cutoff| newest >= cutoff) {
+            assert!(
+                Instant::now() < deadline,
+                "filesystem stamps did not leave the current clock window"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        Self::default()
+    }
 }
 
 fn read_header(
@@ -115,7 +155,9 @@ fn read_header(
         // timestamps or a database-only freshness token for header reuse.
         let metadata = fs::symlink_metadata(path)
             .with_context(|| format!("inspect rollout {}", path.display()))?;
-        if FileStamp::of(&metadata) == cached.stamp {
+        if FileStamp::of(&metadata) == cached.stamp
+            && cached.stamp.settled_before(cache.stable_before)
+        {
             let parsed = cached.parsed;
             let identity = cached.stamp.identity.clone();
             cached.generation = cache.generation;
@@ -137,14 +179,20 @@ fn read_header(
             "rollout changed while reading header: {}",
             path.display()
         );
-        cache.entries.insert(
-            path.to_path_buf(),
-            CachedHeader {
-                stamp,
-                parsed,
-                generation: cache.generation,
-            },
-        );
+        if stamp.settled_before(cache.stable_before) {
+            cache.entries.insert(
+                path.to_path_buf(),
+                CachedHeader {
+                    stamp,
+                    parsed,
+                    generation: cache.generation,
+                },
+            );
+        } else {
+            // A recent in-place edit may retain both timestamps in one coarse
+            // tick. Read it fresh on every scan until its clock window closes.
+            cache.entries.remove(path);
+        }
         #[cfg(test)]
         {
             cache.reads += 1;
@@ -160,6 +208,7 @@ pub(crate) fn scan(
 ) -> Result<LineageIndex> {
     if let Some(cache) = cache.as_mut() {
         cache.generation = !cache.generation;
+        cache.stable_before = cache_cutoff();
     }
     let result = scan_inventory(home, candidate_owners, cache.as_deref_mut());
     if let Some(cache) = cache {
@@ -549,12 +598,43 @@ mod tests {
     }
 
     #[test]
+    fn recent_stamps_cannot_authorize_header_reuse() {
+        let home = tempfile::tempdir().unwrap();
+        let child = write(home.path(), "sessions", CHILD, CHILD, Some(OLD), false);
+        let candidates = HashSet::from([OWNER]);
+        // Pin the observed cutoff so this test remains deterministic even if
+        // the runner crosses a second boundary between the two scans. Both
+        // stamps are recent relative to this boundary, regardless of whether
+        // this filesystem actually coalesces the following writes.
+        let mut cache = HeaderCache {
+            stable_before: Some(fs::metadata(&child).unwrap().ctime()),
+            ..HeaderCache::default()
+        };
+        let first = scan_inventory(home.path(), &candidates, Some(&mut cache)).unwrap();
+        assert!(!first.externally_referenced(OWNER, OWNER));
+        assert!(cache.entries.is_empty());
+        let before = fs::metadata(&child).unwrap();
+        write(home.path(), "sessions", CHILD, CHILD, Some(OWNER), false);
+        assert_eq!(fs::metadata(&child).unwrap().len(), before.len());
+        let second = scan_inventory(home.path(), &candidates, Some(&mut cache)).unwrap();
+        assert!(second.externally_referenced(OWNER, OWNER));
+        assert!(cache.entries.is_empty());
+        assert_eq!(cache.reads, 2);
+
+        // Unknown clock state must also keep every read live.
+        cache.stable_before = None;
+        scan_inventory(home.path(), &candidates, Some(&mut cache)).unwrap();
+        assert!(cache.entries.is_empty());
+        assert_eq!(cache.reads, 3);
+    }
+
+    #[test]
     fn cached_scans_discover_new_copies_and_forget_removed_references() {
         for compressed in [false, true] {
             let home = tempfile::tempdir().unwrap();
             let source = write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
             let candidates = HashSet::from([OWNER]);
-            let mut cache = HeaderCache::default();
+            let mut cache = HeaderCache::after_files_settle(&[&source]);
             scan(home.path(), &candidates, Some(&mut cache)).unwrap();
             scan(home.path(), &candidates, Some(&mut cache)).unwrap();
             assert_eq!(cache.reads, 1, "unchanged headers must not be reopened");
@@ -599,10 +679,10 @@ mod tests {
         ] {
             let home = tempfile::tempdir().unwrap();
             let compressed = change == "compressed";
-            write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
+            let source = write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
             let child = write(home.path(), "sessions", CHILD, CHILD, Some(OLD), compressed);
             let candidates = HashSet::from([OWNER]);
-            let mut cache = HeaderCache::default();
+            let mut cache = HeaderCache::after_files_settle(&[&source, &child]);
             let initial = scan(home.path(), &candidates, Some(&mut cache)).unwrap();
             assert!(!initial.externally_referenced(OWNER, OWNER));
             let before = fs::metadata(&child).unwrap();
@@ -664,7 +744,7 @@ mod tests {
             let home = tempfile::tempdir().unwrap();
             let source = write(home.path(), "sessions", OWNER, OWNER, None, false);
             let candidates = HashSet::from([OWNER]);
-            let mut cache = HeaderCache::default();
+            let mut cache = HeaderCache::after_files_settle(&[&source]);
             scan(home.path(), &candidates, Some(&mut cache)).unwrap();
             match change {
                 "symlink" => {

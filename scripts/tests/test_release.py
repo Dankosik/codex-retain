@@ -49,6 +49,7 @@ class ArchiveTests(unittest.TestCase):
             self.assertIn(hashlib.sha256(archive.read_bytes()).hexdigest(), source)
             self.assertIn(f"releases/download/2.3.4/{archive.name}", source)
         self.assertIn('generate_completions_from_executable', source)
+        self.assertIn('depends_on macos: :sequoia', source)
 
     def test_homebrew_formula_requires_complete_release_set(self):
         self.archive(release.TARGETS[0])

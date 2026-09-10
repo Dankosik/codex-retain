@@ -80,7 +80,12 @@ to 500,000 entries and 1 MiB per first record, with an 8 MiB zstd decoder window
 The graph and inventory are rebuilt under writer locks and the state transaction
 before staging. A run-local cache reuses parsed headers only after a fresh
 non-following file stat matches device/inode, length, nanosecond mtime/ctime,
-mode, owner/group and link count. New or changed paths are reopened with the
+mode, owner/group and link count. Nanosecond fields can still contain coarse
+clock updates, so both timestamps must precede the previous whole wall-clock
+second at the start of each scan. Recent, future-dated or unknown-clock headers
+are read freshly and are not cached; they can enter the cache in a later scan
+after that clock window closes. This is a cache freshness rule, never archive
+retention authority. New or changed paths are reopened with the
 regular-file guards and parsed again; metadata from that same handle must stay
 stable through the read before it can enter the cache. Every scan still walks
 both trees, discovers orphan files and copies, and reconstructs dependencies.

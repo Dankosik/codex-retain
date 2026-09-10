@@ -286,44 +286,22 @@ removes a duplicate directory sync. Every group still discovers files and
 rechecks dependencies, eligibility, ownership and writer locks. The cache lasts
 for one run; it does not store deletion permission or persist across invocations.
 
-The September 10, 2026 comparison used installed **0.1.2** and the optimization
-candidate on ARM64 macOS 26.4. Each pair shared a synthetic profile and policy,
-with three warmups and five timed runs. Fixture restoration and result checks
-were outside the timer. These are warm-cache results on a shared desktop,
-measured before the candidate's version was bumped to 0.1.3; they are not timings
-of the subsequently published archives.
-
-| Workload | 0.1.2 median | Optimization candidate median |
-| --- | ---: | ---: |
-| Delete 1,000 independent paginated archives | 1.369 s | 1.492 s |
-| Delete 1,000 legacy archives | 557 ms | 537 ms |
-| Delete 10,000 legacy archives | 12.799 s | **7.589 s (41% less time)** |
-| Scheduled check: 100,000 archives, none due | 375 ms | 358 ms |
-| Preview: 99,000 active + 1,000 unexpired archives | 179 ms | 148 ms |
-| Preview: the same profile, one archive due | 13.561 s | 14.138 s |
-
-The large cleanup improvement is supported by non-overlapping ranges:
-12.351–14.504 s versus 7.260–7.858 s. Small workloads remain noisy. An additional
-fixed series of five alternating paginated pairs gave medians of 911 ms versus
-884 ms, while the candidate's mean remained higher. A small paginated regression
-cannot be ruled out; a speedup for that workload is not established.
+Recently modified files are read again on every scan until both their change
+and modification times precede the previous whole wall-clock second. Timestamp
+fields alone can otherwise miss rapid edits on a filesystem with coarse clock
+updates. This freshness condition affects caching, not the archive grace period.
 
 The first full header inventory remains expensive. Preview does not use the
-run cache, and its 100,000-file case has no demonstrated improvement. The
-scheduled no-candidate path remains short and skips that inventory entirely.
-For the 10,000-file cleanup, separately sampled process RSS was 26.1 MiB versus
-31.6 MiB; samples can miss the peak and exclude child processes. The header
-cache trades memory proportional to the file inventory for fewer repeated reads.
+run cache, and the scheduled no-candidate path skips the inventory entirely.
+The cache retains memory proportional to the file inventory; it holds parsed
+metadata and file stamps, not transcripts or open file handles.
 
-All 70 timed runs passed their result checks. Native Codex conformance also
-covers paginated fork/revert, retained history, organizational dependencies and
-writer contention. These synthetic checks do not establish cold-cache behavior,
-live-writer latency or performance on another host.
-
-[Full comparison, limits and reproduction](docs/inventory-performance-2026-09-10.md) ·
-[All main-series samples and RSS](docs/evidence/inventory-optimization-2026-09-10/comparison.json) ·
-[Alternating paginated pairs](docs/evidence/inventory-optimization-2026-09-10/paginated-interleaved/comparison.json) ·
-[Earlier narrower legacy measurements](docs/performance-implementation-2026-09-10.md)
+[Earlier candidate measurements](docs/inventory-performance-2026-09-10.md) preserve
+all samples, including noisy small paginated results. Those measurements precede
+the final coarse-timestamp correction and are not a performance claim for the
+release archives. Native conformance covers paginated fork/revert, retained
+history, organizational dependencies and writer contention using isolated
+synthetic profiles.
 
 We also [reviewed five existing Codex cleanup tools](docs/competitors.md) and
 [compared seven retention scenarios](docs/evidence/semantic-comparison.json).

@@ -1409,7 +1409,13 @@ mod tests {
                 fs::write(&path, record(uuid::Uuid::from_u128(4))).unwrap();
             }
             let ids = [&first, &second].map(|id| uuid::Uuid::parse_str(id).unwrap());
-            let mut headers = crate::lineage::HeaderCache::default();
+            let first_path = fixture.path(&first, true);
+            let second_path = fixture.path(&second, true);
+            let mut paths = vec![first_path.as_path(), second_path.as_path()];
+            if change != "new" {
+                paths.push(&path);
+            }
+            let mut headers = crate::lineage::HeaderCache::after_files_settle(&paths);
             let lineage =
                 crate::lineage::scan(&fixture.home, &HashSet::from(ids), Some(&mut headers))
                     .unwrap();
