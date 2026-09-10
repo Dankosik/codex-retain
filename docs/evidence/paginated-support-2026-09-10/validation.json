@@ -1,0 +1,31 @@
+{
+  "scope": "pre-publication local 0.1.1 candidate; synthetic mutation tests only",
+  "source_base": "f079315ae79db626334892983ae1d0af5457e294",
+  "installed_release_unchanged_during_local_validation": true,
+  "release_binary_sha256": "0594346e7a3af5b73a42257ebc1a01bf221c42682cd006e9ef6ae55433fdb9fa",
+  "native": {
+    "native-release.json": {
+      "passed": true,
+      "checks": 14,
+      "codex_version": "codex-cli 0.153.4",
+      "codex_binary_sha256": "61b0194f3bb6534439c8d26a3ed57d0805f84b884588b761795323eeb92fcf70",
+      "retain_sha256": "0594346e7a3af5b73a42257ebc1a01bf221c42682cd006e9ef6ae55433fdb9fa"
+    },
+    "native-desktop.json": {
+      "passed": true,
+      "checks": 14,
+      "codex_version": "codex-cli 0.153.4",
+      "codex_binary_sha256": "a30ec314bbd0e3721632234d07db7c99855db3b9f1e32dbe8c791947f07e7629",
+      "retain_sha256": "0594346e7a3af5b73a42257ebc1a01bf221c42682cd006e9ef6ae55433fdb9fa"
+    }
+  },
+  "rust_tests": 154,
+  "release_tooling_tests": 26,
+  "skill_maintenance_tests": 7,
+  "assembled_command": "make verify",
+  "production_cleanup_invoked": false,
+  "limitations": [
+    "separate projection caches retained",
+    "no universal cross-process prepared-fork lease"
+  ]
+}

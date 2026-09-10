@@ -1,8 +1,10 @@
 pub mod cli;
 pub mod config;
 pub mod database;
+mod diagnostics;
 pub mod engine;
 pub mod fsutil;
+mod lineage;
 mod metadata;
 mod owners;
 pub mod scheduler;
@@ -233,17 +235,15 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
     {
         let (home, binary) = profile(codex_home, &codex_bin)?;
         let db = database::open(&home, DatabaseAccess::ReadOnly)?;
-        let archived: i64 =
-            db.query_row("SELECT count(*) FROM threads WHERE archived=1", [], |r| {
-                r.get(0)
-            })?;
+        let coverage = diagnostics::HistoryCoverage::read(&db)?;
         emit(
             out,
             cli.json,
-            &json!({"schema":1,"compatible":true,"codex_version":database::CODEX_VERSION,"codex_home":home,"codex_bin":binary,"archived_threads":archived,"mutation_platform_supported":cfg!(target_os="macos")}),
+            &json!({"schema":1,"compatible":true,"compatibility_scope":diagnostics::COMPATIBILITY_SCOPE,"codex_version":database::CODEX_VERSION,"codex_home":home,"codex_bin":binary,"archived_threads":coverage.archived_threads(),"history_coverage":coverage,"mutation_platform_supported":cfg!(target_os="macos")}),
             &format!(
-                "Compatible schema for {}. {archived} archived threads.\nThis checks the selected executable; every writer of this profile must use the supported version.",
-                database::CODEX_VERSION
+                "Schema and selected Codex executable: verified for {}.\nThis checks the selected executable; every writer of this profile must use the supported version.\n{}",
+                database::CODEX_VERSION,
+                coverage.message()
             ),
         )?;
         return Ok(0);
@@ -271,19 +271,31 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 .and_then(|()| database::open(&p.codex_home, DatabaseAccess::ReadOnly))
                 .and_then(|c| {
                     if p.enabled {
-                        database::verify_policy(&c, &p)
-                    } else {
-                        Ok(())
+                        database::verify_policy(&c, &p)?;
                     }
+                    Ok(c)
                 });
-            let error = compatibility.err().map(|e| format!("{e:#}"));
+            let (error, coverage, coverage_error) = match compatibility {
+                Ok(c) => match diagnostics::HistoryCoverage::read(&c) {
+                    Ok(coverage) => (None, Some(coverage), None),
+                    Err(error) => (None, None, Some(format!("{error:#}"))),
+                },
+                Err(error) => (Some(format!("{error:#}")), None, None),
+            };
+            let coverage_message = coverage.as_ref().map_or_else(
+                || match &coverage_error {
+                    Some(error) => format!("Archive history formats: unavailable: {}", safe_text(error)),
+                    None => "Archive history formats: unavailable because compatibility validation failed.".into(),
+                },
+                diagnostics::HistoryCoverage::message,
+            );
             let last: Option<Value> = if store.root.join("last-run.json").exists() {
                 Some(fsutil::read_json(&store.root.join("last-run.json"))?)
             } else {
                 None
             };
             let message = format!(
-                "Policy: {}{}; {} days.\nScheduler: {:?}; plist {}.\nCompatibility: {}.\nExclusions: {}. Pending recovery: {}.\nLast run: {}",
+                "Policy: {}{}; {} days.\nScheduler: {:?}; plist {}.\nSchema, selected Codex executable and enabled policy: {}.\n{}\nExclusions: {}. Pending recovery: {}.\nLast run: {}",
                 if p.enabled { "enabled" } else { "disabled" },
                 if p.paused { " (paused)" } else { "" },
                 p.retention_days,
@@ -297,6 +309,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                     .as_deref()
                     .map(safe_text)
                     .unwrap_or_else(|| "verified".into()),
+                coverage_message,
                 p.exclusions.len(),
                 store.root.join("pending.json").exists(),
                 last.as_ref()
@@ -306,7 +319,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             emit(
                 out,
                 cli.json,
-                &json!({"schema":1,"policy":p,"scheduler":scheduler,"compatibility_error":error,"last_run":last,"pending_recovery":store.root.join("pending.json").exists()}),
+                &json!({"schema":1,"policy":p,"scheduler":scheduler,"compatibility_scope":"schema_selected_codex_binary_and_enabled_policy","compatibility_error":error,"history_coverage":coverage,"history_coverage_error":coverage_error,"last_run":last,"pending_recovery":store.root.join("pending.json").exists()}),
                 &message,
             )?;
         }

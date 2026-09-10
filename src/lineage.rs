@@ -1,0 +1,444 @@
+//! Conservative ownership and incoming-reference inventory for local rollouts.
+//!
+//! This is a filesystem snapshot, not a cross-process fork reservation. Callers
+//! must separately enforce archived eligibility and mutation coordination.
+
+use anyhow::{Context, Result, bail, ensure};
+use serde::Deserialize;
+use serde_json::Value;
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
+
+#[derive(Debug)]
+pub(crate) struct Rollout {
+    pub rollout_id: Uuid,
+    pub path: PathBuf,
+    pub paginated: bool,
+    pub identity: crate::fsutil::Identity,
+}
+
+#[derive(Default)]
+pub(crate) struct LineageIndex {
+    owned: HashMap<Uuid, Vec<Rollout>>,
+    incoming: HashMap<Uuid, ReferringOwners>,
+}
+
+struct ReferringOwners {
+    first: Uuid,
+    mixed: bool,
+}
+
+impl LineageIndex {
+    pub(crate) fn owned(&self, owner: Uuid) -> &[Rollout] {
+        self.owned.get(&owner).map_or(&[], Vec::as_slice)
+    }
+
+    pub(crate) fn externally_referenced(&self, rollout: Uuid, owner: Uuid) -> bool {
+        self.incoming
+            .get(&rollout)
+            .is_some_and(|sources| sources.mixed || sources.first != owner)
+    }
+}
+
+pub(crate) fn scan(home: &Path, candidate_owners: &HashSet<Uuid>) -> Result<LineageIndex> {
+    let mut index = LineageIndex::default();
+    let mut seen = HashSet::new();
+    let mut entries = 0usize;
+    for root in [home.join("sessions"), home.join("archived_sessions")] {
+        let metadata = match fs::symlink_metadata(&root) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error).context("inspect session directory"),
+        };
+        ensure!(metadata.is_dir(), "session root is not a real directory");
+        for entry in walkdir::WalkDir::new(&root)
+            .follow_links(false)
+            .max_open(16)
+        {
+            let entry = entry.context("cannot inspect all session lineage paths")?;
+            entries += 1;
+            ensure!(
+                entries <= 500_000,
+                "lineage inventory exceeds the 500,000-entry safety limit"
+            );
+            ensure!(
+                !entry
+                    .file_name()
+                    .as_encoded_bytes()
+                    .starts_with(b".codex-retain-pending-"),
+                "pending retention artifact prevents lineage verification: {}",
+                entry.path().display()
+            );
+            let kind = entry.file_type();
+            ensure!(
+                kind.is_dir() || kind.is_file(),
+                "lineage inventory contains a symlink or nonregular entry: {}",
+                entry.path().display()
+            );
+            if kind.is_dir() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str() else {
+                continue;
+            };
+            let Some(filename) = filename(name)? else {
+                continue;
+            };
+            let rollout_id = filename.rollout;
+            ensure!(
+                seen.insert(rollout_id),
+                "duplicate rollout identity {rollout_id}"
+            );
+            let (file, metadata) =
+                crate::fsutil::regular_with_metadata(entry.path(), false, false)?;
+            let identity = crate::fsutil::Identity::of(&metadata);
+            let line = crate::metadata::first_record(file, filename.compressed)
+                .with_context(|| format!("read rollout header {}", entry.path().display()))?;
+            let (owner, paginated, base) = header(&line)
+                .with_context(|| format!("invalid rollout header {}", entry.path().display()))?;
+            ensure!(
+                owner == filename.owner,
+                "rollout filename and metadata owners differ"
+            );
+            if let Some(base) = base {
+                index
+                    .incoming
+                    .entry(base)
+                    .and_modify(|sources| {
+                        sources.mixed |= sources.first != owner;
+                    })
+                    .or_insert(ReferringOwners {
+                        first: owner,
+                        mixed: false,
+                    });
+            }
+            if candidate_owners.contains(&owner) {
+                index.owned.entry(owner).or_default().push(Rollout {
+                    rollout_id,
+                    path: entry.into_path(),
+                    paginated,
+                    identity,
+                });
+            }
+        }
+    }
+    for rollouts in index.owned.values_mut() {
+        rollouts.sort_unstable_by(|left, right| left.path.cmp(&right.path));
+    }
+    Ok(index)
+}
+
+fn canonical_uuid(value: &str) -> Result<Uuid> {
+    let id = Uuid::parse_str(value).context("invalid rollout UUID")?;
+    ensure!(
+        id.hyphenated().encode_lower(&mut [0; 36]) == value,
+        "noncanonical rollout UUID"
+    );
+    Ok(id)
+}
+
+pub(crate) struct RolloutName {
+    pub owner: Uuid,
+    pub rollout: Uuid,
+    pub compressed: bool,
+}
+
+/// Ordinary names end in owner UUID; reverted names end in owner_rollout UUIDs.
+pub(crate) fn filename(name: &str) -> Result<Option<RolloutName>> {
+    if !name.starts_with("rollout-") {
+        return Ok(None);
+    }
+    let (stem, compressed) = if let Some(stem) = name.strip_suffix(".jsonl.zst") {
+        (stem, true)
+    } else if let Some(stem) = name.strip_suffix(".jsonl") {
+        (stem, false)
+    } else {
+        return Ok(None);
+    };
+    let core = stem
+        .strip_prefix("rollout-")
+        .context("invalid rollout filename")?;
+    let timestamp = core.get(..19).context("rollout filename lacks timestamp")?;
+    jiff::civil::DateTime::strptime("%Y-%m-%dT%H-%M-%S", timestamp)
+        .context("invalid rollout filename timestamp")?;
+    ensure!(
+        core.get(19..20) == Some("-"),
+        "rollout filename lacks UUID separator"
+    );
+    let ids = core.get(20..).context("rollout filename lacks UUID")?;
+    let (owner, rollout) = ids.split_once('_').unwrap_or((ids, ids));
+    Ok(Some(RolloutName {
+        owner: canonical_uuid(owner)?,
+        rollout: canonical_uuid(rollout)?,
+        compressed,
+    }))
+}
+
+// Derived map deserialization rejects duplicate known fields. Validate the full
+// JSON value too, including fields these selective structs do not retain.
+#[derive(Deserialize)]
+struct Header {
+    #[serde(rename = "type")]
+    kind: String,
+    payload: Payload,
+}
+
+#[derive(Deserialize)]
+struct Payload {
+    id: String,
+    history_mode: Option<String>,
+    history_base: Option<Base>,
+}
+
+#[derive(Deserialize)]
+struct Base {
+    thread_id: String,
+    end_ordinal_exclusive: u64,
+    end_byte_offset: u64,
+}
+
+fn header(line: &[u8]) -> Result<(Uuid, bool, Option<Uuid>)> {
+    let value: Value = serde_json::from_slice(line)?;
+    ensure!(
+        value.is_object() && value["payload"].is_object(),
+        "rollout header and payload must be objects"
+    );
+    let base = &value["payload"]["history_base"];
+    ensure!(
+        base.is_null() || base.is_object(),
+        "history_base must be an object or null"
+    );
+    drop(value);
+    let record: Header = serde_json::from_slice(line)?;
+    ensure!(
+        record.kind == "session_meta",
+        "first record is not session_meta"
+    );
+    let owner = canonical_uuid(&record.payload.id)?;
+    let paginated = match record.payload.history_mode.as_deref() {
+        None | Some("legacy") => false,
+        Some("paginated") => true,
+        Some(_) => bail!("unsupported rollout history mode"),
+    };
+    let base = record
+        .payload
+        .history_base
+        .map(|base| {
+            let _ = (base.end_ordinal_exclusive, base.end_byte_offset);
+            canonical_uuid(&base.thread_id)
+        })
+        .transpose()?;
+    ensure!(
+        paginated || base.is_none(),
+        "legacy rollout contains a history reference"
+    );
+    Ok((owner, paginated, base))
+}
+
+/// Journal schema 3 cannot infer the stable owner from the filename UUID.
+pub(crate) fn validate_owner(line: &[u8], expected: Uuid) -> Result<()> {
+    let (owner, _, _) = header(line)?;
+    ensure!(
+        owner == expected,
+        "staged rollout belongs to a different thread"
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    const OWNER: Uuid = Uuid::from_u128(1);
+    const CHILD: Uuid = Uuid::from_u128(2);
+    const OLD: Uuid = Uuid::from_u128(3);
+
+    fn write(
+        home: &Path,
+        directory: &str,
+        rollout: Uuid,
+        owner: Uuid,
+        base: Option<Uuid>,
+        compressed: bool,
+    ) -> PathBuf {
+        let directory = home.join(directory);
+        fs::create_dir_all(&directory).unwrap();
+        let ids = if owner == rollout {
+            owner.to_string()
+        } else {
+            format!("{owner}_{rollout}")
+        };
+        let path = directory.join(format!(
+            "rollout-2026-09-10T00-00-00-{ids}.jsonl{}",
+            if compressed { ".zst" } else { "" }
+        ));
+        let value = json!({"type":"session_meta", "payload": {
+            "id":owner, "history_mode":"paginated", "history_base":base.map(|id| json!({
+                "thread_id":id,"end_ordinal_exclusive":10,"end_byte_offset":100
+            }))
+        }});
+        let bytes = format!("{value}\nthis transcript is deliberately not JSON\n").into_bytes();
+        fs::write(
+            &path,
+            if compressed {
+                zstd::stream::encode_all(bytes.as_slice(), 0).unwrap()
+            } else {
+                bytes
+            },
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn protects_sources_from_active_archived_and_compressed_orphan_rollouts() {
+        for (directory, compressed) in [
+            ("sessions/2026/09/10", false),
+            ("archived_sessions", false),
+            ("sessions/2026/09/10", true),
+        ] {
+            let home = tempfile::tempdir().unwrap();
+            write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
+            write(
+                home.path(),
+                directory,
+                CHILD,
+                CHILD,
+                Some(OWNER),
+                compressed,
+            );
+            // No database exists: an orphan rollout still carries a real edge.
+            let index = scan(home.path(), &HashSet::from([OWNER])).unwrap();
+            assert!(index.externally_referenced(OWNER, OWNER));
+            assert_eq!(index.owned(OWNER).len(), 1);
+            assert!(index.owned(OWNER)[0].paginated);
+            assert!(index.owned(CHILD).is_empty());
+        }
+    }
+
+    #[test]
+    fn owns_reverted_rollouts_without_treating_internal_edges_as_external() {
+        let home = tempfile::tempdir().unwrap();
+        write(home.path(), "archived_sessions", OLD, OWNER, None, false);
+        write(
+            home.path(),
+            "archived_sessions",
+            OWNER,
+            OWNER,
+            Some(OLD),
+            false,
+        );
+        let candidates = HashSet::from([OWNER]);
+        let index = scan(home.path(), &candidates).unwrap();
+        assert_eq!(index.owned(OWNER).len(), 2);
+        assert!(!index.externally_referenced(OLD, OWNER));
+        assert_eq!(index.owned(OWNER)[0].rollout_id, OWNER);
+        write(home.path(), "sessions", CHILD, CHILD, Some(OLD), false);
+        let index = scan(home.path(), &candidates).unwrap();
+        assert!(index.externally_referenced(OLD, OWNER));
+        assert!(!index.externally_referenced(OWNER, OWNER));
+    }
+
+    #[test]
+    fn rejects_duplicate_identity_across_locations_and_encodings() {
+        for (directory, compressed) in [("sessions", false), ("archived_sessions", true)] {
+            let home = tempfile::tempdir().unwrap();
+            write(home.path(), "archived_sessions", OWNER, OWNER, None, false);
+            write(home.path(), directory, OWNER, OWNER, None, compressed);
+            assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_malformed_unrelated_headers() {
+        for invalid in [
+            "not json\n",
+            "{}\n",
+            "{\"type\":\"session_meta\",\"payload\":null}\n",
+        ] {
+            let home = tempfile::tempdir().unwrap();
+            let path = write(home.path(), "sessions", CHILD, CHILD, None, false);
+            fs::write(path, invalid).unwrap();
+            assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
+        }
+    }
+
+    #[test]
+    fn validates_modes_reference_fields_and_duplicate_keys() {
+        for payload in [
+            json!({"id":OWNER,"history_mode":"future"}),
+            json!({"id":OWNER,"history_mode":"paginated","history_base":{}}),
+            json!({"id":OWNER,"history_mode":"paginated","history_base":[OLD,1,10]}),
+            json!({"id":OWNER,"history_mode":"paginated","history_base":{"thread_id":OLD,"end_ordinal_exclusive":-1,"end_byte_offset":10}}),
+            json!({"id":OWNER,"history_base":{"thread_id":OLD,"end_ordinal_exclusive":1,"end_byte_offset":10}}),
+            json!({"id":OWNER.to_string().replace('-', "")}),
+        ] {
+            assert!(
+                header(
+                    json!({"type":"session_meta","payload":payload})
+                        .to_string()
+                        .as_bytes()
+                )
+                .is_err()
+            );
+        }
+        let duplicate = format!(
+            r#"{{"type":"session_meta","payload":{{"id":"{OWNER}","history_base":null,"history_base":null}}}}"#
+        );
+        assert!(header(duplicate.as_bytes()).is_err());
+        let legacy = json!({"type":"session_meta","payload":{"id":OWNER}});
+        assert_eq!(
+            header(legacy.to_string().as_bytes()).unwrap(),
+            (OWNER, false, None)
+        );
+    }
+
+    #[test]
+    fn parses_native_reverted_names_and_checks_the_filename_owner() {
+        for suffix in [".jsonl", ".jsonl.zst"] {
+            let name = format!("rollout-2026-09-10T00-00-00-{OWNER}_{OLD}{suffix}");
+            let parsed = filename(&name).unwrap().unwrap();
+            assert_eq!(parsed.owner, OWNER);
+            assert_eq!(parsed.rollout, OLD);
+            assert_eq!(parsed.compressed, suffix.ends_with(".zst"));
+        }
+        let home = tempfile::tempdir().unwrap();
+        let original = write(home.path(), "archived_sessions", OLD, OWNER, None, false);
+        let wrong =
+            original.with_file_name(format!("rollout-2026-09-10T00-00-00-{CHILD}_{OLD}.jsonl"));
+        fs::rename(original, wrong).unwrap();
+        assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
+        for name in [
+            format!("rollout-2026-02-31T00-00-00-{OWNER}.jsonl"),
+            format!("rollout-2026-09-10T00-00-00-{OWNER}_{OLD}_{CHILD}.jsonl"),
+        ] {
+            assert!(filename(&name).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_symlinks_hardlinks_and_pending_artifacts() {
+        for kind in ["symlink", "hardlink", "pending"] {
+            let home = tempfile::tempdir().unwrap();
+            let original = write(home.path(), "sessions", OWNER, OWNER, None, false);
+            match kind {
+                "symlink" => {
+                    std::os::unix::fs::symlink(&original, home.path().join("sessions/link"))
+                        .unwrap()
+                }
+                "hardlink" => fs::hard_link(&original, home.path().join("elsewhere")).unwrap(),
+                _ => {
+                    fs::write(home.path().join("sessions/.codex-retain-pending-test"), b"").unwrap()
+                }
+            }
+            assert!(scan(home.path(), &HashSet::from([OWNER])).is_err());
+        }
+        let home = tempfile::tempdir().unwrap();
+        std::os::unix::fs::symlink(home.path().join("missing"), home.path().join("sessions"))
+            .unwrap();
+        assert!(scan(home.path(), &HashSet::new()).is_err());
+    }
+}

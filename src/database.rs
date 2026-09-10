@@ -294,13 +294,14 @@ pub fn lookup_thread(statement: &mut Statement<'_>, id: &str) -> Result<Option<T
         .optional()?)
 }
 pub fn prepare_delete(c: &Connection) -> Result<Statement<'_>> {
-    Ok(c.prepare("DELETE FROM threads WHERE id=? AND archived=1 AND archived_at IS ? AND rollout_path=? AND is_pinned=0 AND history_mode='legacy' AND thread_section_id IS NOT ?")?)
+    Ok(c.prepare("DELETE FROM threads WHERE id=? AND archived=1 AND archived_at IS ? AND rollout_path=? AND is_pinned=0 AND history_mode=? AND history_mode IN ('legacy','paginated') AND thread_section_id IS NOT ?")?)
 }
 pub fn delete_row(statement: &mut Statement<'_>, t: &Thread) -> Result<()> {
     let affected = statement.execute(params![
         t.id,
         t.archived_at,
         t.path.to_str().context("non-UTF-8 Codex database path")?,
+        t.history_mode,
         PINNED_SECTION_ID
     ])?;
     ensure!(affected == 1, "thread changed before deletion");

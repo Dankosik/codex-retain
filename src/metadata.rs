@@ -5,6 +5,26 @@ use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt;
 
+/// Read only the first metadata record, with the same bounds for every format.
+pub(crate) fn first_record(file: std::fs::File, compressed: bool) -> Result<Vec<u8>> {
+    use std::io::{BufRead, BufReader, Read};
+    let reader: Box<dyn Read> = if compressed {
+        let mut decoder =
+            zstd::stream::read::Decoder::with_buffer(BufReader::with_capacity(16384, file))?;
+        decoder.window_log_max(23)?;
+        Box::new(decoder)
+    } else {
+        Box::new(file)
+    };
+    let mut line = Vec::new();
+    BufReader::with_capacity(16384, reader.take(1024 * 1024 + 1)).read_until(b'\n', &mut line)?;
+    ensure!(
+        line.len() <= 1024 * 1024 && line.last() == Some(&b'\n'),
+        "missing or oversized rollout metadata"
+    );
+    Ok(line)
+}
+
 pub(crate) fn validate_metadata(line: &[u8], thread_id: &str) -> Result<()> {
     let mut deserializer = serde_json::Deserializer::from_slice(line);
     let metadata = Selection {

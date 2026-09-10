@@ -10,7 +10,7 @@ model calls or app-server startup in a normal cleanup. The executable checks
 App-server `thread/delete` cannot express a conditional archived-only deletion
 and cascades to spawned descendants. A separate read followed by that RPC races
 with restore. The supported local storage adapter therefore deletes one reviewed
-legacy thread under the locks that supported Codex writers already honor.
+thread and its exclusively owned rollouts under the locks that supported Codex writers already honor.
 
 ## Capture instead of inferred timestamps
 
@@ -48,13 +48,25 @@ schema comparison includes tables, indexes and triggers, plus migration version,
 success and checksum. This deliberately rejects unknown schema extensions and
 future databases. No automatic SQL migration guesses are made.
 
-Deletion supports only flat archived JSONL and zstd files with matching canonical
-UUID filename and first-record identity and legacy history mode. A database
-logical `.jsonl` path may resolve to its sole `.jsonl.zst` physical file, matching
-Codex compression behavior. Multiple versions/locations, hardlinks, symlinks,
-outside paths, absent/unreadable/invalid metadata and shared history markers are
-skipped. Native pins use the current pinned-section ID as well as the legacy
-pin flag. Every thread participating in a spawn edge is conservatively retained.
+Deletion supports flat archived legacy and paginated JSONL/zstd files. A database
+logical `.jsonl` path may resolve to its sole `.jsonl.zst` representation.
+Legacy files still require filename UUID and first-record thread identity to
+match. Paginated immutable rollout IDs can differ from their stable thread owner
+after revert. Native reverted filenames encode `OWNER_UUID_ROLLOUT_UUID`; both
+IDs are validated against the metadata and journal. The complete
+ownership/reference scan reads bounded first records
+from both active and archived trees, including rollouts without database rows.
+All owned segments must be paginated and in the flat archive. The selected DB
+path must name one of them. Any incoming reference from a different owner keeps
+the entire source thread. Internal references between one thread's segments are
+removed together; a leaf's outgoing reference never authorizes deleting its base.
+
+Unreadable/invalid reference metadata, duplicate rollout IDs, unknown formats,
+symlinks and hardlinks prevent paginated deletion. Discovery is bounded to 500,000
+entries and 1 MiB per first record, with an 8 MiB zstd decoder window. The reference
+scan is repeated under candidate writer locks and the state transaction before
+staging; preview is not deletion authorization. Native pins use the current
+pinned-section ID and legacy bit. Spawn-related threads remain protected.
 
 No active file or child is recursively removed. Other local stores and global
 indexes are deliberately retained; deleting a selected row may cascade only
@@ -64,7 +76,9 @@ contract does not establish support for a differently versioned desktop client.
 ## Mutation and crash protocol
 
 The policy directory has a nonblocking operation lock shared by policy changes,
-manual and scheduled runs. For each group of at most 128 eligible threads:
+manual and scheduled runs. A journal covers at most 128 rollout files and at most
+128 eligible threads. Groups split before writing if a multi-segment group exceeds
+that bound; a single owner with more than 128 files is retained. For each group:
 
 1. Acquire Codex's `.tmp/rollout-maintenance.lock`, excluding supported
    compression and rollout migration. Busy means skip.
@@ -78,7 +92,7 @@ manual and scheduled runs. For each group of at most 128 eligible threads:
 4. Serialize the intent through a 64 KiB buffer, explicitly flush it, then
    atomically write and fsync a single `pending.json` naming every member.
    Rename those exact rollouts to fixed hidden staging filenames in the same
-   archive directory; fsync the directory once for the group.
+   archive directory (schema 3 binds both owner and rollout UUID); fsync the directory once for the group.
 5. Conditionally delete only those individually checked rows and commit the
    group atomically with synchronous FULL.
 6. Verify each staged inode and unlink it, fsync the archive once, then durably
@@ -131,7 +145,11 @@ If a staged file remains and its row exists, restore it without overwriting
 an existing destination. If the row is absent, finish removal of the already
 authorized staged file. If the intent preceded the rename or cleanup completed,
 clear the receipt. Partial staging, restore and unlink prefixes are restartable.
-Legacy single-file journals and earlier 32-item group journals are also recognized.
+Schema 3 records owner and immutable rollout IDs separately. Recovery validates
+both path identities and each staged header's stable owner before restoring or
+unlinking it. Schema 1 single-file and schema 2 legacy group journals remain
+recognized. Version 0.1.0 cannot recover schema 3: finish recovery using the newer
+executable before downgrading. Earlier 32-item group journals are also recognized.
 Before downgrading to a build limited to 32 items, finish recovery or disable
 with the newer executable. The old reader rejects larger pending groups before
 mutation; it cannot finish their recovery. Identity conflict, access failure or
@@ -156,6 +174,15 @@ Observed republishing is reported; future republishing cannot be ruled out.
 This is a remaining upstream coordination limitation, not a reason to cascade
 through more files or claim complete erasure.
 
+For paginated history, supported app-server/CLI fork requests first read current
+state and reject archived sources; restore and revert take the source OS writer
+lock. Same-store fork reservations also block archive until child persistence.
+Those invariants cover ordinary operations against continuously archived threads.
+They are not a global cross-process fork lease. A lower-level caller that bypasses
+archive rejection, or a prepared request in another process that survives the
+entire archive grace interval, is not covered. See the
+[paginated source review](paginated-support.md) for evidence and this boundary.
+
 The filesystem threat model is a user-owned local profile operated by supported
 Codex clients. Arbitrary same-user hostile filesystem/SQL manipulation, foreign
 writers, network filesystems, clock tampering and hardware that lies about fsync
@@ -177,7 +204,7 @@ the complete JSON record while retaining only the metadata checks; ignored
 values, duplicate keys, invalid UTF-8, numbers and nesting keep the existing
 JSON semantics. Adjacent file checks reuse the metadata of the same opened
 handle, while inspection under writer locks and final staged identity checks
-remain separate. At most 128 deletions are staged under one intent.
+remain separate. At most 128 rollout files are staged under one intent.
 Reported deletion counts cover fully completed groups; recovery reports
 interrupted finalization separately and does not invent lost byte accounting.
 Ordinary JSON and text commands retain one result per indexed archive; this is
@@ -191,7 +218,9 @@ due candidates. The replace-in-place last-run
 report keeps its existing schema. Stdout uses a 64 KiB buffer with explicit
 flush and BrokenPipe handling, independently of the durable journal buffer.
 
-No SQLite VACUUM, global-index rewrite, snapshot deletion, or Trash accumulation
+Separate paginated projection caches are not purged; the same narrow deletion
+scope retains other secondary stores and global traces. No SQLite VACUUM,
+global-index rewrite, snapshot deletion, or Trash accumulation
 is used. File length, allocated blocks and volume free-space delta have separate
 JSON fields; exact attributable physical reclamation remains null. Exit codes:
 0 completed command (including ordinary policy skips), 1 operational failure,

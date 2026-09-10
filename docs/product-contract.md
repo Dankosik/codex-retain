@@ -71,3 +71,15 @@ the 1 MiB journal limit, and legacy recovery remain in effect. At 10,000 chats,
 median cleanup fell from 14.35 to 7.76 seconds in that experiment. The additional
 2x median speedup hypothesis was not met. The [profiling report](cleanup-performance.md)
 records the evidence, concurrency tradeoffs, and downgrade boundary.
+
+## Paginated amendment (0.1.1, 2026-09-10)
+
+The adapter now recognizes paginated local rollouts under the same 0.153.4
+schema/version boundary. A thread can own several immutable rollout segments;
+all must be safely archived and exclusively owned. Incoming references from
+other thread owners preserve the source, including references to old segments.
+The limit is 128 files per journal, with schema 3 owner/rollout identity and
+restartable recovery. Separate paginated projection caches remain outside the
+declared deletion scope. Doctor/status expose format coverage separately from
+schema/binary verification and never use counts as proof of deletion eligibility.
+See [source review and validation](paginated-support.md).

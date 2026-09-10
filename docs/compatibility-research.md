@@ -2,6 +2,10 @@
 
 Investigation date: 2026-09-09. This document records source findings and isolated protocol experiments; the product's compatibility matrix determines its supported scope.
 
+The initial implementation used the legacy-only scope below. The later
+[paginated review](paginated-support.md) extends source support without changing
+the pinned Codex version or treating different desktop writers as certified.
+
 ## Evidence identity
 
 - Installed executable: codex-cli 0.153.4, npm distribution, macOS 26.4.0, Apple Silicon.

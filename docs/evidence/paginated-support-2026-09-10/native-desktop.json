@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "passed": true,
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "retain_sha256": "0594346e7a3af5b73a42257ebc1a01bf221c42682cd006e9ef6ae55433fdb9fa",
+  "codex_launcher_sha256": "a30ec314bbd0e3721632234d07db7c99855db3b9f1e32dbe8c791947f07e7629",
+  "fixture": "new isolated HOME/CODEX_HOME; native paginated starts, archive and fork",
+  "model_turns_submitted": 0,
+  "launchagents_installed": 0,
+  "checks": [
+    {
+      "name": "native_paginated_archive_persisted",
+      "passed": true
+    },
+    {
+      "name": "native_paginated_enable_preserves_full_grace",
+      "passed": true
+    },
+    {
+      "name": "native_paginated_standalone_deleted",
+      "passed": true,
+      "deleted": 1
+    },
+    {
+      "name": "native_fork_persists_shared_history_base",
+      "passed": true,
+      "history_bases": [
+        {
+          "thread_id": "01a08b9e-c0f8-7402-bfee-c3033a59cdea",
+          "end_ordinal_exclusive": 5,
+          "end_byte_offset": 23118
+        }
+      ]
+    },
+    {
+      "name": "native_fork_hydrates_complete_inherited_turn",
+      "passed": true,
+      "hydrated_turn_count": 1
+    },
+    {
+      "name": "native_revert_creates_another_owned_rollout",
+      "passed": true
+    },
+    {
+      "name": "external_writer_lock_blocks_native_unarchive",
+      "passed": true,
+      "error": "thread/unarchive: {'code': -32600, 'message': 'thread 01a08b9e-c0f8-7402-bfee-c3033a59cdea already has an active writer'}"
+    },
+    {
+      "name": "native_fork_rejects_archived_source",
+      "passed": true,
+      "error": "thread/fork: {'code': -32600, 'message': 'session 01a08b9e-c0f8-7402-bfee-c3033a59cdea is archived. Run `codex unarchive 01a08b9e-c0f8-7402-bfee-c3033a59cdea` to unarchive it first.'}"
+    },
+    {
+      "name": "active_fork_preserves_archived_source",
+      "passed": true,
+      "reason": "referenced_history",
+      "detail": "another thread still references this paginated history"
+    },
+    {
+      "name": "native_child_read_survives_cleanup",
+      "passed": true,
+      "hydrated_turn_count": 1
+    },
+    {
+      "name": "archived_fork_leaf_deleted_before_source",
+      "passed": true,
+      "deleted": 1,
+      "entries": [
+        {
+          "id": "01a08b9e-c0f8-7402-bfee-c3033a59cdea",
+          "title": "",
+          "reason": "referenced_history",
+          "eligible_at": 1788962432,
+          "bytes": null,
+          "detail": "another thread still references this paginated history"
+        },
+        {
+          "id": "01a08b9e-c15b-7830-8dcb-a1e0d76cfcd7",
+          "title": "",
+          "reason": "deleted",
+          "eligible_at": 1788962432,
+          "bytes": 22879,
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "unreferenced_source_deleted_on_next_run",
+      "passed": true,
+      "deleted": 1,
+      "owned_rollouts_removed": 2
+    },
+    {
+      "name": "native_paginated_cleanup_idempotent",
+      "passed": true
+    },
+    {
+      "name": "no_launchagent_installed",
+      "passed": true
+    }
+  ],
+  "test_only_mutations": [
+    "age synthetic capture epochs",
+    "append synthetic TaskStarted, canonical UserMessage and AgentMessage ItemCompleted, TaskComplete events after native writer shutdown"
+  ],
+  "limitations": [
+    "No model requests; populated history is a canonical synthetic fixture.",
+    "Deletion assertions cover owned rollout files and main thread rows, not separate projection caches."
+  ],
+  "codex_version": "codex-cli 0.153.4",
+  "retain_version": "codex-retain 0.1.1",
+  "app_server_user_agent": "codex-retain-conformance/0.153.4 (Mac OS 26.4.0; arm64) dumb (codex-retain-conformance; 1)",
+  "native_methods": [
+    "initialize",
+    "thread/start",
+    "thread/section/move",
+    "thread/archive",
+    "thread/start",
+    "thread/section/move",
+    "initialize",
+    "thread/fork",
+    "thread/section/move",
+    "thread/read",
+    "thread/resume",
+    "thread/revert",
+    "thread/archive",
+    "thread/read",
+    "thread/archive"
+  ],
+  "native_stderr_tail": "",
+  "finished_at_utc": "2026-09-10T14:00:32Z"
+}

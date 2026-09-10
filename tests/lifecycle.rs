@@ -198,7 +198,7 @@ fn missing_or_ambiguous_clock_and_history_mode_fail_closed() {
             }
             3 => {
                 f.c.execute(
-                    "UPDATE threads SET history_mode='paginated' WHERE id=?",
+                    "UPDATE threads SET history_mode='future-format' WHERE id=?",
                     [&id],
                 )
                 .unwrap();

@@ -27,9 +27,9 @@ enabled, ordinary runs need no further confirmation. The utility needs no cloud
 service, subscription, account, or LLM, and leaves no process running between checks.
 
 > **Check compatibility before enabling.** The current adapter supports Codex CLI
-> **0.153.4** local legacy history on macOS. An installed CLI does not establish
-> compatibility with Codex Desktop's embedded server. Spawn-related and paginated
-> histories are skipped. See [the full compatibility boundary](#compatibility).
+> **0.153.4** local history on macOS. An installed CLI does not establish
+> compatibility with Codex Desktop's embedded server. Spawn-related threads and
+> histories still referenced by other threads are preserved. See [the full compatibility boundary](#compatibility).
 
 ## Quick start
 
@@ -46,7 +46,7 @@ codex-retain doctor
 
 The installer checks SHA-256 and installs to `~/.local/bin`. Add that directory
 to your shell's PATH permanently if needed. Installation never enables retention.
-For a specific release, use `CODEX_RETAIN_VERSION=0.1.0 sh /tmp/codex-retain-install.sh`.
+For a specific release, use `CODEX_RETAIN_VERSION=0.1.1 sh /tmp/codex-retain-install.sh`.
 Set `CODEX_RETAIN_INSTALL_DIR` to choose a different absolute installation directory.
 
 ### Homebrew
@@ -65,7 +65,7 @@ This tap installs the same prebuilt binaries and shell completions. Enable using
 To compile the tagged source, install Rust 1.98.1 and a C toolchain, then run:
 
 ```sh
-cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.0 --locked codex-retain
+cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.1 --locked codex-retain
 ```
 
 Or download the matching archive and `SHA256SUMS` from
@@ -218,7 +218,8 @@ rows, and the reviewed metadata those rows own. It never recursively deletes
 a parent conversation and its descendants.
 
 Cloud history, global `history.jsonl` and `session_index.jsonl`, logs, separate
-memory and queue databases, exports, and disk snapshots remain. Cleanup does not
+memory and queue databases, paginated projection caches (`thread_history_1.sqlite`),
+exports, and disk snapshots remain. Cleanup does not
 erase every conversation trace or run `VACUUM` against a live SQLite profile.
 
 The utility keeps no growing Trash or backup archive. A durable journal covers
@@ -244,7 +245,7 @@ Space reports keep different measurements separate:
 | Local legacy JSONL and zstd rollouts in `state_5.sqlite` | Supported within the reviewed schema |
 | Codex Desktop's embedded server | Not certified by the version of a separate installed CLI; every writer must use the supported protocol |
 | Threads with spawn relationships, including parents and children | Skipped |
-| Paginated or shared histories | Skipped |
+| Paginated JSONL/zstd (0.1.1+) | All owned archive segments are checked; referenced histories are preserved |
 | Linux | Experimental core, doctor, and preview paths; destructive commands and scheduling disabled |
 | Windows | Not supported |
 
@@ -259,6 +260,9 @@ Codex adapter compatibility boundary above. Builds are not Developer ID signed
 or notarized. Browser downloads may require approval in macOS Privacy & Security.
 
 ## Measured performance
+
+These measurements use legacy-history fixtures. Paginated reference discovery
+adds work and is not represented by these timings.
 
 The latest benchmarks were recorded on September 10, 2026, on an Apple M5
 with 16 GiB RAM and macOS 26.4, using a Rust 1.98.1 release build with Thin LTO.

@@ -3,6 +3,14 @@
 Local validation on 2026-09-09, Apple M5 / 16 GiB / macOS 26.4 ARM64.
 Rust 1.98.1, Codex CLI 0.153.4, Codex Retain 0.1.0.
 
+## Paginated support follow-up (0.1.1, 2026-09-10)
+
+The [paginated support record](paginated-support.md) identifies the final local
+candidate and its checks. It adds format diagnostics, multi-rollout ownership,
+shared-history preservation, and schema-3 recovery. The native npm CLI and the
+installed Desktop embedded 0.153.4 executable each passed 14 synthetic checks.
+Release 0.1.0 remains unchanged; the fix is distributed in 0.1.1.
+
 ## Cleanup optimization follow-up
 
 The updated executable has SHA-256
@@ -47,7 +55,7 @@ scan through gitleaks. Reproduce with `make check`, `make maintenance-check` and
 the documented explicit-path integration/benchmark scripts. No passing test
 authorizes operating on a user's real history.
 
-## Support matrix and remaining boundaries
+## Original support snapshot (before the first public release)
 
 | Surface | Status |
 | --- | --- |
