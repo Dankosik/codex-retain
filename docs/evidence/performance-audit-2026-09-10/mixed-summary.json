@@ -1,0 +1,46 @@
+{
+  "files_sha256_before_after": "54df6a1810408ed854a603a2c59fda55c9910166c583e2856f4671ce6eb4e370",
+  "files_unchanged": true,
+  "limits": [
+    "100k unexpired metadata rows intentionally leave 99k files in sessions; no due-file validation in that case",
+    "parent RSS sampled maximum is a lower bound, not heap allocation or total process tree memory",
+    "not an optimized candidate comparison"
+  ],
+  "observations": [
+    {
+      "name": "mixed-none-due",
+      "parent_rss_kib_sampled_max": 7280,
+      "parent_rss_samples": 7,
+      "postconditions": {
+        "deleted": 0,
+        "eligible": 0,
+        "examined": 1000,
+        "skipped": 1000
+      }
+    },
+    {
+      "name": "mixed-one-due",
+      "parent_rss_kib_sampled_max": 53408,
+      "parent_rss_samples": 7,
+      "postconditions": {
+        "deleted": 0,
+        "eligible": 1,
+        "examined": 1000,
+        "skipped": 999
+      }
+    },
+    {
+      "name": "100k-archives-none-due",
+      "parent_rss_kib_sampled_max": 67936,
+      "parent_rss_samples": 18,
+      "postconditions": {
+        "deleted": 0,
+        "eligible": 0,
+        "examined": 100000,
+        "skipped": 100000
+      }
+    }
+  ],
+  "sample_plan": "warmup 3, runs 5, warm caches, sequential cases, shared desktop; parent ps observations separate from hyperfine",
+  "source": "existing exact candidate release executable; no code change"
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure release binaries on disposable, marker-checked synthetic Codex data.
 
-Requires hyperfine and a built Codex Session Janitor. No dependency installation,
+Requires hyperfine and, unless --retain-only, a built Codex Session Janitor. No dependency installation,
 real-chat access, background task installation, or release build is performed.
 """
 
@@ -232,16 +232,19 @@ def setup(args):
     root = fixture.no_symlinks(args.root)
     if root.exists():
         raise ValueError("benchmark output directory must not exist: " + str(root))
-    retain, codex_bin, node = map(executable, (args.retain, args.codex_bin, args.node))
+    retain, codex_bin = map(executable, (args.retain, args.codex_bin))
+    node = executable(args.node) if not args.retain_only else None
     baseline = executable(args.baseline) if args.baseline else None
     hyperfine = executable(args.hyperfine)
-    janitor = Path(args.janitor).resolve(strict=True)
-    if not (janitor / "dist/cli.js").is_file():
+    janitor = Path(args.janitor).resolve(strict=True) if args.janitor else None
+    if not args.retain_only and janitor is None:
+        raise ValueError("provide --janitor or select --retain-only")
+    if janitor and not (janitor / "dist/cli.js").is_file():
         raise ValueError("build the pinned Janitor before measuring; missing dist/cli.js")
-    revision = version(["git", "-C", str(janitor), "rev-parse", "HEAD"])
-    if revision != JANITOR_REVISION:
+    revision = version(["git", "-C", str(janitor), "rev-parse", "HEAD"]) if janitor else None
+    if janitor and revision != JANITOR_REVISION:
         raise ValueError("Janitor revision differs from the reviewed baseline: " + revision)
-    dirty = version(["git", "-C", str(janitor), "status", "--porcelain", "--untracked-files=no"])
+    dirty = version(["git", "-C", str(janitor), "status", "--porcelain", "--untracked-files=no"]) if janitor else None
     if dirty:
         raise ValueError("Janitor tracked files are modified; use a pristine baseline")
     if any(not 0 <= count <= 100000 for count in args.counts) or not 3 <= args.runs <= 100:
@@ -265,6 +268,8 @@ def setup(args):
             tool_order = ("retain", "janitor") if args.counts.index(count) % 2 == 0 else ("janitor", "retain")
             if baseline:
                 tool_order = ("baseline", "retain", "janitor") if args.counts.index(count) % 2 == 0 else ("retain", "baseline", "janitor")
+            if args.retain_only:
+                tool_order = tuple(tool for tool in tool_order if tool != "janitor")
             for tool in tool_order:
                 name = tool + operation + "-" + str(count)
                 case = dict(common, tool=tool, operation=operation, count=count,
@@ -279,16 +284,16 @@ def setup(args):
     metadata = {
         "schema": 1, "date_utc": fixture.iso(now), "platform": platform.platform(),
         "architecture": platform.machine(), "python": platform.python_version(),
-        "hyperfine": version([hyperfine, "--version"]), "node": version([node, "--version"]),
+        "hyperfine": version([hyperfine, "--version"]), "node": version([node, "--version"]) if node else None,
         "codex": codex_version, "retain": version([retain, "--version"]),
         "retain_sha256": hashlib.sha256(Path(retain).read_bytes()).hexdigest(),
         "retain_binary_bytes": Path(retain).stat().st_size,
         "baseline_sha256": hashlib.sha256(Path(baseline).read_bytes()).hexdigest() if baseline else None,
         "baseline_version": version([baseline, "--version"]) if baseline else None,
         "janitor_revision": revision,
-        "janitor_package": json.loads((janitor / "package.json").read_text(encoding="utf-8")),
-        "janitor_lock_sha256": hashlib.sha256((janitor / "package-lock.json").read_bytes()).hexdigest(),
-        "janitor_cli_sha256": hashlib.sha256((janitor / "dist/cli.js").read_bytes()).hexdigest(),
+        "janitor_package": json.loads((janitor / "package.json").read_text(encoding="utf-8")) if janitor else None,
+        "janitor_lock_sha256": hashlib.sha256((janitor / "package-lock.json").read_bytes()).hexdigest() if janitor else None,
+        "janitor_cli_sha256": hashlib.sha256((janitor / "dist/cli.js").read_bytes()).hexdigest() if janitor else None,
         "counts": args.counts, "rollout_bytes": args.rollout_bytes, "warmups": 3, "runs": args.runs,
         "cache": "warm filesystem cache; fixtures freshly generated before each sample",
         "physical_disk_reads": "not measured", "background_services_installed": False,
@@ -313,7 +318,8 @@ def main():
     run.add_argument("--retain", required=True, help="already built release codex-retain executable")
     run.add_argument("--codex-bin", required=True, help="real compatible Codex executable")
     run.add_argument("--baseline", help="optional earlier Retain executable; same fixtures and policy as --retain")
-    run.add_argument("--janitor", required=True, help="pristine built checkout at the documented baseline commit")
+    run.add_argument("--janitor", help="pristine built checkout at the documented baseline commit")
+    run.add_argument("--retain-only", action="store_true", help="compare Retain binaries without Janitor")
     run.add_argument("--node", default="node")
     run.add_argument("--hyperfine", default="hyperfine")
     run.add_argument("--counts", nargs="+", type=int, default=[1000, 10000])
@@ -336,7 +342,7 @@ def main():
                 print("Preflight " + path.stem, flush=True)
                 preflight(path)
             if not args.prepare_only:
-                if args.only == "all":
+                if args.only == "all" and not args.retain_only:
                     measure_startup(root, cases[0], hyperfine, args.runs)
                 for path in cases:
                     print("Measuring " + path.stem, flush=True)

@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -21,22 +21,7 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Action {
     /// Enable retention with a fresh grace period for the existing archive
-    Enable {
-        #[arg(long,default_value_t=30,value_parser=clap::value_parser!(u32).range(1..=36500))]
-        days: u32,
-        /// Profile to manage (default: CODEX_HOME or ~/.codex)
-        #[arg(long)]
-        codex_home: Option<PathBuf>,
-        /// Executable used by the supported Codex client
-        #[arg(long, default_value = "codex")]
-        codex_bin: PathBuf,
-        /// Enable manual runs without installing the macOS hourly LaunchAgent
-        #[arg(long)]
-        no_schedule: bool,
-        /// Consent to permanent local deletion after retention; no later prompts
-        #[arg(long)]
-        yes: bool,
-    },
+    Enable(EnableArgs),
     /// Show the current policy, compatibility, scheduler, and last run
     Status,
     /// Explain due and skipped archives without changing Codex data
@@ -80,4 +65,22 @@ pub enum Action {
     },
     /// Generate shell completions
     Completions { shell: clap_complete::Shell },
+}
+
+#[derive(Debug, Args)]
+pub struct EnableArgs {
+    #[arg(long,default_value_t=30,value_parser=clap::value_parser!(u32).range(1..=36500))]
+    pub days: u32,
+    /// Profile to manage (default: CODEX_HOME or ~/.codex)
+    #[arg(long)]
+    pub codex_home: Option<PathBuf>,
+    /// Executable used by the supported Codex client
+    #[arg(long, default_value = "codex")]
+    pub codex_bin: PathBuf,
+    /// Enable manual runs without installing the macOS hourly LaunchAgent
+    #[arg(long)]
+    pub no_schedule: bool,
+    /// Consent to permanent local deletion after retention; no later prompts
+    #[arg(long)]
+    pub yes: bool,
 }

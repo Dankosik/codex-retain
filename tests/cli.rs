@@ -93,7 +93,7 @@ fn consent_is_required_before_profile_mutation() {
         .arg(bin)
         .assert()
         .failure();
-    let db = database::open(&home, false).unwrap();
+    let db = database::open(&home, database::DatabaseAccess::ReadOnly).unwrap();
     assert_eq!(
         db.query_row("SELECT count(*) FROM threads WHERE id=?", [id], |r| r
             .get::<_, i64>(0))
@@ -157,7 +157,7 @@ fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable(
         .failure();
     json(command(&state).args(["policy", "--days", "1", "--yes"]));
     json(command(&state).arg("exclude").arg(&id));
-    let c = database::open(&home, true).unwrap();
+    let c = database::open(&home, database::DatabaseAccess::ReadWrite).unwrap();
     c.execute(
         "UPDATE codex_retain_epochs SET archived_since=unixepoch()-3*86400",
         [],
@@ -223,6 +223,108 @@ fn scheduled_errors_replace_one_bounded_receipt_and_remain_quiet() {
     assert_eq!(value["status"], "error");
     assert!(value["error"].as_str().unwrap().contains("capture"));
     assert!(fs::metadata(state.join("last-run.json")).unwrap().len() < 4096);
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn scheduled_artifact_failures_keep_attention_and_the_same_first_ten_diagnostics() {
+    let mut f = Fixture::new();
+    let mut ids = Vec::new();
+    for number in 1..=16 {
+        let id = f.add(number, 1);
+        f.age(&id);
+        fs::remove_file(f.path(&id, true)).unwrap();
+        ids.push(id);
+    }
+    f.policy.codex_bin = binary(f.temp.path());
+    f.store.save(&f.policy).unwrap();
+    let state = f.store.root.clone();
+    drop(f.store);
+    command(&state)
+        .args(["run", "--scheduled"])
+        .assert()
+        .code(3)
+        .stdout("")
+        .stderr("");
+    let receipt: Value =
+        serde_json::from_slice(&fs::read(state.join("last-run.json")).unwrap()).unwrap();
+    assert_eq!(receipt["status"], "attention");
+    assert_eq!(receipt["examined"], 16);
+    assert_eq!(receipt["deleted"], 0);
+    assert_eq!(receipt["skipped"], 16);
+    assert_eq!(receipt["skips"].as_array().unwrap().len(), 10);
+    assert_eq!(
+        receipt["skips"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|entry| entry["id"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ids[..10].iter().map(String::as_str).collect::<Vec<_>>()
+    );
+    let output = command(&state)
+        .arg("run")
+        .assert()
+        .code(3)
+        .get_output()
+        .stdout
+        .clone();
+    let full: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(full["entries"].as_array().unwrap().len(), 16);
+    assert_eq!(
+        receipt["skips"].as_array().unwrap(),
+        &full["entries"].as_array().unwrap()[..10]
+    );
+    assert_eq!(
+        f.c.query_row("SELECT count(*) FROM threads", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        16
+    );
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn large_json_preview_exits_successfully_when_the_reader_closes_early() {
+    use std::process::Stdio;
+    use std::time::{Duration, Instant};
+    let mut f = Fixture::new();
+    for number in 1..=1000 {
+        f.add(number, 1);
+    }
+    f.policy.codex_bin = binary(f.temp.path());
+    f.store.save(&f.policy).unwrap();
+    let state = f.store.root.clone();
+    drop(f.store);
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_codex-retain"))
+        .args(["--state-dir", state.to_str().unwrap(), "--json", "preview"])
+        .env("HOME", f.temp.path())
+        .env_remove("CODEX_RETAIN_STATE_DIR")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(child.stdout.take());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            assert!(status.success(), "closed stdout returned {status}");
+            break;
+        }
+        if Instant::now() >= deadline {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            panic!("preview did not finish after its reader closed");
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(
+        f.c.query_row("SELECT count(*) FROM threads", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        1000
+    );
 }
 
 #[test]

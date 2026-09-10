@@ -130,7 +130,7 @@ mod launchd {
     use std::fs::{self, File, OpenOptions};
     use std::io::{Read, Write};
     use std::path::{Path, PathBuf};
-    use std::process::{Command, Stdio};
+    use std::process::{Command, ExitStatus, Stdio};
     use std::thread;
     use std::time::{Duration, Instant};
 
@@ -144,7 +144,7 @@ mod launchd {
 
     #[derive(Debug)]
     pub(super) struct CommandResult {
-        code: Option<i32>,
+        status: ExitStatus,
         stdout: String,
         stderr: String,
     }
@@ -152,9 +152,12 @@ mod launchd {
     impl CommandResult {
         fn checked(self, operation: &str) -> Result<Self> {
             ensure!(
-                self.code == Some(0),
-                "{operation} failed (exit {:?}): {}",
-                self.code,
+                self.status.success(),
+                "{operation} failed ({}): {}",
+                match self.status.code() {
+                    Some(code) => format!("exit Some({code})"),
+                    None => self.status.to_string(),
+                },
                 self.stderr.trim()
             );
             Ok(self)
@@ -198,12 +201,13 @@ mod launchd {
             .stderr(Stdio::piped())
             .spawn()
             .with_context(|| format!("start {program}"))?;
-        let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        let (Some(stdout_pipe), Some(stderr_pipe)) = (child.stdout.take(), child.stderr.take())
+        else {
             let _ = child.kill();
             let _ = child.wait();
             bail!("capture {program} output");
         };
-        let stdout = match thread::Builder::new().spawn(move || capture(stdout)) {
+        let stdout_reader = match thread::Builder::new().spawn(move || capture(stdout_pipe)) {
             Ok(reader) => reader,
             Err(error) => {
                 let _ = child.kill();
@@ -211,12 +215,12 @@ mod launchd {
                 return Err(error).context("start stdout reader");
             }
         };
-        let stderr = match thread::Builder::new().spawn(move || capture(stderr)) {
+        let stderr_reader = match thread::Builder::new().spawn(move || capture(stderr_pipe)) {
             Ok(reader) => reader,
             Err(error) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                let _ = stdout.join();
+                let _ = stdout_reader.join();
                 return Err(error).context("start stderr reader");
             }
         };
@@ -241,14 +245,14 @@ mod launchd {
         // Only fixed system utilities use this runner; they do not delegate pipe
         // ownership to long-lived descendants. Both streams are drained even
         // when the retained diagnostic prefix has reached its limit.
-        let stdout = stdout
+        let stdout = stdout_reader
             .join()
             .map_err(|_| anyhow::anyhow!("stdout reader failed"))?;
-        let stderr = stderr
+        let stderr = stderr_reader
             .join()
             .map_err(|_| anyhow::anyhow!("stderr reader failed"))?;
         Ok(CommandResult {
-            code: status?.code(),
+            status: status?,
             stdout: stdout?,
             stderr: stderr?,
         })
@@ -365,11 +369,11 @@ mod launchd {
             "/bin/launchctl",
             &["print".into(), format!("{domain}/{LABEL}").into()],
         )?;
-        if output.code == Some(0) {
+        if output.status.success() {
             return Ok(Registration::Registered);
         }
         // Other errors (including an unavailable GUI domain) are not absence.
-        if output.code == Some(113)
+        if output.status.code() == Some(113)
             && output.stderr.contains("Could not find service")
             && output.stderr.contains(LABEL)
         {
@@ -384,7 +388,7 @@ mod launchd {
             "/bin/launchctl",
             &["bootout".into(), format!("{domain}/{LABEL}").into()],
         )?;
-        if result.code == Some(0) {
+        if result.status.success() {
             return Ok(());
         }
         // A concurrent removal, or a previously unregistered job, is harmless.
@@ -531,6 +535,7 @@ mod launchd {
     #[cfg(test)]
     mod tests {
         use std::collections::VecDeque;
+        use std::os::unix::process::ExitStatusExt;
 
         use super::*;
 
@@ -549,7 +554,7 @@ mod launchd {
 
         fn result(code: i32, stdout: &str, stderr: &str) -> CommandResult {
             CommandResult {
-                code: Some(code),
+                status: ExitStatus::from_raw(code << 8),
                 stdout: stdout.into(),
                 stderr: stderr.into(),
             }
@@ -795,6 +800,32 @@ mod launchd {
             let input = vec![b'a'; CAPTURE_LIMIT * 4];
             assert_eq!(capture(input.as_slice())?.len(), CAPTURE_LIMIT);
             Ok(())
+        }
+
+        #[test]
+        fn signal_termination_retains_status_and_actionable_diagnostic() -> Result<()> {
+            let outcome = run_bounded(
+                "/bin/sh",
+                &["-c".into(), "kill -TERM $$".into()],
+                Duration::from_secs(2),
+            )?;
+            assert_eq!(outcome.status.signal(), Some(15));
+            let error = outcome.checked("synthetic child").unwrap_err().to_string();
+            assert!(error.contains("signal"), "{error}");
+            assert!(error.contains("15"), "{error}");
+            assert!(!error.contains("None"), "{error}");
+            Ok(())
+        }
+
+        #[test]
+        fn numeric_exit_diagnostic_is_preserved() {
+            let error = result(5, "", "refused\n")
+                .checked("synthetic child")
+                .unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "synthetic child failed (exit Some(5)): refused"
+            );
         }
 
         #[test]

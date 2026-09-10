@@ -40,6 +40,16 @@ pub fn private_dir(path: &Path) -> Result<()> {
 }
 
 pub fn regular(path: &Path, writable: bool, create: bool) -> Result<File> {
+    regular_with_metadata(path, writable, create).map(|(file, _)| file)
+}
+
+/// Open and validate the file, returning the metadata from that same check.
+/// This is a snapshot of the opened inode, not a later path revalidation.
+pub fn regular_with_metadata(
+    path: &Path,
+    writable: bool,
+    create: bool,
+) -> Result<(File, Metadata)> {
     let file = OpenOptions::new()
         .read(true)
         .write(writable)
@@ -55,7 +65,7 @@ pub fn regular(path: &Path, writable: bool, create: bool) -> Result<File> {
         "expected a regular file with one link: {}",
         path.display()
     );
-    Ok(file)
+    Ok((file, m))
 }
 
 pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
@@ -150,6 +160,33 @@ pub fn try_lock(path: &Path) -> Result<File> {
 
 pub const MAX_BATCH_THREADS: usize = 128;
 
+/// The scope of a failed acquisition determines whether another group can run.
+#[derive(Debug, PartialEq, Eq)]
+pub enum LockScope {
+    Global,
+    Thread(String),
+}
+
+#[derive(Debug)]
+pub struct LockAcquisitionError {
+    pub scope: LockScope,
+    source: anyhow::Error,
+}
+
+impl std::fmt::Display for LockAcquisitionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.source, formatter)
+    }
+}
+
+impl std::error::Error for LockAcquisitionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        // Display already forwards the wrapped error's first message. Forward
+        // its source as well so chained diagnostics do not repeat that message.
+        self.source.source()
+    }
+}
+
 /// Own all requested thread locks or none, with one coordination lock.
 ///
 /// Codex removes stale UUID lock paths while holding coordination. Match its
@@ -179,9 +216,15 @@ impl ThreadLocks {
             "thread lock batch contains duplicate IDs"
         );
         let dir = home.join("thread-writer-locks");
-        private_dir(&dir)?;
+        private_dir(&dir).map_err(|source| LockAcquisitionError {
+            scope: LockScope::Global,
+            source,
+        })?;
         let coordination_path = dir.join(".coordination.lock");
-        let coordination = try_lock(&coordination_path)?;
+        let coordination = try_lock(&coordination_path).map_err(|source| LockAcquisitionError {
+            scope: LockScope::Global,
+            source,
+        })?;
         let mut owned = Self {
             files: Vec::with_capacity(ordered.len()),
             coordination_path,
@@ -189,7 +232,10 @@ impl ThreadLocks {
         };
         for id in ordered {
             let path = dir.join(format!("{id}.lock"));
-            let file = try_lock(&path)?;
+            let file = try_lock(&path).map_err(|source| LockAcquisitionError {
+                scope: LockScope::Thread(id.to_owned()),
+                source,
+            })?;
             // Only successfully locked paths enter cleanup ownership. A busy
             // pathname belongs to another writer and must never be unlinked.
             owned.files.push((path, file));
@@ -229,8 +275,17 @@ impl ThreadLock {
 
 pub fn maintenance(home: &Path) -> Result<File> {
     let dir = home.join(".tmp");
-    private_dir(&dir)?;
-    try_lock(&dir.join("rollout-maintenance.lock"))
+    private_dir(&dir).map_err(|source| LockAcquisitionError {
+        scope: LockScope::Global,
+        source,
+    })?;
+    try_lock(&dir.join("rollout-maintenance.lock")).map_err(|source| {
+        LockAcquisitionError {
+            scope: LockScope::Global,
+            source,
+        }
+        .into()
+    })
 }
 
 pub fn checked_absolute(path: &Path) -> Result<PathBuf> {
@@ -271,6 +326,60 @@ pub fn rename_without_overwrite_unsynced(source: &Path, destination: &Path) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn regular_metadata_describes_the_opened_inode_after_path_replacement() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("source");
+        let moved = directory.path().join("moved");
+        let original = b"the original file contents";
+        fs::write(&path, original).unwrap();
+
+        let (mut file, metadata) = regular_with_metadata(&path, true, true).unwrap();
+        fs::rename(&path, &moved).unwrap();
+        fs::write(&path, b"replacement").unwrap();
+
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).unwrap();
+        assert_eq!(contents, original);
+        assert_eq!(metadata.len(), original.len() as u64);
+        assert_eq!(
+            Identity::of(&metadata),
+            Identity::of(&file.metadata().unwrap())
+        );
+        assert_eq!(
+            Identity::of(&metadata),
+            Identity::of(&fs::metadata(&moved).unwrap())
+        );
+        assert_ne!(
+            Identity::of(&metadata),
+            Identity::of(&fs::metadata(&path).unwrap())
+        );
+    }
+
+    #[test]
+    fn regular_metadata_keeps_link_and_file_type_guards() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("file");
+        let hardlink = directory.path().join("hardlink");
+        let symlink = directory.path().join("symlink");
+        fs::write(&file, b"preserved").unwrap();
+        fs::hard_link(&file, &hardlink).unwrap();
+        std::os::unix::fs::symlink(&file, &symlink).unwrap();
+
+        for path in [
+            file.as_path(),
+            hardlink.as_path(),
+            symlink.as_path(),
+            directory.path(),
+        ] {
+            let expected = regular(path, false, false).unwrap_err();
+            let actual = regular_with_metadata(path, false, false).unwrap_err();
+            assert_eq!(format!("{actual:#}"), format!("{expected:#}"));
+        }
+        assert_eq!(fs::read(&file).unwrap(), b"preserved");
+        assert_eq!(fs::read_link(&symlink).unwrap(), file);
+    }
 
     #[test]
     fn atomic_json_publishes_complete_payload_across_buffer_boundaries() {
@@ -330,7 +439,15 @@ mod tests {
         let foreign = try_lock(&busy_path).unwrap();
         let foreign_identity = Identity::of(&foreign.metadata().unwrap());
 
-        assert!(ThreadLocks::acquire(home.path(), &[&first, &busy_id, &last]).is_err());
+        let original_error = try_lock(&busy_path).unwrap_err();
+        let error = ThreadLocks::acquire(home.path(), &[&first, &busy_id, &last])
+            .err()
+            .unwrap();
+        assert_eq!(
+            error.downcast_ref::<LockAcquisitionError>().unwrap().scope,
+            LockScope::Thread(busy_id.clone())
+        );
+        assert_eq!(format!("{error:#}"), format!("{original_error:#}"));
         assert_eq!(
             Identity::of(&fs::metadata(&busy_path).unwrap()),
             foreign_identity,
@@ -349,6 +466,94 @@ mod tests {
         for thread_id in [&first, &busy_id, &last] {
             assert!(!directory.join(format!("{thread_id}.lock")).exists());
         }
+    }
+
+    #[test]
+    fn global_lock_contention_is_classified_without_touching_foreign_inodes() {
+        for maintenance_lock in [false, true] {
+            let home = tempfile::tempdir().unwrap();
+            let directory = home.path().join(if maintenance_lock {
+                ".tmp"
+            } else {
+                "thread-writer-locks"
+            });
+            private_dir(&directory).unwrap();
+            let path = directory.join(if maintenance_lock {
+                "rollout-maintenance.lock"
+            } else {
+                ".coordination.lock"
+            });
+            let foreign = try_lock(&path).unwrap();
+            let identity = Identity::of(&foreign.metadata().unwrap());
+            let original_error = try_lock(&path).unwrap_err();
+            let thread_id = id(8);
+            let error = if maintenance_lock {
+                maintenance(home.path()).map(drop)
+            } else {
+                ThreadLocks::acquire(home.path(), &[&thread_id]).map(drop)
+            }
+            .unwrap_err();
+
+            assert_eq!(
+                error.downcast_ref::<LockAcquisitionError>().unwrap().scope,
+                LockScope::Global
+            );
+            assert_eq!(format!("{error:#}"), format!("{original_error:#}"));
+            assert_eq!(Identity::of(&fs::metadata(&path).unwrap()), identity);
+            assert!(try_lock(&path).is_err());
+            assert!(!directory.join(format!("{thread_id}.lock")).exists());
+        }
+    }
+
+    #[test]
+    fn unavailable_lock_directories_are_global_failures() {
+        for maintenance_lock in [false, true] {
+            let home = tempfile::tempdir().unwrap();
+            let path = home.path().join(if maintenance_lock {
+                ".tmp"
+            } else {
+                "thread-writer-locks"
+            });
+            fs::write(&path, b"not a directory").unwrap();
+            let original_error = private_dir(&path).unwrap_err();
+            let error = if maintenance_lock {
+                maintenance(home.path()).map(drop)
+            } else {
+                ThreadLocks::acquire(home.path(), &[&id(9)]).map(drop)
+            }
+            .unwrap_err();
+            assert_eq!(
+                error.downcast_ref::<LockAcquisitionError>().unwrap().scope,
+                LockScope::Global
+            );
+            assert_eq!(format!("{error:#}"), format!("{original_error:#}"));
+            assert_eq!(fs::read(&path).unwrap(), b"not a directory");
+        }
+    }
+
+    #[test]
+    fn unavailable_member_lock_preserves_cause_and_classification_through_context() {
+        let home = tempfile::tempdir().unwrap();
+        let directory = home.path().join("thread-writer-locks");
+        private_dir(&directory).unwrap();
+        let thread_id = id(10);
+        let path = directory.join(format!("{thread_id}.lock"));
+        let target = home.path().join("foreign-file");
+        fs::write(&target, b"foreign contents").unwrap();
+        std::os::unix::fs::symlink(&target, &path).unwrap();
+        let original_error = try_lock(&path).unwrap_err();
+        let error = ThreadLocks::acquire(home.path(), &[&thread_id])
+            .err()
+            .unwrap();
+        assert_eq!(format!("{error:#}"), format!("{original_error:#}"));
+        let error = error.context("outer operation");
+        assert_eq!(
+            error.downcast_ref::<LockAcquisitionError>().unwrap().scope,
+            LockScope::Thread(thread_id)
+        );
+        assert_eq!(fs::read_link(&path).unwrap(), target);
+        assert_eq!(fs::read(&target).unwrap(), b"foreign contents");
+        assert!(try_lock(&directory.join(".coordination.lock")).is_ok());
     }
 
     #[test]

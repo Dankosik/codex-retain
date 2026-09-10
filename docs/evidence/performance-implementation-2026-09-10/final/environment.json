@@ -1,0 +1,56 @@
+{
+  "architecture": "arm64",
+  "background_services_installed": false,
+  "binaries": {
+    "baseline": {
+      "bytes": 4021312,
+      "path": "/private/tmp/codex-retain-opt-20260910-l3kjsm_8/baseline-codex-retain",
+      "sha256": "2329dc3a45932dcd1f5abae82ebe9903f8aa9f240cede008c05fa94f713ef34c",
+      "version": "codex-retain 0.1.0"
+    },
+    "candidate": {
+      "bytes": 4073440,
+      "path": "/private/tmp/codex-retain-opt-20260910-l3kjsm_8/candidate-v2-codex-retain",
+      "sha256": "d3f148fad71187919d3a435bc8625581d620c97b914b4c59c2dc99002ff4e4d3",
+      "version": "codex-retain 0.1.0"
+    },
+    "codex": {
+      "bytes": 220584000,
+      "path": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+      "sha256": "b973d440acac501fd2594a43e7ca9ce41e0a65b9dfb28d0d7a7837c99e1261e3",
+      "version": "codex-cli 0.153.4"
+    },
+    "hyperfine": {
+      "bytes": 1150864,
+      "path": "/opt/homebrew/Cellar/hyperfine/1.20.0/bin/hyperfine",
+      "sha256": "b7272e98214e951452bcbc81eaf0b8f0db391dce05b58ce8ab42985b632c5e94",
+      "version": "hyperfine 1.20.0"
+    }
+  },
+  "cache": "warm filesystem cache; read-only fixtures reused, cleanup and contention data restored outside timing",
+  "cases": [
+    "cleanup-1000",
+    "cleanup-10000",
+    "mixed-none",
+    "mixed-one",
+    "summary",
+    "one-busy",
+    "global-busy",
+    "all-busy",
+    "headers-plain",
+    "headers-zstd"
+  ],
+  "date_utc": "2026-09-10T11:43:02Z",
+  "limits": [
+    "Shared host; no CPU or filesystem-cache isolation.",
+    "RSS is a separate sampled parent-only lower bound, not allocation or process-tree memory.",
+    "Synthetic version-specific profiles establish only the measured workloads."
+  ],
+  "pairing": "baseline and candidate share the same fixture path, policy, and source manifest per scenario",
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "python": "3.14.3",
+  "runs": 5,
+  "schema": 1,
+  "script_sha256": "af26c8317d87ecede18747223245c1ec6333240be98397e13a7bcdd98859997a",
+  "warmups": 3
+}

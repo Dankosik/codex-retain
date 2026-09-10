@@ -48,8 +48,10 @@ def compare(args):
         home, state = case_root / "codex", case_root / "state"
         env = {"HOME": str(case_root / "home"), "CODEX_HOME": str(home),
                "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LC_ALL": "C", "NO_COLOR": "1"}
-        ids = [r["id"] for r in manifest["records"]]
-        paths = [case_root / r["path"] for r in manifest["records"]]
+        cases = {
+            name: {"id": record["id"], "path": case_root / record["path"]}
+            for name, record in zip(CASES, manifest["records"])
+        }
         prefix = [str(retain), "--state-dir", str(state), "--json"]
         if tool == "retain":
             run([*prefix, "enable", "--codex-home", str(home), "--codex-bin", str(codex),
@@ -59,31 +61,36 @@ def compare(args):
             # Test-only time setup. Real users never need to edit capture epochs.
             if tool == "retain":
                 db.execute("UPDATE codex_retain_epochs SET archived_since=?", (now - 40 * fixture.DAY,))
-            db.execute("UPDATE threads SET archived_at=? WHERE id=?", (now, ids[0]))
-            active_path = home / "sessions" / paths[1].name
-            paths[1].rename(active_path)
-            paths[1] = active_path
+            db.execute("UPDATE threads SET archived_at=? WHERE id=?",
+                       (now, cases["old_chat_archived_today"]["id"]))
+            active = cases["old_active_chat"]
+            active_path = home / "sessions" / active["path"].name
+            active["path"].rename(active_path)
+            active["path"] = active_path
             db.execute("UPDATE threads SET archived=0,archived_at=NULL,rollout_path=? WHERE id=?",
-                       (str(active_path), ids[1]))
-            db.execute("UPDATE threads SET archived=0,archived_at=NULL WHERE id=?", (ids[2],))
-            db.execute("UPDATE threads SET archived=1,archived_at=? WHERE id=?", (now, ids[2]))
-            db.execute("UPDATE threads SET archived_at=NULL WHERE id=?", (ids[3],))
+                       (str(active_path), active["id"]))
+            db.execute("UPDATE threads SET archived=0,archived_at=NULL WHERE id=?",
+                       (cases["restored_then_rearchived"]["id"],))
+            db.execute("UPDATE threads SET archived=1,archived_at=? WHERE id=?",
+                       (now, cases["restored_then_rearchived"]["id"]))
+            db.execute("UPDATE threads SET archived_at=NULL WHERE id=?",
+                       (cases["unknown_archive_time"]["id"],))
             db.execute("INSERT OR IGNORE INTO thread_sections(id,name) VALUES(?, 'Pinned')",
                        ("01984de2-8f74-7c91-a3b2-5c5e937cf318",))
             db.execute("UPDATE threads SET thread_section_id=?,is_pinned=0 WHERE id=?",
-                       ("01984de2-8f74-7c91-a3b2-5c5e937cf318", ids[4]))
+                       ("01984de2-8f74-7c91-a3b2-5c5e937cf318", cases["native_pinned"]["id"]))
             if tool == "retain":
                 db.execute("UPDATE codex_retain_epochs SET archived_since=? WHERE thread_id=?",
-                           (now - 40 * fixture.DAY, ids[3]))
+                           (now - 40 * fixture.DAY, cases["unknown_archive_time"]["id"]))
         if tool == "retain":
-            run([*prefix, "exclude", ids[5]], env)
+            run([*prefix, "exclude", cases["explicitly_excluded"]["id"]], env)
             output = json.loads(run([*prefix, "run"], env))
         else:
             output = run([node, str(janitor / "dist/cli.js"), "clean", "--codex-home", str(home),
                           "--retention-days", "30", "--confirm", "--mode", "delete"], env)
         outcomes = [{"scenario": name, "expected_deleted_by_requested_contract": name == "due_archive",
-                     "actually_deleted": not path.exists(), "thread_id": thread_id}
-                    for name, path, thread_id in zip(CASES, paths, ids)]
+                     "actually_deleted": not cases[name]["path"].exists(), "thread_id": cases[name]["id"]}
+                    for name in CASES]
         with sqlite3.connect((home / "state_5.sqlite").as_uri() + "?mode=ro", uri=True) as db:
             assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             remaining = db.execute("SELECT count(*) FROM threads").fetchone()[0]

@@ -1,0 +1,6 @@
+{
+  "status": "interrupted",
+  "reason": "redundant full fixture verification dominated orchestration; interrupted during postflight hashing; no candidate timings had been collected",
+  "raw_samples_retained": true,
+  "replacement_root": "../matrix-v2"
+}

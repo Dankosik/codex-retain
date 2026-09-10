@@ -1,0 +1,1637 @@
+diff --git a/docs/architecture.md b/docs/architecture.md
+index dc46bba..05dbc85 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -84,6 +84,11 @@ manual and scheduled runs. For each group of at most 128 eligible threads:
+ 6. Verify each staged inode and unlink it, fsync the archive once, then durably
+    remove the intent. No long-term backup is created.
+ 
++The row lookup and conditional deletion statements are prepared once per batch,
++then rebound and executed for each member. Recovery similarly reuses its row
++existence statement within the journal transaction. This reuses SQL compilation,
++not query results; all per-thread guards and affected-row checks still execute.
++
+ Thread-lock cleanup reacquires coordination before closing and unlinking owned
+ lock files. If coordination is busy or unavailable, it closes the UUID handles
+ without unlinking their paths. This avoids a stale-inode race and an unbounded
+diff --git a/scripts/benchmark.py b/scripts/benchmark.py
+index ce1416d..7770e24 100644
+--- a/scripts/benchmark.py
++++ b/scripts/benchmark.py
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env python3
+ """Measure release binaries on disposable, marker-checked synthetic Codex data.
+ 
+-Requires hyperfine and a built Codex Session Janitor. No dependency installation,
++Requires hyperfine and, unless --retain-only, a built Codex Session Janitor. No dependency installation,
+ real-chat access, background task installation, or release build is performed.
+ """
+ 
+@@ -232,16 +232,19 @@ def setup(args):
+     root = fixture.no_symlinks(args.root)
+     if root.exists():
+         raise ValueError("benchmark output directory must not exist: " + str(root))
+-    retain, codex_bin, node = map(executable, (args.retain, args.codex_bin, args.node))
++    retain, codex_bin = map(executable, (args.retain, args.codex_bin))
++    node = executable(args.node) if not args.retain_only else None
+     baseline = executable(args.baseline) if args.baseline else None
+     hyperfine = executable(args.hyperfine)
+-    janitor = Path(args.janitor).resolve(strict=True)
+-    if not (janitor / "dist/cli.js").is_file():
++    janitor = Path(args.janitor).resolve(strict=True) if args.janitor else None
++    if not args.retain_only and janitor is None:
++        raise ValueError("provide --janitor or select --retain-only")
++    if janitor and not (janitor / "dist/cli.js").is_file():
+         raise ValueError("build the pinned Janitor before measuring; missing dist/cli.js")
+-    revision = version(["git", "-C", str(janitor), "rev-parse", "HEAD"])
+-    if revision != JANITOR_REVISION:
++    revision = version(["git", "-C", str(janitor), "rev-parse", "HEAD"]) if janitor else None
++    if janitor and revision != JANITOR_REVISION:
+         raise ValueError("Janitor revision differs from the reviewed baseline: " + revision)
+-    dirty = version(["git", "-C", str(janitor), "status", "--porcelain", "--untracked-files=no"])
++    dirty = version(["git", "-C", str(janitor), "status", "--porcelain", "--untracked-files=no"]) if janitor else None
+     if dirty:
+         raise ValueError("Janitor tracked files are modified; use a pristine baseline")
+     if any(not 0 <= count <= 100000 for count in args.counts) or not 3 <= args.runs <= 100:
+@@ -265,6 +268,8 @@ def setup(args):
+             tool_order = ("retain", "janitor") if args.counts.index(count) % 2 == 0 else ("janitor", "retain")
+             if baseline:
+                 tool_order = ("baseline", "retain", "janitor") if args.counts.index(count) % 2 == 0 else ("retain", "baseline", "janitor")
++            if args.retain_only:
++                tool_order = tuple(tool for tool in tool_order if tool != "janitor")
+             for tool in tool_order:
+                 name = tool + operation + "-" + str(count)
+                 case = dict(common, tool=tool, operation=operation, count=count,
+@@ -279,16 +284,16 @@ def setup(args):
+     metadata = {
+         "schema": 1, "date_utc": fixture.iso(now), "platform": platform.platform(),
+         "architecture": platform.machine(), "python": platform.python_version(),
+-        "hyperfine": version([hyperfine, "--version"]), "node": version([node, "--version"]),
++        "hyperfine": version([hyperfine, "--version"]), "node": version([node, "--version"]) if node else None,
+         "codex": codex_version, "retain": version([retain, "--version"]),
+         "retain_sha256": hashlib.sha256(Path(retain).read_bytes()).hexdigest(),
+         "retain_binary_bytes": Path(retain).stat().st_size,
+         "baseline_sha256": hashlib.sha256(Path(baseline).read_bytes()).hexdigest() if baseline else None,
+         "baseline_version": version([baseline, "--version"]) if baseline else None,
+         "janitor_revision": revision,
+-        "janitor_package": json.loads((janitor / "package.json").read_text(encoding="utf-8")),
+-        "janitor_lock_sha256": hashlib.sha256((janitor / "package-lock.json").read_bytes()).hexdigest(),
+-        "janitor_cli_sha256": hashlib.sha256((janitor / "dist/cli.js").read_bytes()).hexdigest(),
++        "janitor_package": json.loads((janitor / "package.json").read_text(encoding="utf-8")) if janitor else None,
++        "janitor_lock_sha256": hashlib.sha256((janitor / "package-lock.json").read_bytes()).hexdigest() if janitor else None,
++        "janitor_cli_sha256": hashlib.sha256((janitor / "dist/cli.js").read_bytes()).hexdigest() if janitor else None,
+         "counts": args.counts, "rollout_bytes": args.rollout_bytes, "warmups": 3, "runs": args.runs,
+         "cache": "warm filesystem cache; fixtures freshly generated before each sample",
+         "physical_disk_reads": "not measured", "background_services_installed": False,
+@@ -313,7 +318,8 @@ def main():
+     run.add_argument("--retain", required=True, help="already built release codex-retain executable")
+     run.add_argument("--codex-bin", required=True, help="real compatible Codex executable")
+     run.add_argument("--baseline", help="optional earlier Retain executable; same fixtures and policy as --retain")
+-    run.add_argument("--janitor", required=True, help="pristine built checkout at the documented baseline commit")
++    run.add_argument("--janitor", help="pristine built checkout at the documented baseline commit")
++    run.add_argument("--retain-only", action="store_true", help="compare Retain binaries without Janitor")
+     run.add_argument("--node", default="node")
+     run.add_argument("--hyperfine", default="hyperfine")
+     run.add_argument("--counts", nargs="+", type=int, default=[1000, 10000])
+@@ -336,7 +342,7 @@ def main():
+                 print("Preflight " + path.stem, flush=True)
+                 preflight(path)
+             if not args.prepare_only:
+-                if args.only == "all":
++                if args.only == "all" and not args.retain_only:
+                     measure_startup(root, cases[0], hyperfine, args.runs)
+                 for path in cases:
+                     print("Measuring " + path.stem, flush=True)
+diff --git a/scripts/compare_semantics.py b/scripts/compare_semantics.py
+index 6c2f31d..7a0ea67 100644
+--- a/scripts/compare_semantics.py
++++ b/scripts/compare_semantics.py
+@@ -48,8 +48,10 @@ def compare(args):
+         home, state = case_root / "codex", case_root / "state"
+         env = {"HOME": str(case_root / "home"), "CODEX_HOME": str(home),
+                "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LC_ALL": "C", "NO_COLOR": "1"}
+-        ids = [r["id"] for r in manifest["records"]]
+-        paths = [case_root / r["path"] for r in manifest["records"]]
++        cases = {
++            name: {"id": record["id"], "path": case_root / record["path"]}
++            for name, record in zip(CASES, manifest["records"])
++        }
+         prefix = [str(retain), "--state-dir", str(state), "--json"]
+         if tool == "retain":
+             run([*prefix, "enable", "--codex-home", str(home), "--codex-bin", str(codex),
+@@ -59,31 +61,36 @@ def compare(args):
+             # Test-only time setup. Real users never need to edit capture epochs.
+             if tool == "retain":
+                 db.execute("UPDATE codex_retain_epochs SET archived_since=?", (now - 40 * fixture.DAY,))
+-            db.execute("UPDATE threads SET archived_at=? WHERE id=?", (now, ids[0]))
+-            active_path = home / "sessions" / paths[1].name
+-            paths[1].rename(active_path)
+-            paths[1] = active_path
++            db.execute("UPDATE threads SET archived_at=? WHERE id=?",
++                       (now, cases["old_chat_archived_today"]["id"]))
++            active = cases["old_active_chat"]
++            active_path = home / "sessions" / active["path"].name
++            active["path"].rename(active_path)
++            active["path"] = active_path
+             db.execute("UPDATE threads SET archived=0,archived_at=NULL,rollout_path=? WHERE id=?",
+-                       (str(active_path), ids[1]))
+-            db.execute("UPDATE threads SET archived=0,archived_at=NULL WHERE id=?", (ids[2],))
+-            db.execute("UPDATE threads SET archived=1,archived_at=? WHERE id=?", (now, ids[2]))
+-            db.execute("UPDATE threads SET archived_at=NULL WHERE id=?", (ids[3],))
++                       (str(active_path), active["id"]))
++            db.execute("UPDATE threads SET archived=0,archived_at=NULL WHERE id=?",
++                       (cases["restored_then_rearchived"]["id"],))
++            db.execute("UPDATE threads SET archived=1,archived_at=? WHERE id=?",
++                       (now, cases["restored_then_rearchived"]["id"]))
++            db.execute("UPDATE threads SET archived_at=NULL WHERE id=?",
++                       (cases["unknown_archive_time"]["id"],))
+             db.execute("INSERT OR IGNORE INTO thread_sections(id,name) VALUES(?, 'Pinned')",
+                        ("01984de2-8f74-7c91-a3b2-5c5e937cf318",))
+             db.execute("UPDATE threads SET thread_section_id=?,is_pinned=0 WHERE id=?",
+-                       ("01984de2-8f74-7c91-a3b2-5c5e937cf318", ids[4]))
++                       ("01984de2-8f74-7c91-a3b2-5c5e937cf318", cases["native_pinned"]["id"]))
+             if tool == "retain":
+                 db.execute("UPDATE codex_retain_epochs SET archived_since=? WHERE thread_id=?",
+-                           (now - 40 * fixture.DAY, ids[3]))
++                           (now - 40 * fixture.DAY, cases["unknown_archive_time"]["id"]))
+         if tool == "retain":
+-            run([*prefix, "exclude", ids[5]], env)
++            run([*prefix, "exclude", cases["explicitly_excluded"]["id"]], env)
+             output = json.loads(run([*prefix, "run"], env))
+         else:
+             output = run([node, str(janitor / "dist/cli.js"), "clean", "--codex-home", str(home),
+                           "--retention-days", "30", "--confirm", "--mode", "delete"], env)
+         outcomes = [{"scenario": name, "expected_deleted_by_requested_contract": name == "due_archive",
+-                     "actually_deleted": not path.exists(), "thread_id": thread_id}
+-                    for name, path, thread_id in zip(CASES, paths, ids)]
++                     "actually_deleted": not cases[name]["path"].exists(), "thread_id": cases[name]["id"]}
++                    for name in CASES]
+         with sqlite3.connect((home / "state_5.sqlite").as_uri() + "?mode=ro", uri=True) as db:
+             assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+             remaining = db.execute("SELECT count(*) FROM threads").fetchone()[0]
+diff --git a/src/cli.rs b/src/cli.rs
+index e938014..5b6f71d 100644
+--- a/src/cli.rs
++++ b/src/cli.rs
+@@ -1,4 +1,4 @@
+-use clap::{Parser, Subcommand};
++use clap::{Args, Parser, Subcommand};
+ use std::path::PathBuf;
+ 
+ #[derive(Debug, Parser)]
+@@ -21,22 +21,7 @@ pub struct Cli {
+ #[derive(Debug, Subcommand)]
+ pub enum Action {
+     /// Enable retention with a fresh grace period for the existing archive
+-    Enable {
+-        #[arg(long,default_value_t=30,value_parser=clap::value_parser!(u32).range(1..=36500))]
+-        days: u32,
+-        /// Profile to manage (default: CODEX_HOME or ~/.codex)
+-        #[arg(long)]
+-        codex_home: Option<PathBuf>,
+-        /// Executable used by the supported Codex client
+-        #[arg(long, default_value = "codex")]
+-        codex_bin: PathBuf,
+-        /// Enable manual runs without installing the macOS hourly LaunchAgent
+-        #[arg(long)]
+-        no_schedule: bool,
+-        /// Consent to permanent local deletion after retention; no later prompts
+-        #[arg(long)]
+-        yes: bool,
+-    },
++    Enable(EnableArgs),
+     /// Show the current policy, compatibility, scheduler, and last run
+     Status,
+     /// Explain due and skipped archives without changing Codex data
+@@ -81,3 +66,21 @@ pub enum Action {
+     /// Generate shell completions
+     Completions { shell: clap_complete::Shell },
+ }
++
++#[derive(Debug, Args)]
++pub struct EnableArgs {
++    #[arg(long,default_value_t=30,value_parser=clap::value_parser!(u32).range(1..=36500))]
++    pub days: u32,
++    /// Profile to manage (default: CODEX_HOME or ~/.codex)
++    #[arg(long)]
++    pub codex_home: Option<PathBuf>,
++    /// Executable used by the supported Codex client
++    #[arg(long, default_value = "codex")]
++    pub codex_bin: PathBuf,
++    /// Enable manual runs without installing the macOS hourly LaunchAgent
++    #[arg(long)]
++    pub no_schedule: bool,
++    /// Consent to permanent local deletion after retention; no later prompts
++    #[arg(long)]
++    pub yes: bool,
++}
+diff --git a/src/config.rs b/src/config.rs
+index 2c8dbf3..c874f7f 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -17,6 +17,9 @@ pub struct Policy {
+     pub database: Identity,
+     pub retention_days: u32,
+     pub enabled: bool,
++    /// Whether automatic scheduling was requested. Remains true during incomplete
++    /// installation or removal until scheduler disable succeeds; actual launchd
++    /// registration is reported separately by SchedulerStatus.
+     pub automatic: bool,
+     pub paused: bool,
+     pub enabled_at: i64,
+diff --git a/src/database.rs b/src/database.rs
+index d6c07d2..7f6269e 100644
+--- a/src/database.rs
++++ b/src/database.rs
+@@ -4,7 +4,7 @@ use crate::{
+     fsutil::{self, Identity},
+ };
+ use anyhow::{Context, Result, bail, ensure};
+-use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
++use rusqlite::{Connection, OpenFlags, OptionalExtension, Statement, params};
+ use serde::{Deserialize, Serialize};
+ use std::{
+     fs,
+@@ -74,7 +74,13 @@ pub fn verify_binary(binary: &Path) -> Result<()> {
+     Ok(())
+ }
+ 
+-pub fn open(home: &Path, writable: bool) -> Result<Connection> {
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum DatabaseAccess {
++    ReadOnly,
++    ReadWrite,
++}
++
++pub fn open(home: &Path, access: DatabaseAccess) -> Result<Connection> {
+     let path = home.join(DB_NAME);
+     let _ = fsutil::regular(&path, false, false)?;
+     for entry in fs::read_dir(home)? {
+@@ -85,15 +91,14 @@ pub fn open(home: &Path, writable: bool) -> Result<Connection> {
+             "another Codex state schema is present; adapter update required"
+         );
+     }
+-    let flags = if writable {
+-        OpenFlags::SQLITE_OPEN_READ_WRITE
+-    } else {
+-        OpenFlags::SQLITE_OPEN_READ_ONLY
++    let flags = match access {
++        DatabaseAccess::ReadOnly => OpenFlags::SQLITE_OPEN_READ_ONLY,
++        DatabaseAccess::ReadWrite => OpenFlags::SQLITE_OPEN_READ_WRITE,
+     };
+     let c = Connection::open_with_flags(path, flags | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+     c.busy_timeout(Duration::from_millis(200))?;
+     c.execute_batch("PRAGMA foreign_keys=ON; PRAGMA trusted_schema=OFF;")?;
+-    if writable {
++    if access == DatabaseAccess::ReadWrite {
+         c.execute_batch("PRAGMA synchronous=FULL;")?;
+     }
+     verify_base(&c)?;
+@@ -270,16 +275,33 @@ pub fn archived(c: &Connection) -> Result<Vec<Thread>> {
+     );
+     Ok(rows)
+ }
+-pub fn thread(c: &Connection, id: &str) -> Result<Option<Thread>> {
+-    Ok(c.query_row(
+-        &format!("{SELECT} WHERE t.id=?"),
+-        [PINNED_SECTION_ID, id],
+-        row,
+-    )
+-    .optional()?)
++pub fn prepare_thread_lookup(c: &Connection) -> Result<Statement<'_>> {
++    Ok(c.prepare(&format!("{SELECT} WHERE t.id=?"))?)
++}
++pub fn lookup_thread(statement: &mut Statement<'_>, id: &str) -> Result<Option<Thread>> {
++    Ok(statement
++        .query_row([PINNED_SECTION_ID, id], row)
++        .optional()?)
++}
++pub fn prepare_delete(c: &Connection) -> Result<Statement<'_>> {
++    Ok(c.prepare("DELETE FROM threads WHERE id=? AND archived=1 AND archived_at IS ? AND rollout_path=? AND is_pinned=0 AND history_mode='legacy' AND thread_section_id IS NOT ?")?)
+ }
+-pub fn delete_row(c: &Connection, t: &Thread) -> Result<()> {
+-    let affected=c.execute("DELETE FROM threads WHERE id=? AND archived=1 AND archived_at IS ? AND rollout_path=? AND is_pinned=0 AND history_mode='legacy' AND thread_section_id IS NOT ?",params![t.id,t.archived_at,t.path.to_str().context("non-UTF-8 Codex database path")?,PINNED_SECTION_ID])?;
++pub fn delete_row(statement: &mut Statement<'_>, t: &Thread) -> Result<()> {
++    let affected = statement.execute(params![
++        t.id,
++        t.archived_at,
++        t.path.to_str().context("non-UTF-8 Codex database path")?,
++        PINNED_SECTION_ID
++    ])?;
+     ensure!(affected == 1, "thread changed before deletion");
+     Ok(())
+ }
++
++/// Consume a statement prepared before journaling, releasing its transaction
++/// borrow before the caller commits the staged group.
++pub fn delete_rows(mut statement: Statement<'_>, threads: &[Thread]) -> Result<()> {
++    for thread in threads {
++        delete_row(&mut statement, thread)?;
++    }
++    Ok(())
++}
+diff --git a/src/engine.rs b/src/engine.rs
+index b3d9783..6ba631a 100644
+--- a/src/engine.rs
++++ b/src/engine.rs
+@@ -8,21 +8,104 @@ use rusqlite::Connection;
+ use serde::{Deserialize, Serialize};
+ use std::{
+     collections::HashMap,
+-    fs,
++    fmt, fs,
+     io::{BufRead, BufReader, Read},
+     os::unix::fs::MetadataExt,
+     path::{Path, PathBuf},
+ };
+ 
++#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
++#[serde(rename_all = "snake_case")]
++pub enum EntryReason {
++    UnknownArchiveStatus,
++    Excluded,
++    PinnedOrUnknownPin,
++    UnsupportedHistoryMode,
++    RelatedThread,
++    UnknownArchiveTime,
++    MissingCapture,
++    CaptureMismatch,
++    InvalidOrFutureClock,
++    WithinRetention,
++    Eligible,
++    Deleted,
++    ChangedBusyOrError,
++    UnsafeOrUnavailableArtifact,
++    RunStopped,
++    // Preserve unrecognized strings when reading an existing report.
++    #[serde(untagged)]
++    Unknown(String),
++}
++
++impl EntryReason {
++    pub fn as_str(&self) -> &str {
++        match self {
++            Self::UnknownArchiveStatus => "unknown_archive_status",
++            Self::Excluded => "excluded",
++            Self::PinnedOrUnknownPin => "pinned_or_unknown_pin",
++            Self::UnsupportedHistoryMode => "unsupported_history_mode",
++            Self::RelatedThread => "related_thread",
++            Self::UnknownArchiveTime => "unknown_archive_time",
++            Self::MissingCapture => "missing_capture",
++            Self::CaptureMismatch => "capture_mismatch",
++            Self::InvalidOrFutureClock => "invalid_or_future_clock",
++            Self::WithinRetention => "within_retention",
++            Self::Eligible => "eligible",
++            Self::Deleted => "deleted",
++            Self::ChangedBusyOrError => "changed_busy_or_error",
++            Self::UnsafeOrUnavailableArtifact => "unsafe_or_unavailable_artifact",
++            Self::RunStopped => "run_stopped",
++            Self::Unknown(value) => value,
++        }
++    }
++}
++
++impl fmt::Display for EntryReason {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        f.write_str(self.as_str())
++    }
++}
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum ExecutionMode {
++    Preview,
++    Run,
++}
++
++impl ExecutionMode {
++    fn as_str(self) -> &'static str {
++        match self {
++            Self::Preview => "preview",
++            Self::Run => "run",
++        }
++    }
++}
++
++#[derive(Debug)]
++pub struct Assessment {
++    pub reason: EntryReason,
++    pub eligible_at: Option<i64>,
++}
++
+ #[derive(Debug, Serialize, Deserialize)]
+ pub struct Entry {
+     pub id: String,
+     pub title: String,
+-    pub reason: String,
++    #[serde(deserialize_with = "deserialize_reason_string")]
++    pub reason: EntryReason,
+     pub eligible_at: Option<i64>,
+     pub bytes: Option<u64>,
+     pub detail: Option<String>,
+ }
++
++fn deserialize_reason_string<'de, D: serde::Deserializer<'de>>(
++    deserializer: D,
++) -> std::result::Result<EntryReason, D::Error> {
++    // The report field accepts strings only, not Serde's object form for enums.
++    let value = String::deserialize(deserializer)?;
++    EntryReason::deserialize(serde::de::value::StringDeserializer::new(value))
++}
++
+ #[derive(Debug, Serialize, Deserialize)]
+ pub struct Report {
+     pub schema: u32,
+@@ -41,10 +124,19 @@ pub struct Report {
+     pub warnings: Vec<String>,
+ }
+ impl Report {
+-    fn new(mode: &str, now: i64) -> Self {
++    pub(crate) fn requires_attention(&self) -> bool {
++        self.entries.iter().any(|entry| {
++            matches!(
++                entry.reason,
++                EntryReason::ChangedBusyOrError | EntryReason::UnsafeOrUnavailableArtifact
++            )
++        }) || !self.warnings.is_empty()
++    }
++
++    fn new(mode: ExecutionMode, now: i64) -> Self {
+         Self {
+             schema: 1,
+-            mode: mode.into(),
++            mode: mode.as_str().into(),
+             started_at: now,
+             examined: 0,
+             eligible: 0,
+@@ -61,34 +153,37 @@ impl Report {
+     }
+ }
+ 
+-pub fn reason(t: &Thread, p: &Policy, now: i64) -> (&'static str, Option<i64>) {
++pub fn assess(t: &Thread, p: &Policy, now: i64) -> Assessment {
+     let deadline = t.epoch.and_then(|epoch| epoch.checked_add(p.duration()));
+     let reason = if t.archived != 1 {
+-        "unknown_archive_status"
++        EntryReason::UnknownArchiveStatus
+     } else if p.exclusions.contains(&t.id) {
+-        "excluded"
++        EntryReason::Excluded
+     } else if t.pinned != 0 {
+-        "pinned_or_unknown_pin"
++        EntryReason::PinnedOrUnknownPin
+     } else if t.history_mode != "legacy" {
+-        "unsupported_history_mode"
++        EntryReason::UnsupportedHistoryMode
+     } else if t.related {
+-        "related_thread"
++        EntryReason::RelatedThread
+     } else if t.archived_at.is_none() {
+-        "unknown_archive_time"
++        EntryReason::UnknownArchiveTime
+     } else if t.epoch.is_none() {
+-        "missing_capture"
++        EntryReason::MissingCapture
+     } else if t.archived_at != t.recorded_archive {
+-        "capture_mismatch"
++        EntryReason::CaptureMismatch
+     } else if t.epoch.is_some_and(|v| v <= 0 || v > now)
+         || t.archived_at.is_some_and(|v| v <= 0 || v > now)
+     {
+-        "invalid_or_future_clock"
++        EntryReason::InvalidOrFutureClock
+     } else if deadline.is_none_or(|v| now <= v) {
+-        "within_retention"
++        EntryReason::WithinRetention
+     } else {
+-        "eligible"
++        EntryReason::Eligible
+     };
+-    (reason, deadline)
++    Assessment {
++        reason,
++        eligible_at: deadline,
++    }
+ }
+ 
+ fn rollout_id(name: &str) -> Option<&str> {
+@@ -102,6 +197,28 @@ fn rollout_id(name: &str) -> Option<&str> {
+     (uuid::Uuid::parse_str(id).ok()?.to_string() == id).then_some(id)
+ }
+ 
++struct RolloutVariants {
++    plain: PathBuf,
++    compressed: PathBuf,
++}
++
++impl RolloutVariants {
++    // Derive representations only; callers own identity and existence checks.
++    fn from_path(path: &Path) -> Self {
++        let plain = if path.extension().is_some_and(|extension| extension == "zst") {
++            path.with_extension("")
++        } else {
++            path.to_owned()
++        };
++        let mut compressed = plain.as_os_str().to_owned();
++        compressed.push(".zst");
++        Self {
++            plain,
++            compressed: compressed.into(),
++        }
++    }
++}
++
+ struct Inventory {
+     paths: HashMap<String, Vec<PathBuf>>,
+ }
+@@ -181,14 +298,9 @@ fn inspect(t: &Thread, p: &Policy, inventory: &Inventory) -> Result<Artifact> {
+         path == &t.path || path == &compressed,
+         "rollout inventory disagrees with the database path"
+     );
+-    let plain = if path.extension().is_some_and(|v| v == "zst") {
+-        path.with_extension("")
+-    } else {
+-        path.clone()
+-    };
+-    let compressed_sibling = PathBuf::from(format!("{}.zst", plain.display()));
++    let variants = RolloutVariants::from_path(path);
+     ensure!(
+-        !(fsutil::path_exists(&plain)? && fsutil::path_exists(&compressed_sibling)?),
++        !(fsutil::path_exists(&variants.plain)? && fsutil::path_exists(&variants.compressed)?),
+         "plain and compressed rollouts both exist"
+     );
+     let file = fsutil::regular(path, false, false)?;
+@@ -196,8 +308,11 @@ fn inspect(t: &Thread, p: &Policy, inventory: &Inventory) -> Result<Artifact> {
+     // Only the first record is needed. Bound decompressed metadata as well as
+     // read-ahead; never scan a transcript to infer the retention clock.
+     let reader: Box<dyn Read> = if path.extension().is_some_and(|v| v == "zst") {
+-        let mut decoder = zstd::stream::read::Decoder::new(BufReader::with_capacity(16384, file))?;
+-        decoder.window_log_max(23)?; // Reject oversized decoder windows before allocation.
++        let mut decoder =
++            zstd::stream::read::Decoder::with_buffer(BufReader::with_capacity(16384, file))?;
++        // Cap the decoder window at 2^23 bytes (8 MiB) before allocation,
++        // separately from the 1 MiB decompressed first-record limit below.
++        decoder.window_log_max(23)?;
+         Box::new(decoder)
+     } else {
+         Box::new(file)
+@@ -356,12 +471,9 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
+     database::verify_policy(&tx, p)?;
+     let mut restored = 0;
+     let mut finished = 0;
++    let mut exists_query = tx.prepare("SELECT EXISTS(SELECT 1 FROM threads WHERE id=?)")?;
+     for item in &intent.items {
+-        let exists: bool = tx.query_row(
+-            "SELECT EXISTS(SELECT 1 FROM threads WHERE id=?)",
+-            [&item.thread_id],
+-            |r| r.get(0),
+-        )?;
++        let exists: bool = exists_query.query_row([&item.thread_id], |r| r.get(0))?;
+         if !fsutil::path_exists(&item.staged)? {
+             continue;
+         }
+@@ -379,6 +491,7 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
+             finished += 1;
+         }
+     }
++    drop(exists_query);
+     fsutil::sync_dir(&archive)?;
+     tx.commit()?;
+     fsutil::remove_durable(&path)?;
+@@ -394,7 +507,7 @@ fn delete_batch(
+     ids: &[&str],
+     now: i64,
+     inventory: &Inventory,
+-    journal_started: &mut bool,
++    journal_write_attempted: &mut bool,
+ ) -> Result<Vec<Artifact>> {
+     let archive = archive_directory(p)?;
+     let _maintenance = fsutil::maintenance(&p.codex_home)?;
+@@ -408,12 +521,15 @@ fn delete_batch(
+         owner: p.owner.clone(),
+         items: Vec::with_capacity(ids.len()),
+     };
++    let mut thread_query = database::prepare_thread_lookup(&tx)?;
+     for &id in ids {
+-        let thread = database::thread(&tx, id)?.context("thread was removed concurrently")?;
+-        let (current_reason, _) = reason(&thread, p, now);
++        let thread = database::lookup_thread(&mut thread_query, id)?
++            .context("thread was removed concurrently")?;
++        let assessment = assess(&thread, p, now);
+         ensure!(
+-            current_reason == "eligible",
+-            "thread {id} is no longer eligible: {current_reason}"
++            assessment.reason == EntryReason::Eligible,
++            "thread {id} is no longer eligible: {}",
++            assessment.reason
+         );
+         let artifact = inspect(&thread, p, inventory)?;
+         let staged = stage_path(&p.codex_home, id);
+@@ -428,18 +544,18 @@ fn delete_batch(
+         });
+         threads.push(thread);
+     }
++    drop(thread_query);
+     verify_rollout_owners(&tx, &threads, &intent.items)?;
++    let delete_query = database::prepare_delete(&tx)?;
+     // One durable intent covers all names; directory barriers cover all moves
+     // in this small group. Eligibility checks and SQLite commit remain atomic.
+-    *journal_started = true;
++    *journal_write_attempted = true;
+     fsutil::atomic_json(&intent_path(store), &intent)?;
+     for item in &intent.items {
+         fsutil::rename_without_overwrite_unsynced(&item.artifact.path, &item.staged)?;
+     }
+     fsutil::sync_dir(&archive)?;
+-    for thread in &threads {
+-        database::delete_row(&tx, thread)?;
+-    }
++    database::delete_rows(delete_query, &threads)?;
+     tx.commit()?;
+     for item in &mut intent.items {
+         let file = fsutil::regular(&item.staged, false, false)?;
+@@ -461,13 +577,8 @@ fn delete_batch(
+ fn verify_rollout_owners(c: &Connection, threads: &[Thread], items: &[PendingItem]) -> Result<()> {
+     let mut owners = HashMap::new();
+     for (thread, item) in threads.iter().zip(items) {
+-        let plain = if item.artifact.path.extension().is_some_and(|v| v == "zst") {
+-            item.artifact.path.with_extension("")
+-        } else {
+-            item.artifact.path.clone()
+-        };
+-        let compressed = PathBuf::from(format!("{}.zst", plain.display()));
+-        for path in [&thread.path, &plain, &compressed] {
++        let variants = RolloutVariants::from_path(&item.artifact.path);
++        for path in [&thread.path, &variants.plain, &variants.compressed] {
+             let path = path.to_str().context("non-UTF-8 path")?;
+             if let Some(previous) = owners.insert(path.to_owned(), thread.id.as_str()) {
+                 ensure!(
+@@ -511,11 +622,19 @@ fn apply_group(
+         .iter()
+         .map(|&i| report.entries[i].id.as_str())
+         .collect();
+-    let mut journal_started = false;
+-    match delete_batch(c, p, store, &ids, now, inventory, &mut journal_started) {
++    let mut journal_write_attempted = false;
++    match delete_batch(
++        c,
++        p,
++        store,
++        &ids,
++        now,
++        inventory,
++        &mut journal_write_attempted,
++    ) {
+         Ok(artifacts) => {
+             for (&index, artifact) in indices.iter().zip(artifacts) {
+-                report.entries[index].reason = "deleted".into();
++                report.entries[index].reason = EntryReason::Deleted;
+                 report.eligible += 1;
+                 report.deleted += 1;
+                 report.logical_bytes_removed += artifact.bytes;
+@@ -528,9 +647,10 @@ fn apply_group(
+             let database_busy = error.downcast_ref::<rusqlite::Error>().is_some_and(|error| {
+                 matches!(error, rusqlite::Error::SqliteFailure(code, _) if matches!(code.code, rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked))
+             });
+-            if !journal_started && !pending && !database_busy && indices.len() > 1 {
+-                // A busy member must not strand other independent eligible
+-                // archives. Retry singly only when no intent/effect was begun.
++            if !journal_write_attempted && !pending && !database_busy && indices.len() > 1 {
++                // Retry members after any pre-journal failure (including
++                // validation), not just a busy member. A pending receipt,
++                // attempted journal write, or SQLite contention forbids this.
+                 for &index in indices {
+                     if !apply_group(c, p, store, now, inventory, report, &[index])? {
+                         return Ok(false);
+@@ -539,12 +659,12 @@ fn apply_group(
+                 return Ok(true);
+             }
+             for &index in indices {
+-                report.entries[index].reason = "changed_busy_or_error".into();
++                report.entries[index].reason = EntryReason::ChangedBusyOrError;
+                 report.entries[index].detail = Some(format!("{error:#}"));
+             }
+             if pending {
+                 report.warnings.push("cleanup stopped with a durable pending group; next run recovers it first; counts cover completed groups".into());
+-            } else if journal_started {
++            } else if journal_write_attempted {
+                 report.warnings.push("group finalization failed after journal writing began; effects may have occurred; stopped with counts for earlier completed groups only".into());
+             }
+             if database_busy {
+@@ -553,7 +673,7 @@ fn apply_group(
+                         .into(),
+                 );
+             }
+-            Ok(!journal_started && !pending && !database_busy)
++            Ok(!journal_write_attempted && !pending && !database_busy)
+         }
+     }
+ }
+@@ -563,8 +683,9 @@ pub fn execute(
+     p: &Policy,
+     store: &Store,
+     now: i64,
+-    apply: bool,
++    mode: ExecutionMode,
+ ) -> Result<Report> {
++    let apply = mode == ExecutionMode::Run;
+     ensure!(
+         p.enabled,
+         "policy is disabled; run enable to start a full grace period"
+@@ -574,7 +695,7 @@ pub fn execute(
+         "system clock moved before policy activation"
+     );
+     database::verify_policy(c, p)?;
+-    let mut report = Report::new(if apply { "run" } else { "preview" }, now);
++    let mut report = Report::new(mode, now);
+     if apply {
+         ensure!(
+             !p.paused,
+@@ -590,7 +711,9 @@ pub fn execute(
+     }
+     let threads = database::archived(c)?;
+     report.examined = threads.len() as u64;
+-    let has_due = threads.iter().any(|t| reason(t, p, now).0 == "eligible");
++    let has_due = threads
++        .iter()
++        .any(|t| assess(t, p, now).reason == EntryReason::Eligible);
+     let inventory = has_due
+         .then(|| Inventory::scan(&p.codex_home))
+         .transpose()?;
+@@ -599,16 +722,16 @@ pub fn execute(
+         .flatten();
+     let mut due = Vec::new();
+     for thread in threads {
+-        let (why, eligible_at) = reason(&thread, p, now);
++        let assessment = assess(&thread, p, now);
+         let mut entry = Entry {
+             id: thread.id.clone(),
+             title: thread.title.clone(),
+-            reason: why.into(),
+-            eligible_at,
++            reason: assessment.reason,
++            eligible_at: assessment.eligible_at,
+             bytes: None,
+             detail: None,
+         };
+-        if why == "eligible" {
++        if entry.reason == EntryReason::Eligible {
+             match inspect(&thread, p, inventory.as_ref().context("missing inventory")?) {
+                 Ok(artifact) => {
+                     entry.bytes = Some(artifact.bytes);
+@@ -620,7 +743,7 @@ pub fn execute(
+                     }
+                 }
+                 Err(error) => {
+-                    entry.reason = "unsafe_or_unavailable_artifact".into();
++                    entry.reason = EntryReason::UnsafeOrUnavailableArtifact;
+                     entry.detail = Some(format!("{error:#}"));
+                     report.skipped += 1;
+                 }
+@@ -641,8 +764,12 @@ pub fn execute(
+                 &mut report,
+                 indices,
+             )? {
+-                for entry in report.entries.iter_mut().filter(|v| v.reason == "eligible") {
+-                    entry.reason = "run_stopped".into();
++                for entry in report
++                    .entries
++                    .iter_mut()
++                    .filter(|v| v.reason == EntryReason::Eligible)
++                {
++                    entry.reason = EntryReason::RunStopped;
+                 }
+                 break;
+             }
+@@ -653,16 +780,15 @@ pub fn execute(
+             .and_then(|(b, a)| i64::try_from(i128::from(a) - i128::from(b)).ok());
+         // Unlocked metadata materialization may republish a new plain sibling.
+         // Never remove that new object on the strength of an old file identity.
+-        for entry in report.entries.iter().filter(|v| v.reason == "deleted") {
++        for entry in report
++            .entries
++            .iter()
++            .filter(|v| v.reason == EntryReason::Deleted)
++        {
+             if let Some(paths) = inventory.as_ref().and_then(|v| v.paths.get(&entry.id)) {
+                 for path in paths {
+-                    let plain = if path.extension().is_some_and(|v| v == "zst") {
+-                        path.with_extension("")
+-                    } else {
+-                        path.clone()
+-                    };
+-                    if plain.exists() || PathBuf::from(format!("{}.zst", plain.display())).exists()
+-                    {
++                    let variants = RolloutVariants::from_path(path);
++                    if variants.plain.exists() || variants.compressed.exists() {
+                         report.warnings.push(format!(
+                             "{}: Codex republished a rollout; preserved it",
+                             entry.id
+@@ -684,6 +810,128 @@ mod test_support;
+ mod tests {
+     use super::*;
+ 
++    #[test]
++    fn reason_tokens_keep_the_report_schema_and_attention_policy() {
++        let cases = [
++            (
++                EntryReason::UnknownArchiveStatus,
++                "unknown_archive_status",
++                false,
++            ),
++            (EntryReason::Excluded, "excluded", false),
++            (
++                EntryReason::PinnedOrUnknownPin,
++                "pinned_or_unknown_pin",
++                false,
++            ),
++            (
++                EntryReason::UnsupportedHistoryMode,
++                "unsupported_history_mode",
++                false,
++            ),
++            (EntryReason::RelatedThread, "related_thread", false),
++            (
++                EntryReason::UnknownArchiveTime,
++                "unknown_archive_time",
++                false,
++            ),
++            (EntryReason::MissingCapture, "missing_capture", false),
++            (EntryReason::CaptureMismatch, "capture_mismatch", false),
++            (
++                EntryReason::InvalidOrFutureClock,
++                "invalid_or_future_clock",
++                false,
++            ),
++            (EntryReason::WithinRetention, "within_retention", false),
++            (EntryReason::Eligible, "eligible", false),
++            (EntryReason::Deleted, "deleted", false),
++            (
++                EntryReason::ChangedBusyOrError,
++                "changed_busy_or_error",
++                true,
++            ),
++            (
++                EntryReason::UnsafeOrUnavailableArtifact,
++                "unsafe_or_unavailable_artifact",
++                true,
++            ),
++            (EntryReason::RunStopped, "run_stopped", false),
++        ];
++        for (reason, token, attention) in cases {
++            let wire = serde_json::json!({
++                "id": "synthetic", "title": "fixture", "reason": token,
++                "eligible_at": 42, "bytes": 123, "detail": null,
++            });
++            let entry: Entry = serde_json::from_value(wire.clone()).unwrap();
++            assert_eq!(entry.reason, reason, "deserialize {token}");
++            assert_eq!(entry.reason.to_string(), token, "display {token}");
++            assert_eq!(
++                serde_json::to_value(&entry).unwrap(),
++                wire,
++                "serialize {token}"
++            );
++            let mut report = Report::new(ExecutionMode::Run, 42);
++            report.entries.push(entry);
++            assert_eq!(
++                report.requires_attention(),
++                attention,
++                "attention for {token}"
++            );
++            report.warnings.push("synthetic recovery warning".into());
++            assert!(
++                report.requires_attention(),
++                "warnings still require attention"
++            );
++        }
++    }
++
++    #[test]
++    fn unknown_report_reason_is_preserved_without_becoming_eligible() {
++        let wire = serde_json::json!({
++            "id": "synthetic", "title": "fixture", "reason": "future_reason",
++            "eligible_at": null, "bytes": null, "detail": null,
++        });
++        let entry: Entry = serde_json::from_value(wire.clone()).unwrap();
++        assert_eq!(entry.reason, EntryReason::Unknown("future_reason".into()));
++        assert_ne!(entry.reason, EntryReason::Eligible);
++        assert_eq!(serde_json::to_value(&entry).unwrap(), wire);
++        let mut report = Report::new(ExecutionMode::Preview, 42);
++        report.entries.push(entry);
++        assert!(!report.requires_attention());
++        assert_eq!(report.mode, "preview");
++        assert_eq!(Report::new(ExecutionMode::Run, 42).mode, "run");
++    }
++
++    #[test]
++    fn report_reason_still_rejects_non_string_json() {
++        for reason in [
++            serde_json::json!(null),
++            serde_json::json!(1),
++            serde_json::json!([]),
++            serde_json::json!({"eligible": null}),
++        ] {
++            let wire = serde_json::json!({
++                "id": "synthetic", "title": "fixture", "reason": reason,
++                "eligible_at": null, "bytes": null, "detail": null,
++            });
++            assert!(serde_json::from_value::<Entry>(wire).is_err());
++        }
++    }
++
++    #[test]
++    fn rollout_variants_share_paths_without_losing_native_bytes() {
++        use std::os::unix::ffi::OsStrExt;
++        let plain = Path::new(std::ffi::OsStr::from_bytes(b"/archive-\xff/rollout.jsonl"));
++        let compressed = Path::new(std::ffi::OsStr::from_bytes(
++            b"/archive-\xff/rollout.jsonl.zst",
++        ));
++        for path in [plain, compressed] {
++            let variants = RolloutVariants::from_path(path);
++            assert_eq!(variants.plain, plain);
++            assert_eq!(variants.compressed, compressed);
++        }
++    }
++
+     #[test]
+     fn journal_unlink_sync_failure_never_retries_an_effectful_group() {
+         let mut fixture = test_support::Fixture::new();
+diff --git a/src/lib.rs b/src/lib.rs
+index 4e758e1..e095e61 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -12,6 +12,8 @@ use anyhow::{Context, Result, ensure};
+ use clap::{CommandFactory, Parser};
+ use cli::{Action, Cli};
+ use config::{Policy, Store};
++use database::DatabaseAccess;
++use engine::ExecutionMode;
+ use serde_json::{Value, json};
+ use std::{
+     collections::BTreeSet,
+@@ -67,16 +69,15 @@ pub fn run() -> ExitCode {
+ }
+ 
+ fn safe_text(value: &str) -> String {
+-    value
+-        .chars()
+-        .flat_map(|c| {
+-            if c.is_control() {
+-                c.escape_default().collect::<Vec<_>>()
+-            } else {
+-                vec![c]
+-            }
+-        })
+-        .collect()
++    let mut text = String::with_capacity(value.len());
++    for c in value.chars() {
++        if c.is_control() {
++            text.extend(c.escape_default());
++        } else {
++            text.push(c);
++        }
++    }
++    text
+ }
+ fn date(value: Option<i64>) -> String {
+     value
+@@ -116,6 +117,94 @@ fn enabled(store: &Store) -> Result<Policy> {
+     Ok(p)
+ }
+ 
++fn enable_policy(
++    store: &Store,
++    args: cli::EnableArgs,
++    out: &mut impl Write,
++    json_mode: bool,
++) -> Result<()> {
++    let cli::EnableArgs {
++        days,
++        codex_home,
++        codex_bin,
++        no_schedule,
++        yes,
++    } = args;
++    native_mutations()?;
++    ensure!(
++        yes,
++        "enable permanently deletes eligible local archives without later prompts. Existing archives get {days} full days; transition capture adds a small SQLite table and triggers. Review doctor first, then repeat with --yes"
++    );
++    let existing = if store.root.join("policy.json").exists() {
++        Some(store.policy()?)
++    } else {
++        None
++    };
++    ensure!(
++        existing.as_ref().is_none_or(|p| !p.enabled),
++        "policy is already enabled; use policy --days, pause, resume, or disable first"
++    );
++    ensure!(
++        existing.as_ref().is_none_or(|p| !p.automatic),
++        "an earlier automatic installation is incomplete; run disable before re-enabling"
++    );
++    ensure!(
++        !fsutil::path_exists(&store.root.join("pending.json"))?,
++        "an interrupted deletion needs recovery; run disable before re-enabling"
++    );
++    let (home, binary) = profile(codex_home, &codex_bin)?;
++    if let Some(previous) = existing.as_ref().filter(|p| p.codex_home != home) {
++        let mut old_db = database::open(&previous.codex_home, DatabaseAccess::ReadWrite)
++            .context("finish disabling the previous Codex profile before changing profiles")?;
++        database::uninstall_capture(&mut old_db, previous)
++            .context("finish removing the previous capture extension before changing profiles")?;
++    }
++    ensure!(
++        !store.root.starts_with(&home) && !home.starts_with(&store.root),
++        "policy directory and Codex home must be separate, non-nested directories"
++    );
++    let mut db = database::open(&home, DatabaseAccess::ReadWrite)?;
++    let identity = database::identity(&home)?;
++    let mut policy = Policy {
++        schema: 1,
++        codex_home: home,
++        codex_bin: binary,
++        database: identity,
++        retention_days: days,
++        enabled: false,
++        automatic: !no_schedule,
++        paused: false,
++        enabled_at: config::now()?,
++        owner: store
++            .root
++            .to_str()
++            .context("state directory must be UTF-8")?
++            .into(),
++        exclusions: existing.map(|p| p.exclusions).unwrap_or_else(BTreeSet::new),
++    };
++    store.save(&policy)?;
++    let count = database::install_capture(&mut db, &policy.owner)?;
++    if !no_schedule {
++        scheduler::install(&store.root, &std::env::current_exe()?)?;
++    }
++    policy.enabled = true;
++    store.save(&policy)?;
++    emit(
++        out,
++        json_mode,
++        &json!({"schema":1,"enabled":true,"retention_days":days,"existing_archives_given_grace":count,"automatic":!no_schedule,"earliest_existing_deletion_after":policy.enabled_at+policy.duration(),"policy":store.root.join("policy.json")}),
++        &format!(
++            "Enabled: keep archives for {days} days. {count} existing archives received a full grace period.\n{}\nUse preview to inspect candidates; pause or disable to stop cleanup.",
++            if no_schedule {
++                "Manual runs enabled; automatic scheduling is off."
++            } else {
++                "Automatic cleanup: hourly macOS LaunchAgent; no resident process."
++            }
++        ),
++    )?;
++    Ok(())
++}
++
+ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+     if let Action::Completions { shell } = cli.command {
+         let mut command = Cli::command();
+@@ -131,7 +220,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+     } = cli.command
+     {
+         let (home, binary) = profile(codex_home, &codex_bin)?;
+-        let db = database::open(&home, false)?;
++        let db = database::open(&home, DatabaseAccess::ReadOnly)?;
+         let archived: i64 =
+             db.query_row("SELECT count(*) FROM threads WHERE archived=1", [], |r| {
+                 r.get(0)
+@@ -162,93 +251,12 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+     }
+     let store = Store::open(root)?;
+     match cli.command {
+-        Action::Enable {
+-            days,
+-            codex_home,
+-            codex_bin,
+-            no_schedule,
+-            yes,
+-        } => {
+-            native_mutations()?;
+-            ensure!(
+-                yes,
+-                "enable permanently deletes eligible local archives without later prompts. Existing archives get {days} full days; transition capture adds a small SQLite table and triggers. Review doctor first, then repeat with --yes"
+-            );
+-            let existing = if store.root.join("policy.json").exists() {
+-                Some(store.policy()?)
+-            } else {
+-                None
+-            };
+-            ensure!(
+-                existing.as_ref().is_none_or(|p| !p.enabled),
+-                "policy is already enabled; use policy --days, pause, resume, or disable first"
+-            );
+-            ensure!(
+-                existing.as_ref().is_none_or(|p| !p.automatic),
+-                "an earlier automatic installation is incomplete; run disable before re-enabling"
+-            );
+-            ensure!(
+-                !fsutil::path_exists(&store.root.join("pending.json"))?,
+-                "an interrupted deletion needs recovery; run disable before re-enabling"
+-            );
+-            let (home, binary) = profile(codex_home, &codex_bin)?;
+-            if let Some(previous) = existing.as_ref().filter(|p| p.codex_home != home) {
+-                let mut old_db = database::open(&previous.codex_home, true).context(
+-                    "finish disabling the previous Codex profile before changing profiles",
+-                )?;
+-                database::uninstall_capture(&mut old_db, previous).context(
+-                    "finish removing the previous capture extension before changing profiles",
+-                )?;
+-            }
+-            ensure!(
+-                !store.root.starts_with(&home) && !home.starts_with(&store.root),
+-                "policy directory and Codex home must be separate, non-nested directories"
+-            );
+-            let mut db = database::open(&home, true)?;
+-            let identity = database::identity(&home)?;
+-            let mut policy = Policy {
+-                schema: 1,
+-                codex_home: home,
+-                codex_bin: binary,
+-                database: identity,
+-                retention_days: days,
+-                enabled: false,
+-                automatic: !no_schedule,
+-                paused: false,
+-                enabled_at: config::now()?,
+-                owner: store
+-                    .root
+-                    .to_str()
+-                    .context("state directory must be UTF-8")?
+-                    .into(),
+-                exclusions: existing.map(|p| p.exclusions).unwrap_or_else(BTreeSet::new),
+-            };
+-            store.save(&policy)?;
+-            let count = database::install_capture(&mut db, &policy.owner)?;
+-            if !no_schedule {
+-                scheduler::install(&store.root, &std::env::current_exe()?)?;
+-            }
+-            policy.enabled = true;
+-            store.save(&policy)?;
+-            emit(
+-                out,
+-                cli.json,
+-                &json!({"schema":1,"enabled":true,"retention_days":days,"existing_archives_given_grace":count,"automatic":!no_schedule,"earliest_existing_deletion_after":policy.enabled_at+policy.duration(),"policy":store.root.join("policy.json")}),
+-                &format!(
+-                    "Enabled: keep archives for {days} days. {count} existing archives received a full grace period.\n{}\nUse preview to inspect candidates; pause or disable to stop cleanup.",
+-                    if no_schedule {
+-                        "Manual runs enabled; automatic scheduling is off."
+-                    } else {
+-                        "Automatic cleanup: hourly macOS LaunchAgent; no resident process."
+-                    }
+-                ),
+-            )?;
+-        }
++        Action::Enable(args) => enable_policy(&store, args, out, cli.json)?,
+         Action::Status => {
+             let p = store.policy()?;
+             let scheduler = scheduler::status()?;
+             let compatibility = database::verify_binary(&p.codex_bin)
+-                .and_then(|()| database::open(&p.codex_home, false))
++                .and_then(|()| database::open(&p.codex_home, DatabaseAccess::ReadOnly))
+                 .and_then(|c| {
+                     if p.enabled {
+                         database::verify_policy(&c, &p)
+@@ -291,7 +299,12 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+             )?;
+         }
+         Action::Preview | Action::Run { .. } => {
+-            let apply = matches!(cli.command, Action::Run { .. });
++            let mode = if matches!(cli.command, Action::Run { .. }) {
++                ExecutionMode::Run
++            } else {
++                ExecutionMode::Preview
++            };
++            let apply = mode == ExecutionMode::Run;
+             let quiet = matches!(cli.command, Action::Run { scheduled: true });
+             let p = enabled(&store)?;
+             if quiet && p.paused {
+@@ -301,7 +314,11 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+                 native_mutations()?;
+             }
+             database::verify_binary(&p.codex_bin)?;
+-            let mut db = database::open(&p.codex_home, apply)?;
++            let access = match mode {
++                ExecutionMode::Preview => DatabaseAccess::ReadOnly,
++                ExecutionMode::Run => DatabaseAccess::ReadWrite,
++            };
++            let mut db = database::open(&p.codex_home, access)?;
+             let now = config::now()?;
+             if apply && store.root.join("last-run.json").exists() {
+                 let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
+@@ -310,13 +327,8 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+                     "system clock moved backwards since the last run"
+                 );
+             }
+-            let report = engine::execute(&mut db, &p, &store, now, apply)?;
+-            let incomplete = report.entries.iter().any(|e| {
+-                matches!(
+-                    e.reason.as_str(),
+-                    "changed_busy_or_error" | "unsafe_or_unavailable_artifact"
+-                )
+-            }) || !report.warnings.is_empty();
++            let report = engine::execute(&mut db, &p, &store, now, mode)?;
++            let incomplete = report.requires_attention();
+             if apply {
+                 fsutil::atomic_json(
+                     &store.root.join("last-run.json"),
+@@ -448,7 +460,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+                 p.automatic = false;
+                 store.save(&p)?;
+             }
+-            let mut db = database::open(&p.codex_home, true)?;
++            let mut db = database::open(&p.codex_home, DatabaseAccess::ReadWrite)?;
+             if store.root.join("pending.json").exists() {
+                 engine::recover(&mut db, &p, &store)?;
+             }
+diff --git a/src/scheduler.rs b/src/scheduler.rs
+index fc3ba47..d731f3d 100644
+--- a/src/scheduler.rs
++++ b/src/scheduler.rs
+@@ -130,7 +130,7 @@ mod launchd {
+     use std::fs::{self, File, OpenOptions};
+     use std::io::{Read, Write};
+     use std::path::{Path, PathBuf};
+-    use std::process::{Command, Stdio};
++    use std::process::{Command, ExitStatus, Stdio};
+     use std::thread;
+     use std::time::{Duration, Instant};
+ 
+@@ -144,7 +144,7 @@ mod launchd {
+ 
+     #[derive(Debug)]
+     pub(super) struct CommandResult {
+-        code: Option<i32>,
++        status: ExitStatus,
+         stdout: String,
+         stderr: String,
+     }
+@@ -152,9 +152,12 @@ mod launchd {
+     impl CommandResult {
+         fn checked(self, operation: &str) -> Result<Self> {
+             ensure!(
+-                self.code == Some(0),
+-                "{operation} failed (exit {:?}): {}",
+-                self.code,
++                self.status.success(),
++                "{operation} failed ({}): {}",
++                match self.status.code() {
++                    Some(code) => format!("exit Some({code})"),
++                    None => self.status.to_string(),
++                },
+                 self.stderr.trim()
+             );
+             Ok(self)
+@@ -248,7 +251,7 @@ mod launchd {
+             .join()
+             .map_err(|_| anyhow::anyhow!("stderr reader failed"))?;
+         Ok(CommandResult {
+-            code: status?.code(),
++            status: status?,
+             stdout: stdout?,
+             stderr: stderr?,
+         })
+@@ -365,11 +368,11 @@ mod launchd {
+             "/bin/launchctl",
+             &["print".into(), format!("{domain}/{LABEL}").into()],
+         )?;
+-        if output.code == Some(0) {
++        if output.status.success() {
+             return Ok(Registration::Registered);
+         }
+         // Other errors (including an unavailable GUI domain) are not absence.
+-        if output.code == Some(113)
++        if output.status.code() == Some(113)
+             && output.stderr.contains("Could not find service")
+             && output.stderr.contains(LABEL)
+         {
+@@ -384,7 +387,7 @@ mod launchd {
+             "/bin/launchctl",
+             &["bootout".into(), format!("{domain}/{LABEL}").into()],
+         )?;
+-        if result.code == Some(0) {
++        if result.status.success() {
+             return Ok(());
+         }
+         // A concurrent removal, or a previously unregistered job, is harmless.
+@@ -531,6 +534,7 @@ mod launchd {
+     #[cfg(test)]
+     mod tests {
+         use std::collections::VecDeque;
++        use std::os::unix::process::ExitStatusExt;
+ 
+         use super::*;
+ 
+@@ -549,7 +553,7 @@ mod launchd {
+ 
+         fn result(code: i32, stdout: &str, stderr: &str) -> CommandResult {
+             CommandResult {
+-                code: Some(code),
++                status: ExitStatus::from_raw(code << 8),
+                 stdout: stdout.into(),
+                 stderr: stderr.into(),
+             }
+@@ -797,6 +801,32 @@ mod launchd {
+             Ok(())
+         }
+ 
++        #[test]
++        fn signal_termination_retains_status_and_actionable_diagnostic() -> Result<()> {
++            let outcome = run_bounded(
++                "/bin/sh",
++                &["-c".into(), "kill -TERM $$".into()],
++                Duration::from_secs(2),
++            )?;
++            assert_eq!(outcome.status.signal(), Some(15));
++            let error = outcome.checked("synthetic child").unwrap_err().to_string();
++            assert!(error.contains("signal"), "{error}");
++            assert!(error.contains("15"), "{error}");
++            assert!(!error.contains("None"), "{error}");
++            Ok(())
++        }
++
++        #[test]
++        fn numeric_exit_diagnostic_is_preserved() {
++            let error = result(5, "", "refused\n")
++                .checked("synthetic child")
++                .unwrap_err();
++            assert_eq!(
++                error.to_string(),
++                "synthetic child failed (exit Some(5)): refused"
++            );
++        }
++
+         #[test]
+         #[cfg(unix)]
+         fn timed_out_child_is_terminated_and_reaped() -> Result<()> {
+diff --git a/tests/batch.rs b/tests/batch.rs
+index 8d805d9..34fc4e5 100644
+--- a/tests/batch.rs
++++ b/tests/batch.rs
+@@ -158,7 +158,12 @@ fn due_archives_cross_two_batch_boundaries_without_losing_counts() {
+     assert_eq!(report.skipped, 0);
+     assert_eq!(report.logical_bytes_removed, expected_bytes);
+     assert_eq!(report.entries.len(), count);
+-    assert!(report.entries.iter().all(|entry| entry.reason == "deleted"));
++    assert!(
++        report
++            .entries
++            .iter()
++            .all(|entry| entry.reason.as_str() == "deleted")
++    );
+     for id in &ids {
+         assert!(!fixture.exists(id));
+         assert!(!fixture.path(id, true).exists());
+@@ -207,7 +212,7 @@ fn precommit_batch_recovery_restores_partial_staging_and_sqlite_rollback() {
+             &mut fixture.c,
+             Connection::open_in_memory().unwrap(),
+         ));
+-        fixture.c = database::open(&fixture.home, true).unwrap();
++        fixture.c = database::open(&fixture.home, database::DatabaseAccess::ReadWrite).unwrap();
+ 
+         assert!(ids.iter().all(|id| fixture.exists(id)));
+         assert!(
+@@ -433,14 +438,14 @@ fn one_busy_writer_is_preserved_while_safe_fallback_finishes_other_archives() {
+         .iter()
+         .find(|entry| entry.id == *busy)
+         .unwrap();
+-    assert_eq!(busy_entry.reason, "changed_busy_or_error");
++    assert_eq!(busy_entry.reason.as_str(), "changed_busy_or_error");
+     assert!(busy_entry.detail.is_some());
+     assert!(
+         report
+             .entries
+             .iter()
+             .filter(|entry| entry.id != *busy)
+-            .all(|entry| entry.reason == "deleted")
++            .all(|entry| entry.reason.as_str() == "deleted")
+     );
+     assert!(fixture.exists(busy));
+     assert_eq!(fs::read(fixture.path(busy, true)).unwrap(), busy_bytes);
+@@ -498,13 +503,13 @@ fn pinned_and_excluded_live_writers_are_filtered_before_forming_batches() {
+         report
+             .entries
+             .iter()
+-            .any(|entry| entry.id == *pinned && entry.reason == "pinned_or_unknown_pin")
++            .any(|entry| entry.id == *pinned && entry.reason.as_str() == "pinned_or_unknown_pin")
+     );
+     assert!(
+         report
+             .entries
+             .iter()
+-            .any(|entry| entry.id == *excluded && entry.reason == "excluded")
++            .any(|entry| entry.id == *excluded && entry.reason.as_str() == "excluded")
+     );
+     for id in &ids[2..] {
+         assert!(!fixture.exists(id));
+diff --git a/tests/cli.rs b/tests/cli.rs
+index 9fe243d..db94c9d 100644
+--- a/tests/cli.rs
++++ b/tests/cli.rs
+@@ -93,7 +93,7 @@ fn consent_is_required_before_profile_mutation() {
+         .arg(bin)
+         .assert()
+         .failure();
+-    let db = database::open(&home, false).unwrap();
++    let db = database::open(&home, database::DatabaseAccess::ReadOnly).unwrap();
+     assert_eq!(
+         db.query_row("SELECT count(*) FROM threads WHERE id=?", [id], |r| r
+             .get::<_, i64>(0))
+@@ -157,7 +157,7 @@ fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable(
+         .failure();
+     json(command(&state).args(["policy", "--days", "1", "--yes"]));
+     json(command(&state).arg("exclude").arg(&id));
+-    let c = database::open(&home, true).unwrap();
++    let c = database::open(&home, database::DatabaseAccess::ReadWrite).unwrap();
+     c.execute(
+         "UPDATE codex_retain_epochs SET archived_since=unixepoch()-3*86400",
+         [],
+diff --git a/tests/lifecycle.rs b/tests/lifecycle.rs
+index 10044ac..39721e1 100644
+--- a/tests/lifecycle.rs
++++ b/tests/lifecycle.rs
+@@ -30,7 +30,7 @@ fn first_enable_grants_full_retention_to_an_old_archive() {
+     assert!(epoch >= before);
+     let report = f.run(true).unwrap();
+     assert_eq!(report.deleted, 0);
+-    assert_eq!(report.entries[0].reason, "within_retention");
++    assert_eq!(report.entries[0].reason.as_str(), "within_retention");
+     assert!(path.exists() && f.exists(&id));
+     assert!(report.actual_reclaimed_bytes.is_none());
+ }
+@@ -42,14 +42,35 @@ fn expiry_requires_strictly_more_than_retention_and_preview_is_read_only() {
+     let epoch = f.epoch(&id).unwrap();
+     let bytes = fs::read(f.path(&id, true)).unwrap();
+     let boundary = epoch + f.policy.duration();
+-    let report = engine::execute(&mut f.c, &f.policy, &f.store, boundary, false).unwrap();
++    let report = engine::execute(
++        &mut f.c,
++        &f.policy,
++        &f.store,
++        boundary,
++        engine::ExecutionMode::Preview,
++    )
++    .unwrap();
+     assert_eq!(report.eligible, 0);
+-    let preview = engine::execute(&mut f.c, &f.policy, &f.store, boundary + 1, false).unwrap();
++    let preview = engine::execute(
++        &mut f.c,
++        &f.policy,
++        &f.store,
++        boundary + 1,
++        engine::ExecutionMode::Preview,
++    )
++    .unwrap();
+     assert_eq!(preview.eligible, 1);
+     assert_eq!(preview.deleted, 0);
+     assert_eq!(fs::read(f.path(&id, true)).unwrap(), bytes);
+     assert!(f.exists(&id));
+-    let report = engine::execute(&mut f.c, &f.policy, &f.store, boundary + 1, true).unwrap();
++    let report = engine::execute(
++        &mut f.c,
++        &f.policy,
++        &f.store,
++        boundary + 1,
++        engine::ExecutionMode::Run,
++    )
++    .unwrap();
+     assert_eq!(report.deleted, 1);
+     assert_eq!(report.logical_bytes_removed, bytes.len() as u64);
+     assert!(!f.path(&id, true).exists() && !f.exists(&id));
+@@ -67,7 +88,13 @@ fn restore_and_rearchive_between_cleaner_runs_resets_capture() {
+     )
+     .unwrap();
+     assert_eq!(f.epoch(&id), None);
+-    assert_eq!(database::thread(&f.c, &id).unwrap().unwrap().archived, 0);
++    assert_eq!(
++        database::lookup_thread(&mut database::prepare_thread_lookup(&f.c).unwrap(), &id)
++            .unwrap()
++            .unwrap()
++            .archived,
++        0
++    );
+     // No preview or cleanup is run between restore and rearchive.
+     let before = now();
+     f.c.execute(
+@@ -131,7 +158,13 @@ fn active_unknown_pinned_excluded_and_related_threads_are_preserved() {
+         (&parent, "related_thread"),
+     ] {
+         assert_eq!(
+-            report.entries.iter().find(|e| &e.id == id).unwrap().reason,
++            report
++                .entries
++                .iter()
++                .find(|e| &e.id == id)
++                .unwrap()
++                .reason
++                .as_str(),
+             reason
+         );
+     }
+@@ -195,14 +228,14 @@ fn missing_trigger_and_schema_or_migration_drift_are_rejected() {
+     let f = Fixture::new();
+     f.c.execute_batch("CREATE TABLE alien_extension(value TEXT)")
+         .unwrap();
+-    assert!(database::open(&f.home, true).is_err());
++    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
+     let f = Fixture::new();
+     f.c.execute("UPDATE _sqlx_migrations SET checksum=x'00' WHERE version=(SELECT MAX(version) FROM _sqlx_migrations)",[]).unwrap();
+-    assert!(database::open(&f.home, true).is_err());
++    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
+     let f = Fixture::new();
+     f.c.execute("UPDATE backfill_state SET status='running'", [])
+         .unwrap();
+-    assert!(database::open(&f.home, true).is_err());
++    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
+ }
+ 
+ #[test]
+@@ -349,7 +382,7 @@ fn interrupted_uncommitted_sqlite_delete_restores_staged_rollout() {
+         &mut f.c,
+         Connection::open_in_memory().unwrap(),
+     ));
+-    f.c = database::open(&f.home, true).unwrap();
++    f.c = database::open(&f.home, database::DatabaseAccess::ReadWrite).unwrap();
+     assert!(
+         f.exists(&id),
+         "SQLite did not roll back the uncommitted deletion"
+@@ -463,7 +496,16 @@ fn pause_disabled_and_backward_activation_clock_prevent_mutation() {
+     assert!(f.run(true).is_err());
+     f.policy.enabled = true;
+     let before_activation = f.policy.enabled_at - 1;
+-    assert!(engine::execute(&mut f.c, &f.policy, &f.store, before_activation, true).is_err());
++    assert!(
++        engine::execute(
++            &mut f.c,
++            &f.policy,
++            &f.store,
++            before_activation,
++            engine::ExecutionMode::Run
++        )
++        .is_err()
++    );
+     assert!(f.path(&id, true).exists() && f.exists(&id));
+ }
+ 
+@@ -580,7 +622,10 @@ fn native_pinned_section_protects_even_a_pre_pin_deletion_snapshot() {
+     let mut f = Fixture::new();
+     let id = f.add(110, 1);
+     f.age(&id);
+-    let before_pin = database::thread(&f.c, &id).unwrap().unwrap();
++    let before_pin =
++        database::lookup_thread(&mut database::prepare_thread_lookup(&f.c).unwrap(), &id)
++            .unwrap()
++            .unwrap();
+     assert_eq!(before_pin.pinned, 0);
+     f.c.execute(
+         "INSERT INTO thread_sections(id,name) VALUES(?,'Pinned')",
+@@ -603,10 +648,10 @@ fn native_pinned_section_protects_even_a_pre_pin_deletion_snapshot() {
+     );
+     let preview = f.run(false).unwrap();
+     assert_eq!(preview.eligible, 0);
+-    assert_eq!(preview.entries[0].reason, "pinned_or_unknown_pin");
++    assert_eq!(preview.entries[0].reason.as_str(), "pinned_or_unknown_pin");
+     assert_eq!(f.run(true).unwrap().deleted, 0);
+     assert!(
+-        database::delete_row(&f.c, &before_pin).is_err(),
++        database::delete_row(&mut database::prepare_delete(&f.c).unwrap(), &before_pin).is_err(),
+         "final SQL guard accepted a thread pinned after its snapshot"
+     );
+     assert!(f.exists(&id) && f.path(&id, true).exists());
+@@ -694,7 +739,10 @@ fn oversized_zstd_window_is_rejected_before_processing_a_small_valid_frame() {
+         report.deleted, 0,
+         "16 MiB declared window exceeded the 8 MiB decoder cap"
+     );
+-    assert_eq!(report.entries[0].reason, "unsafe_or_unavailable_artifact");
++    assert_eq!(
++        report.entries[0].reason.as_str(),
++        "unsafe_or_unavailable_artifact"
++    );
+     assert_eq!(fs::read(&compressed).unwrap(), frame);
+     assert!(f.exists(&id));
+ }
+diff --git a/tests/support/mod.rs b/tests/support/mod.rs
+index 259b4b3..4c80c87 100644
+--- a/tests/support/mod.rs
++++ b/tests/support/mod.rs
+@@ -120,7 +120,17 @@ impl Fixture {
+             .unwrap();
+     }
+     pub fn run(&mut self, apply: bool) -> anyhow::Result<engine::Report> {
+-        engine::execute(&mut self.c, &self.policy, &self.store, now(), apply)
++        engine::execute(
++            &mut self.c,
++            &self.policy,
++            &self.store,
++            now(),
++            if apply {
++                engine::ExecutionMode::Run
++            } else {
++                engine::ExecutionMode::Preview
++            },
++        )
+     }
+     pub fn exists(&self, id: &str) -> bool {
+         self.c

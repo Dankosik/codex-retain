@@ -17,8 +17,12 @@ pub struct Policy {
     pub database: Identity,
     pub retention_days: u32,
     pub enabled: bool,
+    /// Whether automatic scheduling was requested. Remains true during incomplete
+    /// installation or removal until scheduler disable succeeds; actual launchd
+    /// registration is reported separately by SchedulerStatus.
     pub automatic: bool,
     pub paused: bool,
+    /// Policy activation time in whole seconds since the Unix epoch.
     pub enabled_at: i64,
     pub owner: String,
     pub exclusions: BTreeSet<String>,
@@ -37,6 +41,7 @@ impl Policy {
         ensure!(self.enabled_at > 0, "invalid policy start time");
         Ok(())
     }
+    /// Retention duration in seconds, with each day equal to 86,400 seconds.
     pub fn duration(&self) -> i64 {
         i64::from(self.retention_days) * 86400
     }
@@ -65,6 +70,7 @@ impl Store {
     }
 }
 
+/// Current wall-clock time in whole seconds since the Unix epoch.
 pub fn now() -> Result<i64> {
     Ok(SystemTime::now()
         .duration_since(UNIX_EPOCH)

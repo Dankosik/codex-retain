@@ -1,0 +1,165 @@
+   Compiling codex-retain v0.1.0 (/Users/daniil/Projects/Opensource/codex-retain)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.07s
+     Running unittests src/lib.rs (/private/tmp/codex-retain-opt-20260910-l3kjsm_8/target/debug/deps/codex_retain-7326fb39707c5eda)
+
+running 77 tests
+test engine::tests::rollout_variants_share_paths_without_losing_native_bytes ... ok
+test engine::tests::report_reason_still_rejects_non_string_json ... ok
+test engine::tests::reason_tokens_keep_the_report_schema_and_attention_policy ... ok
+test engine::tests::unknown_report_reason_is_preserved_without_becoming_eligible ... ok
+test fsutil::tests::a_batch_releases_coordination_but_keeps_all_thread_locks ... ok
+test fsutil::tests::atomic_json_oversize_and_serialization_failure_preserve_previous_state ... ok
+test fsutil::tests::atomic_json_publishes_complete_payload_across_buffer_boundaries ... ok
+test fsutil::tests::busy_coordination_during_drop_closes_without_unlinking_a_reusable_inode ... ok
+test fsutil::tests::global_lock_contention_is_classified_without_touching_foreign_inodes ... ok
+test fsutil::tests::invalid_duplicate_and_oversized_batches_fail_before_creating_locks ... ok
+test fsutil::tests::partial_batch_failure_releases_owned_locks_and_preserves_foreign_inode ... ok
+test fsutil::tests::regular_metadata_describes_the_opened_inode_after_path_replacement ... ok
+test fsutil::tests::regular_metadata_keeps_link_and_file_type_guards ... ok
+test fsutil::tests::synced_and_grouped_renames_preserve_existing_or_dangling_destinations ... ok
+test fsutil::tests::unavailable_lock_directories_are_global_failures ... ok
+test fsutil::tests::unavailable_member_lock_preserves_cause_and_classification_through_context ... ok
+test metadata::tests::duplicate_fields_and_whole_payloads_keep_last_value ... ok
+test metadata::tests::ignored_values_are_fully_validated ... ok
+test metadata::tests::ignored_values_preserve_json_recursion_limit ... ok
+test metadata::tests::large_unused_objects_and_arrays_do_not_change_metadata ... ok
+test metadata::tests::supported_metadata_and_escaped_fields ... ok
+test metadata::tests::trailing_content_and_incomplete_records_are_rejected ... ok
+test metadata::tests::wrong_json_types_preserve_validation_and_error_precedence ... ok
+test owners::tests::a_scan_after_uncommitted_local_deletion_cannot_survive_rollback ... ok
+test owners::tests::acknowledged_local_deletes_preserve_reuse_but_not_external_changes ... ok
+test owners::tests::another_connection_cannot_reuse_a_numerically_equal_data_version ... ok
+test owners::tests::double_zst_rows_and_requests_do_not_alias_an_ordinary_rollout ... ok
+test owners::tests::either_representation_registers_both_and_retains_one_base ... ok
+test owners::tests::exact_logical_dot_component_is_registered_without_normalizing_other_spellings ... ok
+test owners::tests::exact_logical_registration_does_not_add_a_compressed_alias ... ok
+test owners::tests::exact_lower_and_compressed_upper_bound_aliases_are_included ... ok
+test owners::tests::exact_parent_spelling_outside_prefix_extends_bounds_before_and_after_physical_paths ... ok
+test owners::tests::exact_registration_identity_conflicts_remain_fail_closed ... ok
+test owners::tests::external_insert_and_deletion_invalidate_conflicts_for_requested_paths ... ok
+test owners::tests::external_path_changes_invalidate_compressed_variant_ownership ... ok
+test owners::tests::failed_scans_never_publish_reusable_evidence ... ok
+test owners::tests::late_exact_registration_invalidates_scan_and_tracks_logical_spelling_changes ... ok
+test owners::tests::late_registration_invalidates_previous_scan ... ok
+test owners::tests::lexical_filter_explicitly_uses_binary_collation ... ok
+test owners::tests::malformed_owner_ids_conflict_only_with_their_own_path ... ok
+test owners::tests::opposite_representation_registrations_preserve_identity_conflicts ... ok
+test engine::tests::scheduled_errors_keep_first_ten_ids_even_when_earlier_failure_is_discovered_late ... ok
+test owners::tests::partial_local_delete_rollback_does_not_require_acknowledgement ... ok
+test owners::tests::prefix_is_literal_and_outside_paths_never_match_a_registered_basename ... ok
+test owners::tests::scanning_retains_only_registered_paths_and_ignores_nonmatching_values ... ok
+test owners::tests::unacknowledged_local_writes_always_force_a_fresh_scan ... ok
+test owners::tests::unchanged_database_reuses_one_scan_for_all_registered_paths ... ok
+test owners::tests::unregistered_paths_and_conflicting_registrations_fail_closed ... ok
+test scheduler::launchd::tests::already_missing_disable_is_idempotent ... ok
+test owners::tests::upper_bound_compares_appended_suffix_for_prefix_related_bases ... ok
+test scheduler::launchd::tests::another_state_cannot_replace_or_disable_the_schedule ... ok
+test scheduler::launchd::tests::bounded_capture_keeps_prefix_and_drains_remainder ... ok
+test scheduler::launchd::tests::atomic_plist_replaces_privately ... ok
+test scheduler::launchd::tests::failed_bootout_preserves_plist_and_reports_error ... ok
+test scheduler::launchd::tests::failed_bootstrap_removes_future_login_configuration ... ok
+test scheduler::launchd::tests::numeric_exit_diagnostic_is_preserved ... ok
+test scheduler::launchd::tests::installation_uses_absolute_binary_without_starting_job ... ok
+test scheduler::launchd::tests::old_search_path_is_owned_even_when_current_environment_differs ... ok
+test scheduler::launchd::tests::ownership_allows_original_executable_to_move_and_escapes_state ... ok
+test scheduler::launchd::tests::refuses_symlink_plist ... ok
+test scheduler::launchd::tests::reformatted_plist_cannot_prove_ownership ... ok
+test scheduler::launchd::tests::registered_job_without_plist_cannot_be_taken_over ... ok
+test scheduler::launchd::tests::scheduler_lock_serializes_different_policy_directories ... ok
+test scheduler::launchd::tests::status_distinguishes_missing_from_query_error ... ok
+test scheduler::launchd::tests::signal_termination_retains_status_and_actionable_diagnostic ... ok
+test scheduler::launchd::tests::uid_cannot_inject_a_launchctl_target ... ok
+test scheduler::tests::plist_is_periodic_quiet_and_escapes_each_path ... ok
+test scheduler::tests::rejects_relative_and_invalid_xml_paths ... ok
+test scheduler::launchd::tests::timed_out_child_is_terminated_and_reaped ... ok
+test engine::tests::inventory_retains_candidates_and_still_checks_unrelated_paths ... ok
+test engine::tests::global_lock_failure_stops_before_attempting_later_groups ... ok
+test engine::tests::journal_unlink_sync_failure_never_retries_an_effectful_group ... ok
+test engine::tests::equivalent_logical_path_spellings_keep_deletion_and_exact_alias_guards ... ok
+test engine::tests::alias_conflict_splits_groups_without_stranding_safe_neighbors ... ok
+test engine::tests::a_known_busy_member_keeps_free_peers_in_at_most_two_committed_groups ... ok
+test engine::tests::scheduled_noop_retains_no_per_archive_entries ... ok
+test engine::tests::oversized_archive_is_rejected_before_removing_the_first_due_row ... ok
+
+test result: ok. 77 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.82s
+
+     Running unittests src/main.rs (/private/tmp/codex-retain-opt-20260910-l3kjsm_8/target/debug/deps/codex_retain-85e719838408a6ae)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/batch.rs (/private/tmp/codex-retain-opt-20260910-l3kjsm_8/target/debug/deps/batch-b507bb8f515e340f)
+
+running 14 tests
+test committed_batch_recovery_finishes_remaining_stages_without_sweeping_neighbors ... ok
+test active_logical_or_physical_alias_preserves_a_compressed_archive ... ok
+test conflicting_batch_item_retains_journal_and_can_resume_after_partial_recovery ... ok
+test legacy_thirty_two_item_journal_remains_recoverable ... ok
+test invalid_second_item_is_rejected_before_touching_valid_first_item ... ok
+test busy_first_middle_and_last_members_leave_foreign_locks_and_finish_safe_peers ... ok
+test precommit_batch_recovery_restores_partial_staging_and_sqlite_rollback ... ok
+test maximum_batch_recovers_a_partially_staged_prefix_without_losing_any_member ... ok
+test maximum_committed_batch_recovers_after_a_prefix_was_already_unlinked ... ok
+test oversized_batch_journal_is_rejected_before_any_recovery_mutation ... ok
+test oversized_valid_json_journal_preserves_all_staging_and_the_receipt ... ok
+test pinned_and_excluded_live_writers_are_filtered_before_forming_batches ... ok
+test due_archives_cross_two_batch_boundaries_without_losing_counts ... ok
+test one_busy_writer_is_preserved_while_safe_fallback_finishes_other_archives ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.39s
+
+     Running tests/cli.rs (/private/tmp/codex-retain-opt-20260910-l3kjsm_8/target/debug/deps/cli-1725d273867fba62)
+
+running 11 tests
+test incomplete_automatic_setup_cannot_become_a_manual_policy ... ok
+test pending_recovery_prevents_policy_replacement ... ok
+test consent_is_required_before_profile_mutation ... ok
+test help_version_completions_do_not_load_policy_or_create_state ... ok
+test unknown_arguments_and_invalid_retention_are_parser_errors ... ok
+test status_without_policy_does_not_create_one ... ok
+test scheduled_errors_replace_one_bounded_receipt_and_remain_quiet ... ok
+test scheduled_artifact_failures_keep_attention_and_the_same_first_ten_diagnostics ... ok
+test executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable ... ok
+test version_probe_isolates_and_removes_codex_startup_side_effects ... ok
+test large_json_preview_exits_successfully_when_the_reader_closes_early ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.59s
+
+     Running tests/lifecycle.rs (/private/tmp/codex-retain-opt-20260910-l3kjsm_8/target/debug/deps/lifecycle-55801a6cc0232205)
+
+running 25 tests
+test external_lock_holder ... ok
+test a_rolled_back_archive_transition_does_not_reset_the_epoch ... ok
+test database_replacement_invalidates_saved_policy_identity ... ok
+test database_path_escape_never_touches_an_outside_file ... ok
+test first_enable_grants_full_retention_to_an_old_archive ... ok
+test capture_installation_seeds_preexisting_archive_without_changing_native_rows ... ok
+test interrupted_after_commit_finishes_only_recorded_staged_file ... ok
+test compressed_deletion_removes_real_representation_and_is_idempotent ... ok
+test expiry_requires_strictly_more_than_retention_and_preview_is_read_only ... ok
+test active_unknown_pinned_excluded_and_related_threads_are_preserved ... ok
+test interrupted_before_rename_clears_only_the_owned_intent ... ok
+test oversized_zstd_window_is_rejected_before_processing_a_small_valid_frame ... ok
+test native_pinned_section_protects_even_a_pre_pin_deletion_snapshot ... ok
+test interrupted_uncommitted_sqlite_delete_restores_staged_rollout ... ok
+test pause_disabled_and_backward_activation_clock_prevent_mutation ... ok
+test permission_denied_for_staging_preserves_the_durable_recovery_intent ... ok
+test cross_process_thread_and_maintenance_locks_skip_then_allow_deletion ... ok
+test restore_and_rearchive_between_cleaner_runs_resets_capture ... ok
+test timestamp_repair_is_a_new_conservative_epoch_but_title_edit_is_not ... ok
+test sqlite_writer_contention_preserves_rows_and_rollouts ... ok
+test recovery_never_overwrites_a_new_original_or_unlinks_replaced_staging ... ok
+test missing_trigger_and_schema_or_migration_drift_are_rejected ... ok
+test malformed_identity_shared_history_and_oversized_headers_are_preserved ... ok
+test missing_or_ambiguous_clock_and_history_mode_fail_closed ... ok
+test symlink_hardlink_duplicate_and_database_alias_do_not_delete ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+
+   Doc-tests codex_retain
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

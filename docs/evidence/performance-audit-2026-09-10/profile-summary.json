@@ -1,0 +1,12 @@
+{
+  "exit": 0,
+  "profiled_wall_seconds": 5.434477875009179,
+  "sample_exit": 0,
+  "sample_message": "Sampling process 37864 for 5 seconds with 1 millisecond of run time between samples\nSampling completed, processing symbols...\nSample analysis of process 37864 written to file /private/tmp/codex-retain-audit-20260910-01a08a35/current-sample.txt\n",
+  "postconditions": {
+    "verified": true,
+    "count": 10000,
+    "removed": true,
+    "remaining_thread_rows": 0
+  }
+}

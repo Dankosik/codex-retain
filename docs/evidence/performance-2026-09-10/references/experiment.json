@@ -1,0 +1,39 @@
+{
+  "baseline_commit": "5920f33e8f8d2a438be540d3302fb7fb5718cdab",
+  "baseline_includes_preexisting_dirty_changes": true,
+  "changes": [
+    "cache embedded schema/migration/capture references only",
+    "zstd Decoder::with_buffer",
+    "single String in safe_text"
+  ],
+  "workloads": {
+    "counts": [
+      1000,
+      10000
+    ],
+    "operations": [
+      "JSON preview",
+      "JSON run"
+    ],
+    "rollout_bytes": 4096,
+    "all_archives_expired": true
+  },
+  "sample_plan": {
+    "warmups": 3,
+    "runs": 5,
+    "cache": "warm; fixture regenerated before every sample",
+    "order": "baseline first at 1000; candidate first at 10000"
+  },
+  "postconditions": "existing marker-checked fixture verifier after every sample; exact file hashes for preview, absent rollouts and zero rows for cleanup, SQLite integrity_check",
+  "toolchain": "rustc 1.98.1 (48a229cea 2026-09-01), native aarch64-apple-darwin, locked dependencies, release Thin LTO",
+  "not_measured": [
+    "cold disk",
+    "100000 archives",
+    "compressed throughput",
+    "busy-member fallback",
+    "allocation counts",
+    "concurrent Codex latency"
+  ],
+  "baseline_patch_sha256": "9c9919ea91c41ec2b95a361aa8ad4490f549122481d3b650b2acba11954d5f50",
+  "candidate_patch_sha256": "1590c034ce524d6dd8f32e88a9482930a6652daedfb69a0e4d2e369e7d82c0f9"
+}

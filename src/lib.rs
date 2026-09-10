@@ -3,6 +3,8 @@ pub mod config;
 pub mod database;
 pub mod engine;
 pub mod fsutil;
+mod metadata;
+mod owners;
 pub mod scheduler;
 
 #[cfg(test)]
@@ -12,6 +14,8 @@ use anyhow::{Context, Result, ensure};
 use clap::{CommandFactory, Parser};
 use cli::{Action, Cli};
 use config::{Policy, Store};
+use database::DatabaseAccess;
+use engine::ExecutionMode;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
@@ -34,11 +38,21 @@ pub fn run() -> ExitCode {
         .state_dir
         .clone()
         .or_else(|| config::default_state().ok());
-    match execute(cli, &mut io::stdout().lock()) {
+    let outcome = {
+        let mut out = io::BufWriter::with_capacity(64 * 1024, io::stdout().lock());
+        execute(cli, &mut out).and_then(|code| {
+            out.flush()?;
+            Ok(code)
+        })
+    };
+    match outcome {
         Ok(code) => ExitCode::from(code),
         Err(e)
             if e.downcast_ref::<io::Error>()
-                .is_some_and(|e| e.kind() == io::ErrorKind::BrokenPipe) =>
+                .is_some_and(|e| e.kind() == io::ErrorKind::BrokenPipe)
+                || e.downcast_ref::<serde_json::Error>()
+                    .and_then(serde_json::Error::io_error_kind)
+                    == Some(io::ErrorKind::BrokenPipe) =>
         {
             ExitCode::SUCCESS
         }
@@ -67,16 +81,15 @@ pub fn run() -> ExitCode {
 }
 
 fn safe_text(value: &str) -> String {
-    value
-        .chars()
-        .flat_map(|c| {
-            if c.is_control() {
-                c.escape_default().collect::<Vec<_>>()
-            } else {
-                vec![c]
-            }
-        })
-        .collect()
+    let mut text = String::with_capacity(value.len());
+    for c in value.chars() {
+        if c.is_control() {
+            text.extend(c.escape_default());
+        } else {
+            text.push(c);
+        }
+    }
+    text
 }
 fn date(value: Option<i64>) -> String {
     value
@@ -116,6 +129,94 @@ fn enabled(store: &Store) -> Result<Policy> {
     Ok(p)
 }
 
+fn enable_policy(
+    store: &Store,
+    args: cli::EnableArgs,
+    out: &mut impl Write,
+    json_mode: bool,
+) -> Result<()> {
+    let cli::EnableArgs {
+        days,
+        codex_home,
+        codex_bin,
+        no_schedule,
+        yes,
+    } = args;
+    native_mutations()?;
+    ensure!(
+        yes,
+        "enable permanently deletes eligible local archives without later prompts. Existing archives get {days} full days; transition capture adds a small SQLite table and triggers. Review doctor first, then repeat with --yes"
+    );
+    let existing = if store.root.join("policy.json").exists() {
+        Some(store.policy()?)
+    } else {
+        None
+    };
+    ensure!(
+        existing.as_ref().is_none_or(|p| !p.enabled),
+        "policy is already enabled; use policy --days, pause, resume, or disable first"
+    );
+    ensure!(
+        existing.as_ref().is_none_or(|p| !p.automatic),
+        "an earlier automatic installation is incomplete; run disable before re-enabling"
+    );
+    ensure!(
+        !fsutil::path_exists(&store.root.join("pending.json"))?,
+        "an interrupted deletion needs recovery; run disable before re-enabling"
+    );
+    let (home, binary) = profile(codex_home, &codex_bin)?;
+    if let Some(previous) = existing.as_ref().filter(|p| p.codex_home != home) {
+        let mut old_db = database::open(&previous.codex_home, DatabaseAccess::ReadWrite)
+            .context("finish disabling the previous Codex profile before changing profiles")?;
+        database::uninstall_capture(&mut old_db, previous)
+            .context("finish removing the previous capture extension before changing profiles")?;
+    }
+    ensure!(
+        !store.root.starts_with(&home) && !home.starts_with(&store.root),
+        "policy directory and Codex home must be separate, non-nested directories"
+    );
+    let mut db = database::open(&home, DatabaseAccess::ReadWrite)?;
+    let identity = database::identity(&home)?;
+    let mut policy = Policy {
+        schema: 1,
+        codex_home: home,
+        codex_bin: binary,
+        database: identity,
+        retention_days: days,
+        enabled: false,
+        automatic: !no_schedule,
+        paused: false,
+        enabled_at: config::now()?,
+        owner: store
+            .root
+            .to_str()
+            .context("state directory must be UTF-8")?
+            .into(),
+        exclusions: existing.map(|p| p.exclusions).unwrap_or_else(BTreeSet::new),
+    };
+    store.save(&policy)?;
+    let count = database::install_capture(&mut db, &policy.owner)?;
+    if !no_schedule {
+        scheduler::install(&store.root, &std::env::current_exe()?)?;
+    }
+    policy.enabled = true;
+    store.save(&policy)?;
+    emit(
+        out,
+        json_mode,
+        &json!({"schema":1,"enabled":true,"retention_days":days,"existing_archives_given_grace":count,"automatic":!no_schedule,"earliest_existing_deletion_after":policy.enabled_at+policy.duration(),"policy":store.root.join("policy.json")}),
+        &format!(
+            "Enabled: keep archives for {days} days. {count} existing archives received a full grace period.\n{}\nUse preview to inspect candidates; pause or disable to stop cleanup.",
+            if no_schedule {
+                "Manual runs enabled; automatic scheduling is off."
+            } else {
+                "Automatic cleanup: hourly macOS LaunchAgent; no resident process."
+            }
+        ),
+    )?;
+    Ok(())
+}
+
 pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
     if let Action::Completions { shell } = cli.command {
         let mut command = Cli::command();
@@ -131,7 +232,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
     } = cli.command
     {
         let (home, binary) = profile(codex_home, &codex_bin)?;
-        let db = database::open(&home, false)?;
+        let db = database::open(&home, DatabaseAccess::ReadOnly)?;
         let archived: i64 =
             db.query_row("SELECT count(*) FROM threads WHERE archived=1", [], |r| {
                 r.get(0)
@@ -162,93 +263,12 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
     }
     let store = Store::open(root)?;
     match cli.command {
-        Action::Enable {
-            days,
-            codex_home,
-            codex_bin,
-            no_schedule,
-            yes,
-        } => {
-            native_mutations()?;
-            ensure!(
-                yes,
-                "enable permanently deletes eligible local archives without later prompts. Existing archives get {days} full days; transition capture adds a small SQLite table and triggers. Review doctor first, then repeat with --yes"
-            );
-            let existing = if store.root.join("policy.json").exists() {
-                Some(store.policy()?)
-            } else {
-                None
-            };
-            ensure!(
-                existing.as_ref().is_none_or(|p| !p.enabled),
-                "policy is already enabled; use policy --days, pause, resume, or disable first"
-            );
-            ensure!(
-                existing.as_ref().is_none_or(|p| !p.automatic),
-                "an earlier automatic installation is incomplete; run disable before re-enabling"
-            );
-            ensure!(
-                !fsutil::path_exists(&store.root.join("pending.json"))?,
-                "an interrupted deletion needs recovery; run disable before re-enabling"
-            );
-            let (home, binary) = profile(codex_home, &codex_bin)?;
-            if let Some(previous) = existing.as_ref().filter(|p| p.codex_home != home) {
-                let mut old_db = database::open(&previous.codex_home, true).context(
-                    "finish disabling the previous Codex profile before changing profiles",
-                )?;
-                database::uninstall_capture(&mut old_db, previous).context(
-                    "finish removing the previous capture extension before changing profiles",
-                )?;
-            }
-            ensure!(
-                !store.root.starts_with(&home) && !home.starts_with(&store.root),
-                "policy directory and Codex home must be separate, non-nested directories"
-            );
-            let mut db = database::open(&home, true)?;
-            let identity = database::identity(&home)?;
-            let mut policy = Policy {
-                schema: 1,
-                codex_home: home,
-                codex_bin: binary,
-                database: identity,
-                retention_days: days,
-                enabled: false,
-                automatic: !no_schedule,
-                paused: false,
-                enabled_at: config::now()?,
-                owner: store
-                    .root
-                    .to_str()
-                    .context("state directory must be UTF-8")?
-                    .into(),
-                exclusions: existing.map(|p| p.exclusions).unwrap_or_else(BTreeSet::new),
-            };
-            store.save(&policy)?;
-            let count = database::install_capture(&mut db, &policy.owner)?;
-            if !no_schedule {
-                scheduler::install(&store.root, &std::env::current_exe()?)?;
-            }
-            policy.enabled = true;
-            store.save(&policy)?;
-            emit(
-                out,
-                cli.json,
-                &json!({"schema":1,"enabled":true,"retention_days":days,"existing_archives_given_grace":count,"automatic":!no_schedule,"earliest_existing_deletion_after":policy.enabled_at+policy.duration(),"policy":store.root.join("policy.json")}),
-                &format!(
-                    "Enabled: keep archives for {days} days. {count} existing archives received a full grace period.\n{}\nUse preview to inspect candidates; pause or disable to stop cleanup.",
-                    if no_schedule {
-                        "Manual runs enabled; automatic scheduling is off."
-                    } else {
-                        "Automatic cleanup: hourly macOS LaunchAgent; no resident process."
-                    }
-                ),
-            )?;
-        }
+        Action::Enable(args) => enable_policy(&store, args, out, cli.json)?,
         Action::Status => {
             let p = store.policy()?;
             let scheduler = scheduler::status()?;
             let compatibility = database::verify_binary(&p.codex_bin)
-                .and_then(|()| database::open(&p.codex_home, false))
+                .and_then(|()| database::open(&p.codex_home, DatabaseAccess::ReadOnly))
                 .and_then(|c| {
                     if p.enabled {
                         database::verify_policy(&c, &p)
@@ -291,7 +311,12 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             )?;
         }
         Action::Preview | Action::Run { .. } => {
-            let apply = matches!(cli.command, Action::Run { .. });
+            let mode = if matches!(cli.command, Action::Run { .. }) {
+                ExecutionMode::Run
+            } else {
+                ExecutionMode::Preview
+            };
+            let apply = mode == ExecutionMode::Run;
             let quiet = matches!(cli.command, Action::Run { scheduled: true });
             let p = enabled(&store)?;
             if quiet && p.paused {
@@ -301,7 +326,11 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 native_mutations()?;
             }
             database::verify_binary(&p.codex_bin)?;
-            let mut db = database::open(&p.codex_home, apply)?;
+            let access = match mode {
+                ExecutionMode::Preview => DatabaseAccess::ReadOnly,
+                ExecutionMode::Run => DatabaseAccess::ReadWrite,
+            };
+            let mut db = database::open(&p.codex_home, access)?;
             let now = config::now()?;
             if apply && store.root.join("last-run.json").exists() {
                 let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
@@ -310,13 +339,12 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                     "system clock moved backwards since the last run"
                 );
             }
-            let report = engine::execute(&mut db, &p, &store, now, apply)?;
-            let incomplete = report.entries.iter().any(|e| {
-                matches!(
-                    e.reason.as_str(),
-                    "changed_busy_or_error" | "unsafe_or_unavailable_artifact"
-                )
-            }) || !report.warnings.is_empty();
+            let report = if quiet {
+                engine::execute_scheduled(&mut db, &p, &store, now)?
+            } else {
+                engine::execute(&mut db, &p, &store, now, mode)?
+            };
+            let incomplete = report.requires_attention();
             if apply {
                 fsutil::atomic_json(
                     &store.root.join("last-run.json"),
@@ -448,7 +476,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 p.automatic = false;
                 store.save(&p)?;
             }
-            let mut db = database::open(&p.codex_home, true)?;
+            let mut db = database::open(&p.codex_home, DatabaseAccess::ReadWrite)?;
             if store.root.join("pending.json").exists() {
                 engine::recover(&mut db, &p, &store)?;
             }

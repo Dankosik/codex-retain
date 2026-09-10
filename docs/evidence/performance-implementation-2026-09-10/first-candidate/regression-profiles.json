@@ -1,0 +1,26 @@
+[
+  {
+    "name": "baselinecleanup-10000",
+    "exit": 0,
+    "sample_exit": 0,
+    "profiled_elapsed": 9.68549579102546,
+    "postconditions": {
+      "verified": true,
+      "count": 10000,
+      "removed": true,
+      "remaining_thread_rows": 0
+    }
+  },
+  {
+    "name": "retaincleanup-10000",
+    "exit": 0,
+    "sample_exit": 0,
+    "profiled_elapsed": 6.294311542005744,
+    "postconditions": {
+      "verified": true,
+      "count": 10000,
+      "removed": true,
+      "remaining_thread_rows": 0
+    }
+  }
+]

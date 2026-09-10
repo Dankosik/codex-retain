@@ -1,0 +1,21 @@
+{
+  "binary_sha256": "5580dec11a49b44f45e35775f5868a459cec6a68869fb3942eb8ef9d5471cf3a",
+  "source_hashes": {
+    "src/owners.rs": "867791fe2bff13fbb5d977cf3262227eaeb00b9df71b8374d81c28ca14dfbe96",
+    "src/database.rs": "363c1ba5b52f58010c8e1b663d3497474008cb77f85dd068a16184bb989b8776",
+    "src/config.rs": "a5988c332ee0d468577f59f5c48352928fc4f6bc2cc0e2b334bacee4246f10db",
+    "src/metadata.rs": "304a6c660458bc7f0c58ffb80a29d262df10ced863ecb45b7f0a2587996fb8b9",
+    "src/lib.rs": "34d164df59ed5fbbf93f3d2be5892e0a65371f8f8402549342fcd02c5f4949e3",
+    "src/scheduler.rs": "4deb0ae360f0f9bd957e57037725298f4102c7b0d0b712770273fb050e1d994e",
+    "src/main.rs": "5242bb4ad5c9b6dd6e2c9a2a48810d3a2c7aca3f299bb2e4d4c15776339bee82",
+    "src/fsutil.rs": "d0d7284310baa58aa0955bdc08ca234299a471df3183188810fd04c2f410ad2c",
+    "src/cli.rs": "f5559802be93cee811c2e37f1c8e954aaf5543862c68d3f9299321f17192468d",
+    "src/engine.rs": "5798ccf3034e689caf1b424352b1d8e7e63aaf3ada0ed05f60a39dbde9a1e950",
+    "Cargo.toml": "67ff33122da0c7acd8752447f6ca6c77a94b368cfbe4dafa13dd3c0dd8000a03",
+    "Cargo.lock": "dc489b4279d980f0c1d4f251295e25ecb0f0fa39f20cd9beac6c7d5b2b888f2d",
+    "compatibility/capture.sql": "69d02e6291e323794d249d60d4c17caf0e4f812da5ebb013d04ade7fd62e1f1c",
+    "compatibility/fixture-schema.sql": "c1669d0223e862111037d78f6d89de1cc8e976a3b567b513f042312554aadab6",
+    "compatibility/schema.json": "0ec9dbddc80cfd3cf387455a75971e8b352abf4d0fec3f2667d55696fbc23dc1",
+    "compatibility/migrations.json": "57b0dc31c598c873194098c248e11f2080127dec540acf419b6eb21a4c39bea4"
+  }
+}

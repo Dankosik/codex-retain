@@ -1,0 +1,170 @@
+{
+  "baselinepreview-1000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 0,
+      "deleted": 0,
+      "eligible": 1000,
+      "examined": 1000,
+      "logical_bytes_removed": 0,
+      "mode": "preview",
+      "observed_free_space_delta_bytes": null,
+      "schema": 1,
+      "selected_bytes": 4096000,
+      "skipped": 0,
+      "started_at": 1789024300,
+      "warnings": []
+    },
+    "count": 1000,
+    "remaining_thread_rows": 1000,
+    "removed": false,
+    "verified": true
+  },
+  "baselinepreview-10000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 0,
+      "deleted": 0,
+      "eligible": 10000,
+      "examined": 10000,
+      "logical_bytes_removed": 0,
+      "mode": "preview",
+      "observed_free_space_delta_bytes": null,
+      "schema": 1,
+      "selected_bytes": 40960000,
+      "skipped": 0,
+      "started_at": 1789024309,
+      "warnings": []
+    },
+    "count": 10000,
+    "remaining_thread_rows": 10000,
+    "removed": false,
+    "verified": true
+  },
+  "baselinecleanup-10000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 40960000,
+      "deleted": 10000,
+      "eligible": 10000,
+      "examined": 10000,
+      "logical_bytes_removed": 40960000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 41521152,
+      "schema": 1,
+      "selected_bytes": 40960000,
+      "skipped": 0,
+      "started_at": 1789024323,
+      "warnings": []
+    },
+    "count": 10000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "retaincleanup-1000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 4096000,
+      "deleted": 1000,
+      "eligible": 1000,
+      "examined": 1000,
+      "logical_bytes_removed": 4096000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 438272,
+      "schema": 1,
+      "selected_bytes": 4096000,
+      "skipped": 0,
+      "started_at": 1789024302,
+      "warnings": []
+    },
+    "count": 1000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "retainpreview-1000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 0,
+      "deleted": 0,
+      "eligible": 1000,
+      "examined": 1000,
+      "logical_bytes_removed": 0,
+      "mode": "preview",
+      "observed_free_space_delta_bytes": null,
+      "schema": 1,
+      "selected_bytes": 4096000,
+      "skipped": 0,
+      "started_at": 1789024300,
+      "warnings": []
+    },
+    "count": 1000,
+    "remaining_thread_rows": 1000,
+    "removed": false,
+    "verified": true
+  },
+  "retainpreview-10000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 0,
+      "deleted": 0,
+      "eligible": 10000,
+      "examined": 10000,
+      "logical_bytes_removed": 0,
+      "mode": "preview",
+      "observed_free_space_delta_bytes": null,
+      "schema": 1,
+      "selected_bytes": 40960000,
+      "skipped": 0,
+      "started_at": 1789024305,
+      "warnings": []
+    },
+    "count": 10000,
+    "remaining_thread_rows": 10000,
+    "removed": false,
+    "verified": true
+  },
+  "baselinecleanup-1000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 4096000,
+      "deleted": 1000,
+      "eligible": 1000,
+      "examined": 1000,
+      "logical_bytes_removed": 4096000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 536576,
+      "schema": 1,
+      "selected_bytes": 4096000,
+      "skipped": 0,
+      "started_at": 1789024301,
+      "warnings": []
+    },
+    "count": 1000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "retaincleanup-10000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 40960000,
+      "deleted": 10000,
+      "eligible": 10000,
+      "examined": 10000,
+      "logical_bytes_removed": 40960000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 36847616,
+      "schema": 1,
+      "selected_bytes": 40960000,
+      "skipped": 0,
+      "started_at": 1789024313,
+      "warnings": []
+    },
+    "count": 10000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  }
+}

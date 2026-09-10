@@ -2,6 +2,7 @@
 """Create synthetic Codex 0.153.4 data in a new, explicitly named directory."""
 
 import argparse
+from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -126,7 +127,7 @@ def create(root, count=1000, rollout_bytes=4096, now=None):
     schema_path = REPOSITORY / "compatibility" / "fixture-schema.sql"
     migrations_path = REPOSITORY / "compatibility" / "migrations.json"
     records = []
-    with sqlite3.connect(codex_home / "state_5.sqlite") as connection:
+    with closing(sqlite3.connect(codex_home / "state_5.sqlite")) as connection:
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA foreign_keys=ON")
         for statement in schema_statements(schema_path.read_text(encoding="utf-8")):
@@ -196,7 +197,7 @@ def verify(root, expect_removed=False, expect_thread_rows=None):
     if any((root / "codex" / "sessions").iterdir()):
         raise ValueError("throughput fixture must not have active sessions")
     database = root / "codex" / "state_5.sqlite"
-    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as connection:
         if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise ValueError("fixture database integrity check failed")
         rows = connection.execute("SELECT id, rollout_path, archived FROM threads").fetchall()

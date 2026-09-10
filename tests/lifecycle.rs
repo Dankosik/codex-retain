@@ -30,7 +30,7 @@ fn first_enable_grants_full_retention_to_an_old_archive() {
     assert!(epoch >= before);
     let report = f.run(true).unwrap();
     assert_eq!(report.deleted, 0);
-    assert_eq!(report.entries[0].reason, "within_retention");
+    assert_eq!(report.entries[0].reason.as_str(), "within_retention");
     assert!(path.exists() && f.exists(&id));
     assert!(report.actual_reclaimed_bytes.is_none());
 }
@@ -42,14 +42,35 @@ fn expiry_requires_strictly_more_than_retention_and_preview_is_read_only() {
     let epoch = f.epoch(&id).unwrap();
     let bytes = fs::read(f.path(&id, true)).unwrap();
     let boundary = epoch + f.policy.duration();
-    let report = engine::execute(&mut f.c, &f.policy, &f.store, boundary, false).unwrap();
+    let report = engine::execute(
+        &mut f.c,
+        &f.policy,
+        &f.store,
+        boundary,
+        engine::ExecutionMode::Preview,
+    )
+    .unwrap();
     assert_eq!(report.eligible, 0);
-    let preview = engine::execute(&mut f.c, &f.policy, &f.store, boundary + 1, false).unwrap();
+    let preview = engine::execute(
+        &mut f.c,
+        &f.policy,
+        &f.store,
+        boundary + 1,
+        engine::ExecutionMode::Preview,
+    )
+    .unwrap();
     assert_eq!(preview.eligible, 1);
     assert_eq!(preview.deleted, 0);
     assert_eq!(fs::read(f.path(&id, true)).unwrap(), bytes);
     assert!(f.exists(&id));
-    let report = engine::execute(&mut f.c, &f.policy, &f.store, boundary + 1, true).unwrap();
+    let report = engine::execute(
+        &mut f.c,
+        &f.policy,
+        &f.store,
+        boundary + 1,
+        engine::ExecutionMode::Run,
+    )
+    .unwrap();
     assert_eq!(report.deleted, 1);
     assert_eq!(report.logical_bytes_removed, bytes.len() as u64);
     assert!(!f.path(&id, true).exists() && !f.exists(&id));
@@ -67,7 +88,13 @@ fn restore_and_rearchive_between_cleaner_runs_resets_capture() {
     )
     .unwrap();
     assert_eq!(f.epoch(&id), None);
-    assert_eq!(database::thread(&f.c, &id).unwrap().unwrap().archived, 0);
+    assert_eq!(
+        database::lookup_thread(&mut database::prepare_thread_lookup(&f.c).unwrap(), &id)
+            .unwrap()
+            .unwrap()
+            .archived,
+        0
+    );
     // No preview or cleanup is run between restore and rearchive.
     let before = now();
     f.c.execute(
@@ -131,7 +158,13 @@ fn active_unknown_pinned_excluded_and_related_threads_are_preserved() {
         (&parent, "related_thread"),
     ] {
         assert_eq!(
-            report.entries.iter().find(|e| &e.id == id).unwrap().reason,
+            report
+                .entries
+                .iter()
+                .find(|e| &e.id == id)
+                .unwrap()
+                .reason
+                .as_str(),
             reason
         );
     }
@@ -195,14 +228,14 @@ fn missing_trigger_and_schema_or_migration_drift_are_rejected() {
     let f = Fixture::new();
     f.c.execute_batch("CREATE TABLE alien_extension(value TEXT)")
         .unwrap();
-    assert!(database::open(&f.home, true).is_err());
+    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
     let f = Fixture::new();
     f.c.execute("UPDATE _sqlx_migrations SET checksum=x'00' WHERE version=(SELECT MAX(version) FROM _sqlx_migrations)",[]).unwrap();
-    assert!(database::open(&f.home, true).is_err());
+    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
     let f = Fixture::new();
     f.c.execute("UPDATE backfill_state SET status='running'", [])
         .unwrap();
-    assert!(database::open(&f.home, true).is_err());
+    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
 }
 
 #[test]
@@ -349,7 +382,7 @@ fn interrupted_uncommitted_sqlite_delete_restores_staged_rollout() {
         &mut f.c,
         Connection::open_in_memory().unwrap(),
     ));
-    f.c = database::open(&f.home, true).unwrap();
+    f.c = database::open(&f.home, database::DatabaseAccess::ReadWrite).unwrap();
     assert!(
         f.exists(&id),
         "SQLite did not roll back the uncommitted deletion"
@@ -463,7 +496,16 @@ fn pause_disabled_and_backward_activation_clock_prevent_mutation() {
     assert!(f.run(true).is_err());
     f.policy.enabled = true;
     let before_activation = f.policy.enabled_at - 1;
-    assert!(engine::execute(&mut f.c, &f.policy, &f.store, before_activation, true).is_err());
+    assert!(
+        engine::execute(
+            &mut f.c,
+            &f.policy,
+            &f.store,
+            before_activation,
+            engine::ExecutionMode::Run
+        )
+        .is_err()
+    );
     assert!(f.path(&id, true).exists() && f.exists(&id));
 }
 
@@ -580,7 +622,10 @@ fn native_pinned_section_protects_even_a_pre_pin_deletion_snapshot() {
     let mut f = Fixture::new();
     let id = f.add(110, 1);
     f.age(&id);
-    let before_pin = database::thread(&f.c, &id).unwrap().unwrap();
+    let before_pin =
+        database::lookup_thread(&mut database::prepare_thread_lookup(&f.c).unwrap(), &id)
+            .unwrap()
+            .unwrap();
     assert_eq!(before_pin.pinned, 0);
     f.c.execute(
         "INSERT INTO thread_sections(id,name) VALUES(?,'Pinned')",
@@ -603,10 +648,10 @@ fn native_pinned_section_protects_even_a_pre_pin_deletion_snapshot() {
     );
     let preview = f.run(false).unwrap();
     assert_eq!(preview.eligible, 0);
-    assert_eq!(preview.entries[0].reason, "pinned_or_unknown_pin");
+    assert_eq!(preview.entries[0].reason.as_str(), "pinned_or_unknown_pin");
     assert_eq!(f.run(true).unwrap().deleted, 0);
     assert!(
-        database::delete_row(&f.c, &before_pin).is_err(),
+        database::delete_row(&mut database::prepare_delete(&f.c).unwrap(), &before_pin).is_err(),
         "final SQL guard accepted a thread pinned after its snapshot"
     );
     assert!(f.exists(&id) && f.path(&id, true).exists());
@@ -694,7 +739,10 @@ fn oversized_zstd_window_is_rejected_before_processing_a_small_valid_frame() {
         report.deleted, 0,
         "16 MiB declared window exceeded the 8 MiB decoder cap"
     );
-    assert_eq!(report.entries[0].reason, "unsafe_or_unavailable_artifact");
+    assert_eq!(
+        report.entries[0].reason.as_str(),
+        "unsafe_or_unavailable_artifact"
+    );
     assert_eq!(fs::read(&compressed).unwrap(), frame);
     assert!(f.exists(&id));
 }

@@ -1,0 +1,341 @@
+diff --git a/scripts/benchmark.py b/scripts/benchmark.py
+index ce1416d..7770e24 100644
+--- a/scripts/benchmark.py
++++ b/scripts/benchmark.py
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env python3
+ """Measure release binaries on disposable, marker-checked synthetic Codex data.
+ 
+-Requires hyperfine and a built Codex Session Janitor. No dependency installation,
++Requires hyperfine and, unless --retain-only, a built Codex Session Janitor. No dependency installation,
+ real-chat access, background task installation, or release build is performed.
+ """
+ 
+@@ -232,16 +232,19 @@ def setup(args):
+     root = fixture.no_symlinks(args.root)
+     if root.exists():
+         raise ValueError("benchmark output directory must not exist: " + str(root))
+-    retain, codex_bin, node = map(executable, (args.retain, args.codex_bin, args.node))
++    retain, codex_bin = map(executable, (args.retain, args.codex_bin))
++    node = executable(args.node) if not args.retain_only else None
+     baseline = executable(args.baseline) if args.baseline else None
+     hyperfine = executable(args.hyperfine)
+-    janitor = Path(args.janitor).resolve(strict=True)
+-    if not (janitor / "dist/cli.js").is_file():
++    janitor = Path(args.janitor).resolve(strict=True) if args.janitor else None
++    if not args.retain_only and janitor is None:
++        raise ValueError("provide --janitor or select --retain-only")
++    if janitor and not (janitor / "dist/cli.js").is_file():
+         raise ValueError("build the pinned Janitor before measuring; missing dist/cli.js")
+-    revision = version(["git", "-C", str(janitor), "rev-parse", "HEAD"])
+-    if revision != JANITOR_REVISION:
++    revision = version(["git", "-C", str(janitor), "rev-parse", "HEAD"]) if janitor else None
++    if janitor and revision != JANITOR_REVISION:
+         raise ValueError("Janitor revision differs from the reviewed baseline: " + revision)
+-    dirty = version(["git", "-C", str(janitor), "status", "--porcelain", "--untracked-files=no"])
++    dirty = version(["git", "-C", str(janitor), "status", "--porcelain", "--untracked-files=no"]) if janitor else None
+     if dirty:
+         raise ValueError("Janitor tracked files are modified; use a pristine baseline")
+     if any(not 0 <= count <= 100000 for count in args.counts) or not 3 <= args.runs <= 100:
+@@ -265,6 +268,8 @@ def setup(args):
+             tool_order = ("retain", "janitor") if args.counts.index(count) % 2 == 0 else ("janitor", "retain")
+             if baseline:
+                 tool_order = ("baseline", "retain", "janitor") if args.counts.index(count) % 2 == 0 else ("retain", "baseline", "janitor")
++            if args.retain_only:
++                tool_order = tuple(tool for tool in tool_order if tool != "janitor")
+             for tool in tool_order:
+                 name = tool + operation + "-" + str(count)
+                 case = dict(common, tool=tool, operation=operation, count=count,
+@@ -279,16 +284,16 @@ def setup(args):
+     metadata = {
+         "schema": 1, "date_utc": fixture.iso(now), "platform": platform.platform(),
+         "architecture": platform.machine(), "python": platform.python_version(),
+-        "hyperfine": version([hyperfine, "--version"]), "node": version([node, "--version"]),
++        "hyperfine": version([hyperfine, "--version"]), "node": version([node, "--version"]) if node else None,
+         "codex": codex_version, "retain": version([retain, "--version"]),
+         "retain_sha256": hashlib.sha256(Path(retain).read_bytes()).hexdigest(),
+         "retain_binary_bytes": Path(retain).stat().st_size,
+         "baseline_sha256": hashlib.sha256(Path(baseline).read_bytes()).hexdigest() if baseline else None,
+         "baseline_version": version([baseline, "--version"]) if baseline else None,
+         "janitor_revision": revision,
+-        "janitor_package": json.loads((janitor / "package.json").read_text(encoding="utf-8")),
+-        "janitor_lock_sha256": hashlib.sha256((janitor / "package-lock.json").read_bytes()).hexdigest(),
+-        "janitor_cli_sha256": hashlib.sha256((janitor / "dist/cli.js").read_bytes()).hexdigest(),
++        "janitor_package": json.loads((janitor / "package.json").read_text(encoding="utf-8")) if janitor else None,
++        "janitor_lock_sha256": hashlib.sha256((janitor / "package-lock.json").read_bytes()).hexdigest() if janitor else None,
++        "janitor_cli_sha256": hashlib.sha256((janitor / "dist/cli.js").read_bytes()).hexdigest() if janitor else None,
+         "counts": args.counts, "rollout_bytes": args.rollout_bytes, "warmups": 3, "runs": args.runs,
+         "cache": "warm filesystem cache; fixtures freshly generated before each sample",
+         "physical_disk_reads": "not measured", "background_services_installed": False,
+@@ -313,7 +318,8 @@ def main():
+     run.add_argument("--retain", required=True, help="already built release codex-retain executable")
+     run.add_argument("--codex-bin", required=True, help="real compatible Codex executable")
+     run.add_argument("--baseline", help="optional earlier Retain executable; same fixtures and policy as --retain")
+-    run.add_argument("--janitor", required=True, help="pristine built checkout at the documented baseline commit")
++    run.add_argument("--janitor", help="pristine built checkout at the documented baseline commit")
++    run.add_argument("--retain-only", action="store_true", help="compare Retain binaries without Janitor")
+     run.add_argument("--node", default="node")
+     run.add_argument("--hyperfine", default="hyperfine")
+     run.add_argument("--counts", nargs="+", type=int, default=[1000, 10000])
+@@ -336,7 +342,7 @@ def main():
+                 print("Preflight " + path.stem, flush=True)
+                 preflight(path)
+             if not args.prepare_only:
+-                if args.only == "all":
++                if args.only == "all" and not args.retain_only:
+                     measure_startup(root, cases[0], hyperfine, args.runs)
+                 for path in cases:
+                     print("Measuring " + path.stem, flush=True)
+diff --git a/scripts/compare_semantics.py b/scripts/compare_semantics.py
+index 6c2f31d..7a0ea67 100644
+--- a/scripts/compare_semantics.py
++++ b/scripts/compare_semantics.py
+@@ -48,8 +48,10 @@ def compare(args):
+         home, state = case_root / "codex", case_root / "state"
+         env = {"HOME": str(case_root / "home"), "CODEX_HOME": str(home),
+                "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LC_ALL": "C", "NO_COLOR": "1"}
+-        ids = [r["id"] for r in manifest["records"]]
+-        paths = [case_root / r["path"] for r in manifest["records"]]
++        cases = {
++            name: {"id": record["id"], "path": case_root / record["path"]}
++            for name, record in zip(CASES, manifest["records"])
++        }
+         prefix = [str(retain), "--state-dir", str(state), "--json"]
+         if tool == "retain":
+             run([*prefix, "enable", "--codex-home", str(home), "--codex-bin", str(codex),
+@@ -59,31 +61,36 @@ def compare(args):
+             # Test-only time setup. Real users never need to edit capture epochs.
+             if tool == "retain":
+                 db.execute("UPDATE codex_retain_epochs SET archived_since=?", (now - 40 * fixture.DAY,))
+-            db.execute("UPDATE threads SET archived_at=? WHERE id=?", (now, ids[0]))
+-            active_path = home / "sessions" / paths[1].name
+-            paths[1].rename(active_path)
+-            paths[1] = active_path
++            db.execute("UPDATE threads SET archived_at=? WHERE id=?",
++                       (now, cases["old_chat_archived_today"]["id"]))
++            active = cases["old_active_chat"]
++            active_path = home / "sessions" / active["path"].name
++            active["path"].rename(active_path)
++            active["path"] = active_path
+             db.execute("UPDATE threads SET archived=0,archived_at=NULL,rollout_path=? WHERE id=?",
+-                       (str(active_path), ids[1]))
+-            db.execute("UPDATE threads SET archived=0,archived_at=NULL WHERE id=?", (ids[2],))
+-            db.execute("UPDATE threads SET archived=1,archived_at=? WHERE id=?", (now, ids[2]))
+-            db.execute("UPDATE threads SET archived_at=NULL WHERE id=?", (ids[3],))
++                       (str(active_path), active["id"]))
++            db.execute("UPDATE threads SET archived=0,archived_at=NULL WHERE id=?",
++                       (cases["restored_then_rearchived"]["id"],))
++            db.execute("UPDATE threads SET archived=1,archived_at=? WHERE id=?",
++                       (now, cases["restored_then_rearchived"]["id"]))
++            db.execute("UPDATE threads SET archived_at=NULL WHERE id=?",
++                       (cases["unknown_archive_time"]["id"],))
+             db.execute("INSERT OR IGNORE INTO thread_sections(id,name) VALUES(?, 'Pinned')",
+                        ("01984de2-8f74-7c91-a3b2-5c5e937cf318",))
+             db.execute("UPDATE threads SET thread_section_id=?,is_pinned=0 WHERE id=?",
+-                       ("01984de2-8f74-7c91-a3b2-5c5e937cf318", ids[4]))
++                       ("01984de2-8f74-7c91-a3b2-5c5e937cf318", cases["native_pinned"]["id"]))
+             if tool == "retain":
+                 db.execute("UPDATE codex_retain_epochs SET archived_since=? WHERE thread_id=?",
+-                           (now - 40 * fixture.DAY, ids[3]))
++                           (now - 40 * fixture.DAY, cases["unknown_archive_time"]["id"]))
+         if tool == "retain":
+-            run([*prefix, "exclude", ids[5]], env)
++            run([*prefix, "exclude", cases["explicitly_excluded"]["id"]], env)
+             output = json.loads(run([*prefix, "run"], env))
+         else:
+             output = run([node, str(janitor / "dist/cli.js"), "clean", "--codex-home", str(home),
+                           "--retention-days", "30", "--confirm", "--mode", "delete"], env)
+         outcomes = [{"scenario": name, "expected_deleted_by_requested_contract": name == "due_archive",
+-                     "actually_deleted": not path.exists(), "thread_id": thread_id}
+-                    for name, path, thread_id in zip(CASES, paths, ids)]
++                     "actually_deleted": not cases[name]["path"].exists(), "thread_id": cases[name]["id"]}
++                    for name in CASES]
+         with sqlite3.connect((home / "state_5.sqlite").as_uri() + "?mode=ro", uri=True) as db:
+             assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+             remaining = db.execute("SELECT count(*) FROM threads").fetchone()[0]
+diff --git a/src/config.rs b/src/config.rs
+index 2c8dbf3..c874f7f 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -17,6 +17,9 @@ pub struct Policy {
+     pub database: Identity,
+     pub retention_days: u32,
+     pub enabled: bool,
++    /// Whether automatic scheduling was requested. Remains true during incomplete
++    /// installation or removal until scheduler disable succeeds; actual launchd
++    /// registration is reported separately by SchedulerStatus.
+     pub automatic: bool,
+     pub paused: bool,
+     pub enabled_at: i64,
+diff --git a/src/database.rs b/src/database.rs
+index d6c07d2..6aced20 100644
+--- a/src/database.rs
++++ b/src/database.rs
+@@ -10,6 +10,7 @@ use std::{
+     fs,
+     path::{Path, PathBuf},
+     process::{Command, Stdio},
++    sync::LazyLock,
+     time::{Duration, Instant},
+ };
+ 
+@@ -121,14 +122,19 @@ fn schema(c: &Connection, owned: bool) -> Result<Vec<SchemaObject>> {
+ }
+ 
+ pub fn verify_base(c: &Connection) -> Result<()> {
+-    let expected: Vec<SchemaObject> =
+-        serde_json::from_str(include_str!("../compatibility/schema.json"))?;
++    // Cache only embedded references. The live database is read on every check.
++    static BASE: LazyLock<Result<Vec<SchemaObject>, serde_json::Error>> =
++        LazyLock::new(|| serde_json::from_str(include_str!("../compatibility/schema.json")));
++    static MIGRATIONS: LazyLock<Result<Vec<Migration>, serde_json::Error>> =
++        LazyLock::new(|| serde_json::from_str(include_str!("../compatibility/migrations.json")));
++    let expected = BASE.as_ref().context("invalid embedded schema reference")?;
+     ensure!(
+-        schema(c, false)? == expected,
++        &schema(c, false)? == expected,
+         "unsupported or modified Codex schema; nothing will be deleted"
+     );
+-    let expected: Vec<Migration> =
+-        serde_json::from_str(include_str!("../compatibility/migrations.json"))?;
++    let expected = MIGRATIONS
++        .as_ref()
++        .context("invalid embedded migration reference")?;
+     let mut stmt = c.prepare(
+         "SELECT version,success,lower(hex(checksum)) FROM _sqlx_migrations ORDER BY version",
+     )?;
+@@ -142,7 +148,7 @@ pub fn verify_base(c: &Connection) -> Result<()> {
+         })?
+         .collect::<rusqlite::Result<Vec<_>>>()?;
+     ensure!(
+-        actual == expected,
++        &actual == expected,
+         "Codex migration history differs from the reviewed version"
+     );
+     let completed: Option<String> = c
+@@ -167,13 +173,19 @@ pub fn verify_policy(c: &Connection, p: &Policy) -> Result<()> {
+         identity(&p.codex_home)? == p.database,
+         "Codex database was replaced; re-enable explicitly to start a new full grace period"
+     );
+-    let reference = Connection::open_in_memory()?;
+-    // Trigger SQL is compared as stored by SQLite, avoiding whitespace/normalization guesses.
+-    reference
+-        .execute_batch("CREATE TABLE threads(id TEXT,archived INTEGER,archived_at INTEGER);")?;
+-    reference.execute_batch(CAPTURE_SQL)?;
++    static CAPTURE: LazyLock<Result<Vec<SchemaObject>>> = LazyLock::new(|| {
++        let reference = Connection::open_in_memory()?;
++        // Compare SQL as stored by SQLite, without normalization guesses.
++        reference
++            .execute_batch("CREATE TABLE threads(id TEXT,archived INTEGER,archived_at INTEGER);")?;
++        reference.execute_batch(CAPTURE_SQL)?;
++        schema(&reference, true)
++    });
++    let expected = CAPTURE
++        .as_ref()
++        .map_err(|error| anyhow::anyhow!("invalid embedded capture reference: {error:#}"))?;
+     ensure!(
+-        schema(c, true)? == schema(&reference, true)?,
++        &schema(c, true)? == expected,
+         "retention capture is missing or modified; deletion is disabled until explicit re-enable"
+     );
+     let owner: String = c.query_row(
+diff --git a/src/engine.rs b/src/engine.rs
+index b3d9783..1d10910 100644
+--- a/src/engine.rs
++++ b/src/engine.rs
+@@ -41,6 +41,15 @@ pub struct Report {
+     pub warnings: Vec<String>,
+ }
+ impl Report {
++    pub(crate) fn requires_attention(&self) -> bool {
++        self.entries.iter().any(|entry| {
++            matches!(
++                entry.reason.as_str(),
++                "changed_busy_or_error" | "unsafe_or_unavailable_artifact"
++            )
++        }) || !self.warnings.is_empty()
++    }
++
+     fn new(mode: &str, now: i64) -> Self {
+         Self {
+             schema: 1,
+@@ -196,8 +205,11 @@ fn inspect(t: &Thread, p: &Policy, inventory: &Inventory) -> Result<Artifact> {
+     // Only the first record is needed. Bound decompressed metadata as well as
+     // read-ahead; never scan a transcript to infer the retention clock.
+     let reader: Box<dyn Read> = if path.extension().is_some_and(|v| v == "zst") {
+-        let mut decoder = zstd::stream::read::Decoder::new(BufReader::with_capacity(16384, file))?;
+-        decoder.window_log_max(23)?; // Reject oversized decoder windows before allocation.
++        let mut decoder =
++            zstd::stream::read::Decoder::with_buffer(BufReader::with_capacity(16384, file))?;
++        // Cap the decoder window at 2^23 bytes (8 MiB) before allocation,
++        // separately from the 1 MiB decompressed first-record limit below.
++        decoder.window_log_max(23)?;
+         Box::new(decoder)
+     } else {
+         Box::new(file)
+diff --git a/src/lib.rs b/src/lib.rs
+index 4e758e1..bb7c369 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -67,16 +67,15 @@ pub fn run() -> ExitCode {
+ }
+ 
+ fn safe_text(value: &str) -> String {
+-    value
+-        .chars()
+-        .flat_map(|c| {
+-            if c.is_control() {
+-                c.escape_default().collect::<Vec<_>>()
+-            } else {
+-                vec![c]
+-            }
+-        })
+-        .collect()
++    let mut text = String::with_capacity(value.len());
++    for c in value.chars() {
++        if c.is_control() {
++            text.extend(c.escape_default());
++        } else {
++            text.push(c);
++        }
++    }
++    text
+ }
+ fn date(value: Option<i64>) -> String {
+     value
+@@ -311,12 +310,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
+                 );
+             }
+             let report = engine::execute(&mut db, &p, &store, now, apply)?;
+-            let incomplete = report.entries.iter().any(|e| {
+-                matches!(
+-                    e.reason.as_str(),
+-                    "changed_busy_or_error" | "unsafe_or_unavailable_artifact"
+-                )
+-            }) || !report.warnings.is_empty();
++            let incomplete = report.requires_attention();
+             if apply {
+                 fsutil::atomic_json(
+                     &store.root.join("last-run.json"),
+diff --git a/tests/lifecycle.rs b/tests/lifecycle.rs
+index 10044ac..e403511 100644
+--- a/tests/lifecycle.rs
++++ b/tests/lifecycle.rs
+@@ -188,10 +188,17 @@ fn missing_trigger_and_schema_or_migration_drift_are_rejected() {
+     let mut f = Fixture::new();
+     let id = f.add(30, 1);
+     f.age(&id);
++    // Warm the embedded reference, then change the live schema in this process.
++    database::verify_policy(&f.c, &f.policy).unwrap();
+     f.c.execute_batch("DROP TRIGGER codex_retain_update")
+         .unwrap();
+     assert!(f.run(true).is_err());
+     assert!(f.exists(&id) && f.path(&id, true).exists());
++    database::install_capture(&mut f.c, &f.policy.owner).unwrap();
++    database::verify_policy(&f.c, &f.policy).unwrap();
++    f.c.execute("UPDATE codex_retain_owner SET owner='another-policy'", [])
++        .unwrap();
++    assert!(database::verify_policy(&f.c, &f.policy).is_err());
+     let f = Fixture::new();
+     f.c.execute_batch("CREATE TABLE alien_extension(value TEXT)")
+         .unwrap();

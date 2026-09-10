@@ -120,7 +120,17 @@ impl Fixture {
             .unwrap();
     }
     pub fn run(&mut self, apply: bool) -> anyhow::Result<engine::Report> {
-        engine::execute(&mut self.c, &self.policy, &self.store, now(), apply)
+        engine::execute(
+            &mut self.c,
+            &self.policy,
+            &self.store,
+            now(),
+            if apply {
+                engine::ExecutionMode::Run
+            } else {
+                engine::ExecutionMode::Preview
+            },
+        )
     }
     pub fn exists(&self, id: &str) -> bool {
         self.c

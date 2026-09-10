@@ -1,0 +1,50 @@
+{
+  "baselinecleanup-1000": {
+    "verified": true,
+    "count": 1000,
+    "removed": true,
+    "remaining_thread_rows": 0
+  },
+  "baselinecleanup-10000": {
+    "verified": true,
+    "count": 10000,
+    "removed": true,
+    "remaining_thread_rows": 0
+  },
+  "baselinepreview-1000": {
+    "verified": true,
+    "count": 1000,
+    "removed": false,
+    "remaining_thread_rows": 1000
+  },
+  "baselinepreview-10000": {
+    "verified": true,
+    "count": 10000,
+    "removed": false,
+    "remaining_thread_rows": 10000
+  },
+  "retaincleanup-1000": {
+    "verified": true,
+    "count": 1000,
+    "removed": true,
+    "remaining_thread_rows": 0
+  },
+  "retaincleanup-10000": {
+    "verified": true,
+    "count": 10000,
+    "removed": true,
+    "remaining_thread_rows": 0
+  },
+  "retainpreview-1000": {
+    "verified": true,
+    "count": 1000,
+    "removed": false,
+    "remaining_thread_rows": 1000
+  },
+  "retainpreview-10000": {
+    "verified": true,
+    "count": 10000,
+    "removed": false,
+    "remaining_thread_rows": 10000
+  }
+}

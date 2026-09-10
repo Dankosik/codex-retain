@@ -1,0 +1,38 @@
+{
+  "architecture": "arm64",
+  "background_services_installed": false,
+  "baseline_sha256": "48f195164e5c64df79079a4de7ba428dfeee29d175d87b98b315b63fbafff7b8",
+  "baseline_version": "codex-retain 0.1.0",
+  "cache": "warm filesystem cache; fixtures freshly generated before each sample",
+  "codex": "codex-cli 0.153.4",
+  "counts": [
+    1000,
+    10000
+  ],
+  "cpu": "Apple M5",
+  "date_utc": "2026-09-10T07:18:34Z",
+  "hyperfine": "hyperfine 1.20.0",
+  "janitor_cli_sha256": null,
+  "janitor_lock_sha256": null,
+  "janitor_package": null,
+  "janitor_revision": null,
+  "limits": [
+    "Janitor deletes rollout files; Retain also maintains verified SQLite thread state.",
+    "Neither measured cleanup mode retains backup or Trash copies.",
+    "All fixture threads are expired archives; correctness edge cases require separate tests.",
+    "macOS time maximum RSS is not summed simultaneous process-tree RSS."
+  ],
+  "macos": "ProductName:\t\tmacOS\nProductVersion:\t\t26.4\nBuildVersion:\t\t25E246",
+  "node": null,
+  "physical_disk_reads": "not measured",
+  "physical_memory_bytes": "17179869184",
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "python": "3.14.3",
+  "retain": "codex-retain 0.1.0",
+  "retain_binary_bytes": 4018880,
+  "retain_sha256": "ece352e6e019e80c181748d22fe020b96e5f0791d9a76f8d0cf7c802dc5988a9",
+  "rollout_bytes": 4096,
+  "runs": 5,
+  "schema": 1,
+  "warmups": 3
+}

@@ -158,7 +158,12 @@ fn due_archives_cross_two_batch_boundaries_without_losing_counts() {
     assert_eq!(report.skipped, 0);
     assert_eq!(report.logical_bytes_removed, expected_bytes);
     assert_eq!(report.entries.len(), count);
-    assert!(report.entries.iter().all(|entry| entry.reason == "deleted"));
+    assert!(
+        report
+            .entries
+            .iter()
+            .all(|entry| entry.reason.as_str() == "deleted")
+    );
     for id in &ids {
         assert!(!fixture.exists(id));
         assert!(!fixture.path(id, true).exists());
@@ -207,7 +212,7 @@ fn precommit_batch_recovery_restores_partial_staging_and_sqlite_rollback() {
             &mut fixture.c,
             Connection::open_in_memory().unwrap(),
         ));
-        fixture.c = database::open(&fixture.home, true).unwrap();
+        fixture.c = database::open(&fixture.home, database::DatabaseAccess::ReadWrite).unwrap();
 
         assert!(ids.iter().all(|id| fixture.exists(id)));
         assert!(
@@ -433,14 +438,14 @@ fn one_busy_writer_is_preserved_while_safe_fallback_finishes_other_archives() {
         .iter()
         .find(|entry| entry.id == *busy)
         .unwrap();
-    assert_eq!(busy_entry.reason, "changed_busy_or_error");
+    assert_eq!(busy_entry.reason.as_str(), "changed_busy_or_error");
     assert!(busy_entry.detail.is_some());
     assert!(
         report
             .entries
             .iter()
             .filter(|entry| entry.id != *busy)
-            .all(|entry| entry.reason == "deleted")
+            .all(|entry| entry.reason.as_str() == "deleted")
     );
     assert!(fixture.exists(busy));
     assert_eq!(fs::read(fixture.path(busy, true)).unwrap(), busy_bytes);
@@ -498,13 +503,13 @@ fn pinned_and_excluded_live_writers_are_filtered_before_forming_batches() {
         report
             .entries
             .iter()
-            .any(|entry| entry.id == *pinned && entry.reason == "pinned_or_unknown_pin")
+            .any(|entry| entry.id == *pinned && entry.reason.as_str() == "pinned_or_unknown_pin")
     );
     assert!(
         report
             .entries
             .iter()
-            .any(|entry| entry.id == *excluded && entry.reason == "excluded")
+            .any(|entry| entry.id == *excluded && entry.reason.as_str() == "excluded")
     );
     for id in &ids[2..] {
         assert!(!fixture.exists(id));

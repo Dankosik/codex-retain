@@ -1,0 +1,19 @@
+{
+  "parent_rss_kib_sampled_max": 67584,
+  "parent_rss_samples": 24,
+  "last_run": {
+    "actual_reclaimed_bytes": null,
+    "allocated_bytes_unlinked": 0,
+    "deleted": 0,
+    "examined": 100000,
+    "logical_bytes_removed": 0,
+    "observed_free_space_delta_bytes": 0,
+    "schema": 1,
+    "skipped": 100000,
+    "skips": [],
+    "started_at": 1789025553,
+    "status": "ok",
+    "warnings": []
+  },
+  "note": "manual invocation of --scheduled on synthetic no-schedule policy; no LaunchAgent created; separate instrumented parent RSS observation"
+}

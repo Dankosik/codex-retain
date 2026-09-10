@@ -1,0 +1,53 @@
+{
+  "architecture": "arm64",
+  "background_services_installed": false,
+  "binaries": {
+    "baseline": {
+      "bytes": 4021312,
+      "path": "/private/tmp/codex-retain-opt-20260910-l3kjsm_8/baseline-codex-retain",
+      "sha256": "2329dc3a45932dcd1f5abae82ebe9903f8aa9f240cede008c05fa94f713ef34c",
+      "version": "codex-retain 0.1.0"
+    },
+    "candidate": {
+      "bytes": 4073616,
+      "path": "/private/tmp/codex-retain-opt-20260910-l3kjsm_8/candidate-codex-retain",
+      "sha256": "5580dec11a49b44f45e35775f5868a459cec6a68869fb3942eb8ef9d5471cf3a",
+      "version": "codex-retain 0.1.0"
+    },
+    "codex": {
+      "bytes": 220584000,
+      "path": "/Users/daniil/.nvm/versions/node/v25.8.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+      "sha256": "b973d440acac501fd2594a43e7ca9ce41e0a65b9dfb28d0d7a7837c99e1261e3",
+      "version": "codex-cli 0.153.4"
+    },
+    "hyperfine": {
+      "bytes": 1150864,
+      "path": "/opt/homebrew/Cellar/hyperfine/1.20.0/bin/hyperfine",
+      "sha256": "b7272e98214e951452bcbc81eaf0b8f0db391dce05b58ce8ab42985b632c5e94",
+      "version": "hyperfine 1.20.0"
+    }
+  },
+  "cache": "warm filesystem cache; read-only fixtures reused, contention data restored outside timing",
+  "cases": [
+    "mixed-none",
+    "mixed-one",
+    "summary",
+    "one-busy",
+    "global-busy",
+    "all-busy",
+    "headers-plain",
+    "headers-zstd"
+  ],
+  "date_utc": "2026-09-10T10:43:08Z",
+  "limits": [
+    "Shared host; no CPU or filesystem-cache isolation.",
+    "RSS is a separate sampled parent-only lower bound, not allocation or process-tree memory.",
+    "Synthetic version-specific profiles establish only the measured workloads."
+  ],
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "python": "3.14.3",
+  "runs": 5,
+  "schema": 1,
+  "script_sha256": "eba87cd7ef2810e541dccb19c47d8c6e6e71d7540a44f4ac523708f7981d2305",
+  "warmups": 3
+}

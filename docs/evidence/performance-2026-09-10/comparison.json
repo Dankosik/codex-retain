@@ -1,0 +1,24 @@
+[
+  {
+    "count": 1000,
+    "baseline_mean_seconds": 0.47062133280000007,
+    "candidate_mean_seconds": 0.48207438320000007,
+    "baseline_stddev_seconds": 0.0060098622415662994,
+    "candidate_stddev_seconds": 0.01769124436866739,
+    "baseline_user_seconds": 0.06482859999999999,
+    "candidate_user_seconds": 0.04765899999999999,
+    "user_time_reduction_percent": 26.484607102420842,
+    "wall_time_change_percent": 2.433602049413941
+  },
+  {
+    "count": 10000,
+    "baseline_mean_seconds": 5.9845186666000005,
+    "candidate_mean_seconds": 6.002963374999999,
+    "baseline_stddev_seconds": 0.5554947673595269,
+    "candidate_stddev_seconds": 0.6233343772852656,
+    "baseline_user_seconds": 0.5539858,
+    "candidate_user_seconds": 0.3402158,
+    "user_time_reduction_percent": 38.58763166853735,
+    "wall_time_change_percent": 0.3082070493478417
+  }
+]

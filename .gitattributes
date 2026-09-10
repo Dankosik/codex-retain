@@ -2,3 +2,7 @@
 *.png binary
 *.zip binary
 RUST_STDLIB_NOTICES.html -whitespace linguist-vendored
+
+# Preserve format-significant whitespace in recorded diffs and raw test logs.
+docs/evidence/**/*.patch -whitespace
+docs/evidence/**/*.log -whitespace

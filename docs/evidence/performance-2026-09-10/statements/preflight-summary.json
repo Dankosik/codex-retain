@@ -1,0 +1,86 @@
+{
+  "baselinecleanup-10000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 40960000,
+      "deleted": 10000,
+      "eligible": 10000,
+      "examined": 10000,
+      "logical_bytes_removed": 40960000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 38625280,
+      "schema": 1,
+      "selected_bytes": 40960000,
+      "skipped": 0,
+      "started_at": 1789024727,
+      "warnings": []
+    },
+    "count": 10000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "retaincleanup-1000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 4096000,
+      "deleted": 1000,
+      "eligible": 1000,
+      "examined": 1000,
+      "logical_bytes_removed": 4096000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 593920,
+      "schema": 1,
+      "selected_bytes": 4096000,
+      "skipped": 0,
+      "started_at": 1789024715,
+      "warnings": []
+    },
+    "count": 1000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "baselinecleanup-1000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 4096000,
+      "deleted": 1000,
+      "eligible": 1000,
+      "examined": 1000,
+      "logical_bytes_removed": 4096000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 176128,
+      "schema": 1,
+      "selected_bytes": 4096000,
+      "skipped": 0,
+      "started_at": 1789024714,
+      "warnings": []
+    },
+    "count": 1000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "retaincleanup-10000-preflight.json": {
+    "command_output": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 40960000,
+      "deleted": 10000,
+      "eligible": 10000,
+      "examined": 10000,
+      "logical_bytes_removed": 40960000,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 36032512,
+      "schema": 1,
+      "selected_bytes": 40960000,
+      "skipped": 0,
+      "started_at": 1789024719,
+      "warnings": []
+    },
+    "count": 10000,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  }
+}

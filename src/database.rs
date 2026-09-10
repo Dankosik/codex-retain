@@ -4,7 +4,7 @@ use crate::{
     fsutil::{self, Identity},
 };
 use anyhow::{Context, Result, bail, ensure};
-use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Statement, params};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -74,7 +74,13 @@ pub fn verify_binary(binary: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn open(home: &Path, writable: bool) -> Result<Connection> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DatabaseAccess {
+    ReadOnly,
+    ReadWrite,
+}
+
+pub fn open(home: &Path, access: DatabaseAccess) -> Result<Connection> {
     let path = home.join(DB_NAME);
     let _ = fsutil::regular(&path, false, false)?;
     for entry in fs::read_dir(home)? {
@@ -85,15 +91,14 @@ pub fn open(home: &Path, writable: bool) -> Result<Connection> {
             "another Codex state schema is present; adapter update required"
         );
     }
-    let flags = if writable {
-        OpenFlags::SQLITE_OPEN_READ_WRITE
-    } else {
-        OpenFlags::SQLITE_OPEN_READ_ONLY
+    let flags = match access {
+        DatabaseAccess::ReadOnly => OpenFlags::SQLITE_OPEN_READ_ONLY,
+        DatabaseAccess::ReadWrite => OpenFlags::SQLITE_OPEN_READ_WRITE,
     };
     let c = Connection::open_with_flags(path, flags | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
     c.busy_timeout(Duration::from_millis(200))?;
     c.execute_batch("PRAGMA foreign_keys=ON; PRAGMA trusted_schema=OFF;")?;
-    if writable {
+    if access == DatabaseAccess::ReadWrite {
         c.execute_batch("PRAGMA synchronous=FULL;")?;
     }
     verify_base(&c)?;
@@ -158,9 +163,8 @@ pub fn verify_base(c: &Connection) -> Result<()> {
 }
 
 pub fn identity(home: &Path) -> Result<Identity> {
-    Ok(Identity::of(
-        &fsutil::regular(&home.join(DB_NAME), false, false)?.metadata()?,
-    ))
+    let (_file, metadata) = fsutil::regular_with_metadata(&home.join(DB_NAME), false, false)?;
+    Ok(Identity::of(&metadata))
 }
 pub fn verify_policy(c: &Connection, p: &Policy) -> Result<()> {
     ensure!(
@@ -258,28 +262,56 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Thread> {
 }
 
 pub fn archived(c: &Connection) -> Result<Vec<Thread>> {
+    let mut threads = Vec::new();
+    visit_archived(c, |thread| {
+        threads.push(thread);
+        Ok(())
+    })?;
+    Ok(threads)
+}
+
+/// Visit the initial archive snapshot without retaining every owned row.
+/// The caller must finish this bounded read before beginning deletion.
+pub fn visit_archived(c: &Connection, mut visit: impl FnMut(Thread) -> Result<()>) -> Result<()> {
     let mut s = c.prepare(&format!(
         "{SELECT} WHERE t.archived<>0 OR t.archived IS NULL ORDER BY t.id LIMIT 100001"
     ))?;
-    let rows = s
-        .query_map([PINNED_SECTION_ID], row)?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    ensure!(
-        rows.len() <= 100000,
-        "archive exceeds the 100,000-thread safety limit; no changes made"
-    );
-    Ok(rows)
+    for (index, thread) in s.query_map([PINNED_SECTION_ID], row)?.enumerate() {
+        ensure!(
+            index < 100000,
+            "archive exceeds the 100,000-thread safety limit; no changes made"
+        );
+        visit(thread?)?;
+    }
+    Ok(())
 }
-pub fn thread(c: &Connection, id: &str) -> Result<Option<Thread>> {
-    Ok(c.query_row(
-        &format!("{SELECT} WHERE t.id=?"),
-        [PINNED_SECTION_ID, id],
-        row,
-    )
-    .optional()?)
+pub fn prepare_thread_lookup(c: &Connection) -> Result<Statement<'_>> {
+    Ok(c.prepare(&format!("{SELECT} WHERE t.id=?"))?)
 }
-pub fn delete_row(c: &Connection, t: &Thread) -> Result<()> {
-    let affected=c.execute("DELETE FROM threads WHERE id=? AND archived=1 AND archived_at IS ? AND rollout_path=? AND is_pinned=0 AND history_mode='legacy' AND thread_section_id IS NOT ?",params![t.id,t.archived_at,t.path.to_str().context("non-UTF-8 Codex database path")?,PINNED_SECTION_ID])?;
+pub fn lookup_thread(statement: &mut Statement<'_>, id: &str) -> Result<Option<Thread>> {
+    Ok(statement
+        .query_row([PINNED_SECTION_ID, id], row)
+        .optional()?)
+}
+pub fn prepare_delete(c: &Connection) -> Result<Statement<'_>> {
+    Ok(c.prepare("DELETE FROM threads WHERE id=? AND archived=1 AND archived_at IS ? AND rollout_path=? AND is_pinned=0 AND history_mode='legacy' AND thread_section_id IS NOT ?")?)
+}
+pub fn delete_row(statement: &mut Statement<'_>, t: &Thread) -> Result<()> {
+    let affected = statement.execute(params![
+        t.id,
+        t.archived_at,
+        t.path.to_str().context("non-UTF-8 Codex database path")?,
+        PINNED_SECTION_ID
+    ])?;
     ensure!(affected == 1, "thread changed before deletion");
+    Ok(())
+}
+
+/// Consume a statement prepared before journaling, releasing its transaction
+/// borrow before the caller commits the staged group.
+pub fn delete_rows(mut statement: Statement<'_>, threads: &[Thread]) -> Result<()> {
+    for thread in threads {
+        delete_row(&mut statement, thread)?;
+    }
     Ok(())
 }

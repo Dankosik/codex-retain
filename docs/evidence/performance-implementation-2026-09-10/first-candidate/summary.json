@@ -1,0 +1,151 @@
+{
+  "macos_process_accounting": [
+    {
+      "maximum_resident_set_size_bytes": 19595264,
+      "source": "baselinecleanup-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 19529728,
+      "source": "baselinecleanup-10000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 19480576,
+      "source": "retaincleanup-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 29851648,
+      "source": "retaincleanup-10000-time.txt"
+    }
+  ],
+  "measurements": [
+    {
+      "command": "baselinecleanup-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.48823445800000004,
+      "mean": 0.45564638320000006,
+      "median": 0.443010875,
+      "memory_usage_byte": [
+        36208640,
+        36208640,
+        36356096,
+        36536320,
+        36536320
+      ],
+      "min": 0.432672292,
+      "source": "baselinecleanup-1000-hyperfine.json",
+      "stddev": 0.024776654663188468,
+      "system": 0.23911339999999998,
+      "times": [
+        0.43842858300000004,
+        0.443010875,
+        0.432672292,
+        0.475885708,
+        0.48823445800000004
+      ],
+      "user": 0.035860199999999995
+    },
+    {
+      "command": "baselinecleanup-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 10.079551584,
+      "mean": 7.9447097502,
+      "median": 7.239103917,
+      "memory_usage_byte": [
+        51445760,
+        51445760,
+        51445760,
+        51642368,
+        51642368
+      ],
+      "min": 6.508786541,
+      "source": "baselinecleanup-10000-hyperfine.json",
+      "stddev": 1.6177618632631745,
+      "system": 3.3536887999999996,
+      "times": [
+        6.508786541,
+        9.242519792,
+        10.079551584,
+        6.653586917,
+        7.239103917
+      ],
+      "user": 0.46658279999999996
+    },
+    {
+      "command": "retaincleanup-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.6288243330000001,
+      "mean": 0.5562030248000001,
+      "median": 0.5664539580000001,
+      "memory_usage_byte": [
+        36421632,
+        36421632,
+        36421632,
+        36421632,
+        36421632
+      ],
+      "min": 0.49252983300000003,
+      "source": "retaincleanup-1000-hyperfine.json",
+      "stddev": 0.056288676706512775,
+      "system": 0.3116827999999999,
+      "times": [
+        0.585694083,
+        0.6288243330000001,
+        0.49252983300000003,
+        0.507512917,
+        0.5664539580000001
+      ],
+      "user": 0.04189919999999999
+    },
+    {
+      "command": "retaincleanup-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 15.170465125,
+      "mean": 12.0451308918,
+      "median": 12.118182709,
+      "memory_usage_byte": [
+        54247424,
+        54247424,
+        54247424,
+        54247424,
+        54247424
+      ],
+      "min": 9.491881709,
+      "source": "retaincleanup-10000-hyperfine.json",
+      "stddev": 2.4596015450937143,
+      "system": 4.3139503999999995,
+      "times": [
+        9.491881709,
+        12.118182709,
+        13.684490875,
+        15.170465125,
+        9.760634041
+      ],
+      "user": 0.5193136
+    }
+  ],
+  "physical_disk_reads": null
+}

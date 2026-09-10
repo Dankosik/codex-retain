@@ -1,0 +1,295 @@
+{
+  "macos_process_accounting": [
+    {
+      "maximum_resident_set_size_bytes": 53002240,
+      "source": "baselinecleanup-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 52969472,
+      "source": "baselinecleanup-10000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 53084160,
+      "source": "baselinepreview-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 52969472,
+      "source": "baselinepreview-10000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 52969472,
+      "source": "retaincleanup-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 52936704,
+      "source": "retaincleanup-10000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 53018624,
+      "source": "retainpreview-1000-time.txt"
+    },
+    {
+      "maximum_resident_set_size_bytes": 52903936,
+      "source": "retainpreview-10000-time.txt"
+    }
+  ],
+  "measurements": [
+    {
+      "command": "baselinecleanup-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.46732,
+      "mean": 0.4565870498,
+      "median": 0.45433225000000005,
+      "memory_usage_byte": [
+        53051392,
+        53100544,
+        53100544,
+        53100544,
+        53100544
+      ],
+      "min": 0.451285792,
+      "source": "baselinecleanup-1000-hyperfine.json",
+      "stddev": 0.0062126533534815126,
+      "system": 0.19616899999999998,
+      "times": [
+        0.46732,
+        0.45430641600000005,
+        0.451285792,
+        0.45433225000000005,
+        0.45569079100000004
+      ],
+      "user": 0.0629148
+    },
+    {
+      "command": "baselinecleanup-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 7.1760985,
+      "mean": 6.3177761832,
+      "median": 6.4338845,
+      "memory_usage_byte": [
+        54853632,
+        55115776,
+        58327040,
+        58327040,
+        58327040
+      ],
+      "min": 5.469984125,
+      "source": "baselinecleanup-10000-hyperfine.json",
+      "stddev": 0.7861435245300564,
+      "system": 2.3637296,
+      "times": [
+        6.4338845,
+        6.959835583,
+        7.1760985,
+        5.469984125,
+        5.549078208
+      ],
+      "user": 0.539545
+    },
+    {
+      "command": "baselinepreview-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.07186429100000001,
+      "mean": 0.0655575832,
+      "median": 0.06380100000000001,
+      "memory_usage_byte": [
+        53051392,
+        53051392,
+        53051392,
+        53100544,
+        53100544
+      ],
+      "min": 0.063028083,
+      "source": "baselinepreview-1000-hyperfine.json",
+      "stddev": 0.003692318923639752,
+      "system": 0.028337800000000003,
+      "times": [
+        0.07186429100000001,
+        0.06327587500000001,
+        0.063028083,
+        0.06380100000000001,
+        0.065818667
+      ],
+      "user": 0.027373400000000003
+    },
+    {
+      "command": "baselinepreview-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.38513225,
+      "mean": 0.3092165498,
+      "median": 0.310080458,
+      "memory_usage_byte": [
+        58343424,
+        58343424,
+        58343424,
+        58343424,
+        58343424
+      ],
+      "min": 0.268281333,
+      "source": "baselinepreview-10000-hyperfine.json",
+      "stddev": 0.04767502566031563,
+      "system": 0.21401939999999997,
+      "times": [
+        0.38513225,
+        0.268281333,
+        0.268826708,
+        0.31376200000000004,
+        0.310080458
+      ],
+      "user": 0.06667000000000001
+    },
+    {
+      "command": "retaincleanup-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.486340625,
+      "mean": 0.4740560332,
+      "median": 0.48113133300000005,
+      "memory_usage_byte": [
+        53067776,
+        53100544,
+        53100544,
+        53100544,
+        53100544
+      ],
+      "min": 0.45611975000000005,
+      "source": "retaincleanup-1000-hyperfine.json",
+      "stddev": 0.012929686869265938,
+      "system": 0.20728239999999998,
+      "times": [
+        0.46482916700000004,
+        0.486340625,
+        0.481859291,
+        0.48113133300000005,
+        0.45611975000000005
+      ],
+      "user": 0.06412540000000001
+    },
+    {
+      "command": "retaincleanup-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 6.99954925,
+      "mean": 6.3662075582,
+      "median": 6.204491,
+      "memory_usage_byte": [
+        54820864,
+        54820864,
+        54820864,
+        54820864,
+        57966592
+      ],
+      "min": 5.734603333,
+      "source": "retaincleanup-10000-hyperfine.json",
+      "stddev": 0.521053352004983,
+      "system": 2.3010785999999994,
+      "times": [
+        6.99954925,
+        6.797617,
+        6.094777208,
+        6.204491,
+        5.734603333
+      ],
+      "user": 0.5177164
+    },
+    {
+      "command": "retainpreview-1000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.063550875,
+      "mean": 0.0630856,
+      "median": 0.06350375,
+      "memory_usage_byte": [
+        53051392,
+        53067776,
+        53100544,
+        53100544,
+        53100544
+      ],
+      "min": 0.061774542,
+      "source": "retainpreview-1000-hyperfine.json",
+      "stddev": 0.0007628303908527107,
+      "system": 0.0265934,
+      "times": [
+        0.061774542,
+        0.063550417,
+        0.063550875,
+        0.06350375,
+        0.06304841600000001
+      ],
+      "user": 0.026316399999999997
+    },
+    {
+      "command": "retainpreview-10000",
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "max": 0.692565459,
+      "mean": 0.3787505252,
+      "median": 0.301938625,
+      "memory_usage_byte": [
+        58294272,
+        58294272,
+        58294272,
+        58294272,
+        58294272
+      ],
+      "min": 0.26189537500000004,
+      "source": "retainpreview-10000-hyperfine.json",
+      "stddev": 0.17802054600119274,
+      "system": 0.222518,
+      "times": [
+        0.34617654200000003,
+        0.301938625,
+        0.692565459,
+        0.26189537500000004,
+        0.291176625
+      ],
+      "user": 0.06590339999999999
+    }
+  ],
+  "physical_disk_reads": null
+}

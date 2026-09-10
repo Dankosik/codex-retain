@@ -1,0 +1,75 @@
+{
+  "head": "5920f33e8f8d2a438be540d3302fb7fb5718cdab",
+  "runtime_source_patch_matches_prior_candidate": true,
+  "prior_candidate_patch_sha256": "442583b7997765262351a1068a9a6fd648ee49d6506aeaaebd55172ea543fbb3",
+  "binary_sha256": "ece352e6e019e80c181748d22fe020b96e5f0791d9a76f8d0cf7c802dc5988a9",
+  "runtime_source_changes_in_this_audit": false,
+  "new_build_in_this_audit": false,
+  "scratch_root": "/private/tmp/codex-retain-audit-20260910-01a08a35",
+  "source_hashes": {
+    "Cargo.lock": "dc489b4279d980f0c1d4f251295e25ecb0f0fa39f20cd9beac6c7d5b2b888f2d",
+    "Cargo.toml": "67ff33122da0c7acd8752447f6ca6c77a94b368cfbe4dafa13dd3c0dd8000a03",
+    "compatibility/capture.sql": "69d02e6291e323794d249d60d4c17caf0e4f812da5ebb013d04ade7fd62e1f1c",
+    "compatibility/fixture-schema.sql": "c1669d0223e862111037d78f6d89de1cc8e976a3b567b513f042312554aadab6",
+    "compatibility/migrations.json": "57b0dc31c598c873194098c248e11f2080127dec540acf419b6eb21a4c39bea4",
+    "compatibility/schema.json": "0ec9dbddc80cfd3cf387455a75971e8b352abf4d0fec3f2667d55696fbc23dc1",
+    "src/cli.rs": "2ccda14a6e63bf691655108b9e9e9b3f167e3fd7db616469f35d31a2defc4c45",
+    "src/config.rs": "4200b6a3c99cd169b56f67479283c531c37e220f49f430db9ec725ceb148f74d",
+    "src/database.rs": "84ecabb0e332b8006fc1cbf237347a95b87d29d4e1136bc6450cad52a07490a1",
+    "src/engine.rs": "4461178abc689676bad5e0d9e5307d0e79842b5ff192f75fd8f6348e6c93147b",
+    "src/fsutil.rs": "af82041a0977a4d1dddb77c677dce06fc82b3d875621ca7ab7632abe997f0f49",
+    "src/lib.rs": "ae70fe4db6830a1448290216dc0231685444864ac26a2053dab0a0f5f6eae48d",
+    "src/main.rs": "5242bb4ad5c9b6dd6e2c9a2a48810d3a2c7aca3f299bb2e4d4c15776339bee82",
+    "src/scheduler.rs": "cfed29ca684220ea2072d96a53786d56dc4b8aa3b136196563ad4529cc4d8ffd"
+  },
+  "profile_sample_count": 4269,
+  "top_stack_counts": {
+    "durability_fcntl": 1900,
+    "unlink": 746,
+    "open": 572,
+    "rename": 419
+  },
+  "memory_method": "separate /bin/ps -o rss= -p RETAIN_PID samples with 10ms sleeps; sampled maximum lower bound; excludes Codex child; no allocation profiler",
+  "check_scope": [
+    "fresh 10000 archive cleanup with exact existing fixture verifier and integrity_check",
+    "32 hyperfine invocations: four cases each warmup3 and measured5, plus preview pre/post checks and separate RSS observations",
+    "all 100000 rollout file paths and contents hash-identical after mixed preview experiment",
+    "scheduled mode manually invoked on synthetic no-schedule policy; no LaunchAgent installed",
+    "in-memory EXPLAIN query plans on Python SQLite3.51.3"
+  ],
+  "not_measured": [
+    "optimized before/after candidate",
+    "cold cache",
+    "allocation counts",
+    "bundled SQLite statement counters",
+    "conflict throughput",
+    "concurrent native writer latency"
+  ],
+  "source_identity_scope": "source_hashes and patch equality were captured before the concurrent refactor; timings belong to the recorded existing executable",
+  "concurrent_refactor_observed_at": "2026-09-10T07:38:12.901868+00:00",
+  "concurrently_changed_source_files": [
+    "src/database.rs",
+    "src/engine.rs"
+  ],
+  "source_hashes_at_closeout": {
+    "Cargo.lock": "dc489b4279d980f0c1d4f251295e25ecb0f0fa39f20cd9beac6c7d5b2b888f2d",
+    "Cargo.toml": "67ff33122da0c7acd8752447f6ca6c77a94b368cfbe4dafa13dd3c0dd8000a03",
+    "compatibility/capture.sql": "69d02e6291e323794d249d60d4c17caf0e4f812da5ebb013d04ade7fd62e1f1c",
+    "compatibility/fixture-schema.sql": "c1669d0223e862111037d78f6d89de1cc8e976a3b567b513f042312554aadab6",
+    "compatibility/migrations.json": "57b0dc31c598c873194098c248e11f2080127dec540acf419b6eb21a4c39bea4",
+    "compatibility/schema.json": "0ec9dbddc80cfd3cf387455a75971e8b352abf4d0fec3f2667d55696fbc23dc1",
+    "src/cli.rs": "2ccda14a6e63bf691655108b9e9e9b3f167e3fd7db616469f35d31a2defc4c45",
+    "src/config.rs": "4200b6a3c99cd169b56f67479283c531c37e220f49f430db9ec725ceb148f74d",
+    "src/database.rs": "b7b63ede7f651bab7025d08b5f2aabb99a9ff6c026be84e6aeeb7cf89df1995e",
+    "src/engine.rs": "e65516f58744a493c0e7011444cd022692c6a85a4808e723b086bc683ed24889",
+    "src/fsutil.rs": "af82041a0977a4d1dddb77c677dce06fc82b3d875621ca7ab7632abe997f0f49",
+    "src/lib.rs": "ae70fe4db6830a1448290216dc0231685444864ac26a2053dab0a0f5f6eae48d",
+    "src/main.rs": "5242bb4ad5c9b6dd6e2c9a2a48810d3a2c7aca3f299bb2e4d4c15776339bee82",
+    "src/scheduler.rs": "cfed29ca684220ea2072d96a53786d56dc4b8aa3b136196563ad4529cc4d8ffd"
+  },
+  "concurrent_change_note": "EntryReason enum, DatabaseAccess/ExecutionMode enums, RolloutVariants and helper renames/refactoring observed; no current-tree compilation or performance claim; main inventory/report/owner-scan/fallback findings persist in inspected delta",
+  "synthetic_fixtures_removed_after_evidence_capture": [
+    "retaincleanup-10000",
+    "retainpreview-1000"
+  ]
+}
