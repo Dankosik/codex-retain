@@ -1,0 +1,10 @@
+{
+  "removed_marked_synthetic_fixtures": [
+    "/private/tmp/codex-retain-0.1.3-final-legacy/fixtures/cleanup-1000",
+    "/private/tmp/codex-retain-0.1.3-final-legacy/fixtures/cleanup-10000",
+    "/private/tmp/codex-retain-0.1.3-final-paginated/fixtures/cleanup-1000"
+  ],
+  "all_removed": true,
+  "real_profiles_touched": false,
+  "evidence_preserved": true
+}

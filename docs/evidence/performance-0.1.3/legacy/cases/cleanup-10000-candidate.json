@@ -1,0 +1,14 @@
+{
+  "benchmark_root": "/private/tmp/codex-retain-0.1.3-final-legacy",
+  "binary": "/Users/daniil/Projects/Opensource/codex-retain/target/aarch64-apple-darwin/release/codex-retain",
+  "busy_ids": [],
+  "codex_bin": "/Applications/ChatGPT.app/Contents/Resources/codex",
+  "fixture_key": "cleanup-10000",
+  "fixture_root": "/private/tmp/codex-retain-0.1.3-final-legacy/fixtures/cleanup-10000",
+  "held_locks": [],
+  "now": 1789063665,
+  "policy_sha256": "6bd04620c7e21ee39daa0b705e7f7251d7f632efea1fd2ad848a5e16743885e2",
+  "scenario": "cleanup-10000",
+  "tool": "candidate",
+  "zstd": null
+}

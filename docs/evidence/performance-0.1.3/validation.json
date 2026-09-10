@@ -1,0 +1,222 @@
+{
+  "timed_runs": 30,
+  "warmups_per_case": 3,
+  "checks": [
+    {
+      "case": "legacy/cleanup-1000-baseline",
+      "passed": true,
+      "receipts": [
+        {
+          "file": "legacy/cleanup-1000-baseline-preflight.json.gz",
+          "sha256": "f9eff654427680f995035922e462272b8859aa4d249d22189251f012af6adaae",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-1000-baseline-postflight.json.gz",
+          "sha256": "c65f3ead4b6da011c66f5fed981a550e5562eefdb8821e9465670ad24efb500d",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-1000-baseline-result.json.gz",
+          "sha256": "0b2054d4caa1e379e85d8e314eeeeda3439eac6973e208162e6e8a1caff21e39",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "legacy/cleanup-1000-candidate",
+      "passed": true,
+      "receipts": [
+        {
+          "file": "legacy/cleanup-1000-candidate-preflight.json.gz",
+          "sha256": "faf745353f65c115c1848aeab5383f1552b8b293c43c99673c17db67f6a9b123",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-1000-candidate-postflight.json.gz",
+          "sha256": "69e1b1a497f15ae596178a0804fe1a8d0854979e472ad7d53766d97faf1d0c80",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-1000-candidate-result.json.gz",
+          "sha256": "347541e52204f5097a5efe16dc9e26b5c7b0a952605fddab4319d29a2361f147",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "legacy/cleanup-10000-baseline",
+      "passed": true,
+      "receipts": [
+        {
+          "file": "legacy/cleanup-10000-baseline-preflight.json.gz",
+          "sha256": "fa81e876c8597462e87a89a7880a61cb6a6c41ea08a3bacf5ae30b3363e65a2c",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-10000-baseline-postflight.json.gz",
+          "sha256": "1e2c0dbcde7ef62c05d3fbdc7e5161f9f6d51b75f4232bba94094bebd86b463d",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-10000-baseline-result.json.gz",
+          "sha256": "79bbd6c1f8597074b5ef4a0404774818dc1e2b4ecd3e118694f0dd4f5a229aba",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "legacy/cleanup-10000-candidate",
+      "passed": true,
+      "receipts": [
+        {
+          "file": "legacy/cleanup-10000-candidate-preflight.json.gz",
+          "sha256": "4ab1bce933224ac9ec387108738e5ac1b5e4600577e19b0797b9c73f9ee47daf",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-10000-candidate-postflight.json.gz",
+          "sha256": "60baddb527cae57283c35936d524482f4e44bb4925d306912e777d5ad2244cae",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "legacy/cleanup-10000-candidate-result.json.gz",
+          "sha256": "eacd9a0f325cd2383e8223667b300643da7aeee7c72122bfff66dd843bb83816",
+          "counts": {
+            "deleted": 10000,
+            "eligible": 10000,
+            "examined": 10000,
+            "skipped": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "paginated/cleanup-1000-baseline",
+      "passed": true,
+      "receipts": [
+        {
+          "file": "paginated/cleanup-1000-baseline-preflight.json.gz",
+          "sha256": "3e9961a2c3ab9624c5a9a9fe495322a53954880f432d5a94015383c685f0cbd7",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "paginated/cleanup-1000-baseline-postflight.json.gz",
+          "sha256": "8b62a89f043ae5bc90b876dd882c2c6367ff6de82251d15400b71f7dd3293656",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "paginated/cleanup-1000-baseline-result.json.gz",
+          "sha256": "d89b38678c1ed277f88e940ba3e1be02c695811298c3ae645a16b80615cf9f6f",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "paginated/cleanup-1000-candidate",
+      "passed": true,
+      "receipts": [
+        {
+          "file": "paginated/cleanup-1000-candidate-preflight.json.gz",
+          "sha256": "80ec65687df4a39654c6dc3942d3fb5b9a2583496ce7ce00c44addaf4487c525",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "paginated/cleanup-1000-candidate-postflight.json.gz",
+          "sha256": "c8fd9671c4d3ed3a3020774c0c58cdc2aba853dafb401ea518b9571308f7ec7d",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        },
+        {
+          "file": "paginated/cleanup-1000-candidate-result.json.gz",
+          "sha256": "f8587d5f2786c476daa295103079ab73135a43074e2bb551e69c4d5b7f35e144",
+          "counts": {
+            "deleted": 1000,
+            "eligible": 1000,
+            "examined": 1000,
+            "skipped": 0
+          }
+        }
+      ]
+    }
+  ]
+}

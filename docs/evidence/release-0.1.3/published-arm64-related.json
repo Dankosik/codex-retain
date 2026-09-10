@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "passed": true,
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "retain_sha256": "79d4275bfa913063998b59ee5d32416e163fb4ed59dc8025d6084951f90a3d27",
+  "codex_launcher_sha256": "a30ec314bbd0e3721632234d07db7c99855db3b9f1e32dbe8c791947f07e7629",
+  "model_turns_submitted": 0,
+  "launchagents_installed": 0,
+  "fixture": "native legacy starts plus constructed organizational parent metadata and SQL spawn edges",
+  "test_only_mutations": [
+    "after native shutdown, add parent_thread_id, source.subagent.thread_spawn, multi_agent_version v2 and SQL spawn edges",
+    "age synthetic capture epochs"
+  ],
+  "limitations": [
+    "Constructed organizational fixture; no native model-driven spawn conformance claim.",
+    "Empty legacy histories establish metadata/lifecycle compatibility, not populated child transcript rendering.",
+    "Assertions cover main rows, incident spawn edges and owned rollout files; not separate projection caches."
+  ],
+  "checks": [
+    {
+      "name": "native_read_accepts_constructed_child",
+      "passed": true
+    },
+    {
+      "name": "native_read_accepts_constructed_child",
+      "passed": true
+    },
+    {
+      "name": "native_read_accepts_constructed_child",
+      "passed": true
+    },
+    {
+      "name": "native_read_accepts_constructed_child",
+      "passed": true
+    },
+    {
+      "name": "native_read_accepts_constructed_child",
+      "passed": true
+    },
+    {
+      "name": "native_read_accepts_constructed_child",
+      "passed": true
+    },
+    {
+      "name": "native_delete_child_preserves_parent_and_removes_edge",
+      "passed": true
+    },
+    {
+      "name": "loaded_parent_writer_blocks_child_cleanup",
+      "passed": true,
+      "reason": "changed_busy_or_error",
+      "detail": "acquire thread and owning ancestor writer locks: busy or unavailable lock $FIXTURE/codex/thread-writer-locks/01a08c93-f72d-7671-a27e-d60e7af6e23f.lock: lock acquisition failed because the operation would block"
+    },
+    {
+      "name": "child_cleanup_preserves_pinned_parent_and_removes_edge",
+      "passed": true,
+      "deleted": 1
+    },
+    {
+      "name": "native_parent_resume_and_read_after_child_cleanup",
+      "passed": true
+    },
+    {
+      "name": "native_root_archive_cascades_to_constructed_descendants",
+      "passed": true
+    },
+    {
+      "name": "due_three_level_chain_deleted_in_one_run",
+      "passed": true,
+      "deleted": 3,
+      "deleted_ids": [
+        "01a08c93-f769-7091-a0df-d38bb49547d0",
+        "01a08c93-f785-7a02-86e8-9bbbdef073dd",
+        "01a08c93-f7a3-7560-92fd-1b4d95512936"
+      ]
+    },
+    {
+      "name": "pinned_and_excluded_children_preserve_ancestors",
+      "passed": true,
+      "entries": [
+        {
+          "id": "01a08c93-f7c0-7d11-b762-26d66e59e641",
+          "title": "",
+          "reason": "dependent_thread",
+          "eligible_at": 1788978502,
+          "bytes": 21764,
+          "detail": "a surviving child requires this parent"
+        },
+        {
+          "id": "01a08c93-f7dd-71f0-89f1-670c567d32c1",
+          "title": "",
+          "reason": "pinned_or_unknown_pin",
+          "eligible_at": 1788978502,
+          "bytes": null,
+          "detail": null
+        },
+        {
+          "id": "01a08c93-f7f9-7482-9a31-f195a1f32354",
+          "title": "",
+          "reason": "dependent_thread",
+          "eligible_at": 1788978502,
+          "bytes": 21764,
+          "detail": "a surviving child requires this parent"
+        },
+        {
+          "id": "01a08c93-f817-74f1-9177-2a6284e28492",
+          "title": "",
+          "reason": "excluded",
+          "eligible_at": 1788978502,
+          "bytes": null,
+          "detail": null
+        }
+      ]
+    },
+    {
+      "name": "related_cleanup_idempotent",
+      "passed": true
+    },
+    {
+      "name": "no_launchagent_installed",
+      "passed": true
+    }
+  ],
+  "codex_version": "codex-cli 0.153.4",
+  "retain_version": "codex-retain 0.1.3",
+  "app_server_user_agent": "codex-retain-conformance/0.153.4 (Mac OS 26.4.0; arm64) dumb (codex-retain-conformance; 1)",
+  "native_methods": [
+    "initialize",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "thread/start",
+    "thread/section/move",
+    "initialize",
+    "thread/read",
+    "thread/read",
+    "thread/read",
+    "thread/read",
+    "thread/read",
+    "thread/read",
+    "thread/delete",
+    "thread/archive",
+    "thread/resume",
+    "thread/archive",
+    "thread/section/move",
+    "thread/unarchive",
+    "thread/resume",
+    "thread/read",
+    "thread/archive",
+    "thread/archive",
+    "thread/archive",
+    "thread/section/move"
+  ],
+  "native_stderr_tail": "",
+  "finished_at_utc": "2026-09-10T18:28:23Z"
+}

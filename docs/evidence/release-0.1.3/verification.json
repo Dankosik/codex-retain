@@ -1,0 +1,152 @@
+{
+  "version": "0.1.3",
+  "source_commit": "1e99b901c1c1aae575e98fab50936df8286f909f",
+  "release_url": "https://github.com/Dankosik/codex-retain/releases/tag/0.1.3",
+  "published_at": "2026-09-10T18:19:28Z",
+  "draft": false,
+  "prerelease": false,
+  "release_workflow": {
+    "id": 34512746502,
+    "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Archive (x86_64-apple-darwin)",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102990638054"
+      },
+      {
+        "name": "checks / Test (ubuntu-22.04)",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102990638250"
+      },
+      {
+        "name": "Archive (aarch64-apple-darwin)",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102990638259"
+      },
+      {
+        "name": "checks / Declared minimum Rust",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102990638260"
+      },
+      {
+        "name": "checks / Quality and maintenance",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102990638283"
+      },
+      {
+        "name": "checks / Dependency policy",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102990638321"
+      },
+      {
+        "name": "checks / Test (macos-15)",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102990638505"
+      },
+      {
+        "name": "checks / required",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102991140473"
+      },
+      {
+        "name": "publish",
+        "conclusion": "success",
+        "url": "https://github.com/Dankosik/codex-retain/actions/runs/34512746502/job/102993383683"
+      }
+    ]
+  },
+  "assets": [
+    {
+      "name": "codex-retain-0.1.3-aarch64-apple-darwin.tar.gz",
+      "bytes": 2032919,
+      "sha256": "83e798581edbbd3a1bc3022b23e3cf6408cd3daf863da862291aeeceaff53e25",
+      "url": "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/codex-retain-0.1.3-aarch64-apple-darwin.tar.gz"
+    },
+    {
+      "name": "codex-retain-0.1.3-x86_64-apple-darwin.tar.gz",
+      "bytes": 2162969,
+      "sha256": "869ee2ce5fafb14954ef671709c18ca1716bbdd94bc1bb32f844f7ff8c1816dc",
+      "url": "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/codex-retain-0.1.3-x86_64-apple-darwin.tar.gz"
+    },
+    {
+      "name": "codex-retain.rb",
+      "bytes": 1515,
+      "sha256": "82c68ad232ca5ddc9f7b7e0ab9c8157576577e95b5175ddda40e4852810b8074",
+      "url": "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/codex-retain.rb"
+    },
+    {
+      "name": "install.sh",
+      "bytes": 4088,
+      "sha256": "02e08de2a2f654673c4ec3825795240c7a8cb8fc2c5a508ec4980c810500676d",
+      "url": "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/install.sh"
+    },
+    {
+      "name": "SHA256SUMS",
+      "bytes": 225,
+      "sha256": "89a8c10fed8ee77a242143d879e12cf76a9b7e17dc7648e1657df34526225f5e",
+      "url": "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/SHA256SUMS"
+    }
+  ],
+  "checksums_verified": true,
+  "both_archive_inventories_verified": true,
+  "installer_matches_tag": true,
+  "generated_formula_matches_release_asset": true,
+  "published_binary_sha256": {
+    "aarch64-apple-darwin": "79d4275bfa913063998b59ee5d32416e163fb4ed59dc8025d6084951f90a3d27",
+    "x86_64-apple-darwin": "117661a0dc24c516c35bbc78ba898fb9460ccc68f75652a15df72b9474c47f9a"
+  },
+  "linkage": [
+    "/usr/lib/libiconv.2.dylib",
+    "/usr/lib/libSystem.B.dylib"
+  ],
+  "local_checks": {
+    "make_verify": {
+      "rust_tests": 192,
+      "release_tests": 26,
+      "skill_tests": 7,
+      "passed": true
+    },
+    "shellcheck_install_sh": true,
+    "actionlint": true
+  },
+  "isolated_installer": {
+    "passed": true,
+    "version_help_completions_passed": true,
+    "directory": "/private/tmp/codex-retain-0.1.3-installed/bin"
+  },
+  "isolated_homebrew": {
+    "prefix": "/private/tmp/codex-retain-0.1.3-brew",
+    "formula_style": true,
+    "readall_all_os_all_arch": true,
+    "install": true,
+    "test": true,
+    "version_help_completions_passed": true,
+    "binary_matches_published_archive": true,
+    "test_diagnostics": "brew test exited 0; its macOS sandbox emitted nonfatal sysmond/pgrep process-list diagnostics. Separate version/help/completions smoke tests passed without state creation."
+  },
+  "published_arm64_native_checks": [
+    {
+      "receipt": "published-arm64-paginated.json",
+      "passed": true,
+      "checks": 13,
+      "sha256": "156fc79aa967a8af4ec39a14ddb079e34d74fcec69f5d1eef411c5237e5221ba"
+    },
+    {
+      "receipt": "published-arm64-related.json",
+      "passed": true,
+      "checks": 15,
+      "sha256": "522f02c0caff7927fa0c32a4d9659176675db71200d882469f6aacd996e64aac"
+    }
+  ],
+  "existing_system_installation": {
+    "preserved": true,
+    "sha256": "61b109eb1c1b400d5788e34ef0bd39d8e5b043603117a4571a9137c21ac80352"
+  },
+  "limitations": [
+    "Intel binary was tested and packaged on the native macOS 15 CI runner, not installed through Homebrew on this ARM64 host.",
+    "Native Codex conformance uses isolated synthetic profiles and no model requests; no real cleanup or production scheduler changes were made.",
+    "Performance numbers describe the separately identified local release build of the final source, not the GitHub-built binaries."
+  ]
+}

@@ -59,6 +59,11 @@ brew install dankosik/codex-retain/codex-retain
 codex-retain doctor
 ```
 
+If Homebrew reports an untrusted formula, run
+`brew trust --formula dankosik/codex-retain/codex-retain`, then repeat the tap
+and install commands. This trust step applies to Homebrew versions that require
+explicit approval for third-party formulae.
+
 This tap installs the same prebuilt binaries and shell completions. Enable using
 `codex-retain` on PATH, so the schedule retains Homebrew's stable link.
 
@@ -296,12 +301,33 @@ run cache, and the scheduled no-candidate path skips the inventory entirely.
 The cache retains memory proportional to the file inventory; it holds parsed
 metadata and file stamps, not transcripts or open file handles.
 
-[Earlier candidate measurements](docs/inventory-performance-2026-09-10.md) preserve
-all samples, including noisy small paginated results. Those measurements precede
-the final coarse-timestamp correction and are not a performance claim for the
-release archives. Native conformance covers paginated fork/revert, retained
-history, organizational dependencies and writer contention using isolated
-synthetic profiles.
+The final runtime implementation was measured against installed 0.1.2 on
+ARM64 macOS 26.4 using synthetic 4-KiB archives, three warmups and five timed
+runs per case. Each pair shared a profile and policy; restoration and result
+checks were outside timing. The candidate was a local Rust 1.98.1 release build
+of tag 0.1.3, not a timing of the GitHub-built archives.
+
+| Workload | 0.1.2 median | Local 0.1.3 median |
+| --- | ---: | ---: |
+| Delete 1,000 independent paginated archives | 660 ms | 628 ms |
+| Delete 1,000 legacy archives | 799 ms | 557 ms |
+| Delete 10,000 legacy archives | 16.331 s | **9.158 s (44% less time)** |
+
+The large cleanup ranges do not overlap: 15.697–18.445 s versus 7.960–12.162 s.
+Small paginated timings remain noisy, with overlapping ranges and a slightly
+higher candidate mean; a stable speedup is not established. Separately sampled
+process RSS for the 10,000-file case was 26.78 MiB versus 31.59 MiB. Samples can
+miss the peak and exclude child processes.
+
+All 30 timed runs passed result checks. These warm-cache observations on a
+shared desktop do not establish cold-cache behavior, live-writer latency or
+performance on another host. The earlier candidate's measurements are retained
+as historical evidence and are not substituted for this corrected version.
+
+[Final comparison and reproduction](docs/performance-0.1.3.md) ·
+[All samples and RSS](docs/evidence/performance-0.1.3/comparison.json) ·
+[Published-package verification](docs/release-0.1.3-validation.md) ·
+[Earlier candidate and CI correction](docs/inventory-performance-2026-09-10.md)
 
 We also [reviewed five existing Codex cleanup tools](docs/competitors.md) and
 [compared seven retention scenarios](docs/evidence/semantic-comparison.json).
@@ -336,7 +362,7 @@ make verify
 cargo build --release --locked
 ```
 
-The [latest optimization validation](docs/inventory-performance-2026-09-10.md)
+The [latest optimization validation](docs/performance-0.1.3.md)
 covers file-cache invalidation, fresh orphan dependencies, recovery and native
 Codex conformance. CI runs the Rust and maintenance checks on the declared
 toolchain; release jobs additionally test and package each macOS architecture

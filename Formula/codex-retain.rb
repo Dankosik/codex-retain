@@ -2,21 +2,17 @@
 class CodexRetain < Formula
   desc "Predictable local retention for archived Codex chats"
   homepage "https://github.com/Dankosik/codex-retain"
-  version "0.1.2"
+  if Hardware::CPU.arm?
+    url "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/codex-retain-0.1.3-aarch64-apple-darwin.tar.gz"
+    sha256 "83e798581edbbd3a1bc3022b23e3cf6408cd3daf863da862291aeeceaff53e25"
+  else
+    url "https://github.com/Dankosik/codex-retain/releases/download/0.1.3/codex-retain-0.1.3-x86_64-apple-darwin.tar.gz"
+    sha256 "869ee2ce5fafb14954ef671709c18ca1716bbdd94bc1bb32f844f7ff8c1816dc"
+  end
+  version "0.1.3"
   license "MIT"
 
   depends_on macos: :sequoia
-
-  on_macos do
-    on_arm do
-      url "https://github.com/Dankosik/codex-retain/releases/download/0.1.2/codex-retain-0.1.2-aarch64-apple-darwin.tar.gz"
-      sha256 "b02211087cbb0c0945278b27448fb6a40a9ee763b590c2e5b6ceef16d9813a9e"
-    end
-    on_intel do
-      url "https://github.com/Dankosik/codex-retain/releases/download/0.1.2/codex-retain-0.1.2-x86_64-apple-darwin.tar.gz"
-      sha256 "e2c08e8fdf0578a8124bf5da764d5786f95675cd50774c8ff05b5681e0a969da"
-    end
-  end
 
   def install
     bin.install "codex-retain"

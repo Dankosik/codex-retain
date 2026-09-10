@@ -92,7 +92,7 @@ both trees, discovers orphan files and copies, and reconstructs dependencies.
 Missing paths leave the cache after a successful scan; a failed scan clears it.
 Candidate and staged-file inspections still open and validate their headers
 independently. Preview does not retain the cache. See the
-[inventory performance comparison](inventory-performance-2026-09-10.md) for
+[inventory performance comparison](performance-0.1.3.md) for
 measurements and the remaining first-scan cost. Native pins use the current
 pinned-section ID and legacy bit.
 See [related-thread design](related-support.md) and

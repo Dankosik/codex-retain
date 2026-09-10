@@ -1,0 +1,104 @@
+[
+  {
+    "case": "legacy/cleanup-1000",
+    "baseline": {
+      "median_seconds": 0.7993123750000001,
+      "mean_seconds": 0.78686555,
+      "stddev_seconds": 0.05527033222029883,
+      "min_seconds": 0.697708208,
+      "max_seconds": 0.847610292,
+      "times_seconds": [
+        0.807053083,
+        0.847610292,
+        0.7993123750000001,
+        0.697708208,
+        0.782643792
+      ],
+      "sampled_parent_rss_max_kib": 10416
+    },
+    "candidate": {
+      "median_seconds": 0.5572585,
+      "mean_seconds": 0.5872029997999999,
+      "stddev_seconds": 0.06325879998476192,
+      "min_seconds": 0.52881075,
+      "max_seconds": 0.6656612080000001,
+      "times_seconds": [
+        0.52881075,
+        0.5572585,
+        0.539721416,
+        0.644563125,
+        0.6656612080000001
+      ],
+      "sampled_parent_rss_max_kib": 10304
+    },
+    "change_percent": -30.282763356441222
+  },
+  {
+    "case": "legacy/cleanup-10000",
+    "baseline": {
+      "median_seconds": 16.331021917,
+      "mean_seconds": 16.6214810498,
+      "stddev_seconds": 1.0668959703584608,
+      "min_seconds": 15.69679825,
+      "max_seconds": 18.445006083,
+      "times_seconds": [
+        15.69679825,
+        16.331021917,
+        16.544616041,
+        16.089962958,
+        18.445006083
+      ],
+      "sampled_parent_rss_max_kib": 27424
+    },
+    "candidate": {
+      "median_seconds": 9.158094417,
+      "mean_seconds": 9.6532603998,
+      "stddev_seconds": 1.751812329263624,
+      "min_seconds": 7.960322583,
+      "max_seconds": 12.161533291,
+      "times_seconds": [
+        9.158094417,
+        7.960322583,
+        12.161533291,
+        8.305432,
+        10.680919708
+      ],
+      "sampled_parent_rss_max_kib": 32352
+    },
+    "change_percent": -43.92209830135152
+  },
+  {
+    "case": "paginated/cleanup-1000",
+    "baseline": {
+      "median_seconds": 0.6604491250000001,
+      "mean_seconds": 0.6511500918,
+      "stddev_seconds": 0.09901130569133075,
+      "min_seconds": 0.515914167,
+      "max_seconds": 0.782673833,
+      "times_seconds": [
+        0.515914167,
+        0.782673833,
+        0.606382709,
+        0.6604491250000001,
+        0.6903306250000001
+      ],
+      "sampled_parent_rss_max_kib": 10592
+    },
+    "candidate": {
+      "median_seconds": 0.628292916,
+      "mean_seconds": 0.6645054330000001,
+      "stddev_seconds": 0.12756290860599875,
+      "min_seconds": 0.551459041,
+      "max_seconds": 0.88246725,
+      "times_seconds": [
+        0.88246725,
+        0.628292916,
+        0.6539337080000001,
+        0.551459041,
+        0.60637425
+      ],
+      "sampled_parent_rss_max_kib": 10672
+    },
+    "change_percent": -4.8688396702774135
+  }
+]

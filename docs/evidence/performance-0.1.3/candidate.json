@@ -1,0 +1,17 @@
+{
+  "release_tag": "0.1.3",
+  "source_commit": "1e99b901c1c1aae575e98fab50936df8286f909f",
+  "binary_sha256": "a82d737e4ce10471d5d079bc72f75bc2269f3a44a55b855cd672cc657373181d",
+  "rust": "1.98.1",
+  "macos_deployment_target": "15.0",
+  "sources": {
+    "src/engine.rs": "4f7d38ac38f194eabe0d9180323db6689d459239d0329e45b9882ff4b0c88927",
+    "src/lineage.rs": "598b1ba51642462c15a4efc43573c9389f7a93c5f80fead7b5ff6769973f4d49",
+    "src/metadata.rs": "240b9962d9d620d80dff25da9da9397e76f50e8f5fdadd99e904fe97823a082c",
+    "Cargo.toml": "48b2190689d0b45c2fcf35624b8885ab6461f0da34c4bdc0878ea69a77b9c927",
+    "Cargo.lock": "8740a21facdc4c1d5f73fe455e8d1d764e1867bacdd212a1550e7080576877be"
+  },
+  "initial_failed_ci": "https://github.com/Dankosik/codex-retain/actions/runs/34509292383",
+  "corrected_ci": "https://github.com/Dankosik/codex-retain/actions/runs/34512373286",
+  "measurement_scope": "Local release build of final runtime implementation; GitHub-built published binaries are verified separately."
+}
