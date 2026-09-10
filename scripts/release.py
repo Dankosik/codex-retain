@@ -228,16 +228,17 @@ class CodexRetain < Formula
   version "{info.version}"
   license "MIT"
 
-  depends_on :macos
   depends_on macos: :sequoia
 
-  on_arm do
-    url "{base}/{arm}"
-    sha256 "{digests[arm]}"
-  end
-  on_intel do
-    url "{base}/{intel}"
-    sha256 "{digests[intel]}"
+  on_macos do
+    on_arm do
+      url "{base}/{arm}"
+      sha256 "{digests[arm]}"
+    end
+    on_intel do
+      url "{base}/{intel}"
+      sha256 "{digests[intel]}"
+    end
   end
 
   def install
