@@ -263,7 +263,7 @@ def integration(context, evidence):
     for sig in original_handlers:
         signal.signal(sig, interrupted)
     try:
-        fixture.create(context.fixture, count=2)
+        fixture.create(context.fixture, count=2, archived_at=int(time.time()))
         evidence["retention_version"] = run([context.retain, "--version"], env=environment(context)).stdout.strip()
         with tempfile.TemporaryDirectory(prefix="version-probe-", dir=context.root) as temporary:
             probe_env = dict(environment(context), HOME=temporary,

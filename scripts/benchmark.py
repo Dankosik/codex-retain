@@ -106,7 +106,8 @@ def prepare(case_path):
     root = Path(case["fixture_root"])
     if root.exists():
         fixture.remove_owned(root)
-    fixture.create(root, case["count"], case["rollout_bytes"], case["now"])
+    # Keep setup non-destructive; explicitly age only the measured fixture later.
+    fixture.create(root, case["count"], case["rollout_bytes"], case["now"], archived_at=case["now"])
     if case["tool"] in {"retain", "baseline"}:
         output = execute(
             [case[case["tool"]], "--state-dir", str(root / "state"), "--json", "enable",
@@ -114,7 +115,7 @@ def prepare(case_path):
              "--days", "30", "--no-schedule", "--yes"], env=environment(case),
         )
         (root / "enable-result.json").write_text(output, encoding="utf-8")
-        # This bypasses onboarding grace ONLY in marker-checked generated data.
+        # This ages retention ONLY in marker-checked generated data.
         # It must never be suggested as a way to change a real retention policy.
         fixture.owned_root(root)
         database = root / "codex" / "state_5.sqlite"

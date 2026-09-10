@@ -113,9 +113,169 @@ fn consent_is_required_before_profile_mutation() {
 
 #[test]
 #[cfg(target_os = "macos")]
+fn enable_cleans_old_legacy_and_paginated_archives_and_preserves_protected_owners() {
+    let mut f = Fixture::new();
+    let legacy = f.add(410, 1);
+    let paginated = f.add(411, 1);
+    let recent = f.add(412, 1);
+    let pinned = f.add(413, 1);
+    let excluded = f.add(414, 1);
+    let parent = f.add(415, 1);
+    let active = f.add(416, 0);
+    f.c.execute(
+        "UPDATE threads SET archived_at=unixepoch() WHERE id=?",
+        [&recent],
+    )
+    .unwrap();
+    f.c.execute("UPDATE threads SET is_pinned=1 WHERE id=?", [&pinned])
+        .unwrap();
+    f.c.execute(
+        "INSERT INTO thread_spawn_edges VALUES(?,?,'open')",
+        [&parent, &active],
+    )
+    .unwrap();
+    f.c.execute(
+        "UPDATE threads SET history_mode='paginated' WHERE id=?",
+        [&paginated],
+    )
+    .unwrap();
+    let paginated_path = f.path(&paginated, true);
+    let data = fs::read_to_string(&paginated_path)
+        .unwrap()
+        .replace("legacy", "paginated");
+    fs::write(&paginated_path, data).unwrap();
+    let legacy_path = f.path(&legacy, true);
+    let preserved: Vec<_> = [&recent, &pinned, &excluded, &parent]
+        .iter()
+        .map(|id| {
+            let path = f.path(id, true);
+            let contents = fs::read(&path).unwrap();
+            (path, contents)
+        })
+        .collect();
+    let active_path = f.path(&active, false);
+    let active_bytes = fs::read(&active_path).unwrap();
+    // Explicit re-enable of a disabled older policy retains its exclusions.
+    f.policy.enabled = false;
+    f.policy.exclusions.insert(excluded.clone());
+    f.store.save(&f.policy).unwrap();
+    database::uninstall_capture(&mut f.c, &f.policy).unwrap();
+    let bin = binary(f.temp.path());
+    let state = f.store.root.clone();
+    let home = f.home.clone();
+    drop(f.store);
+    let output = json(
+        command(&state)
+            .args([
+                "enable",
+                "--days",
+                "30",
+                "--yes",
+                "--no-schedule",
+                "--codex-home",
+            ])
+            .arg(&home)
+            .arg("--codex-bin")
+            .arg(bin),
+    );
+    assert_eq!(output["schema"], 2);
+    assert_eq!(output["existing_archives_assessed"], 6);
+    assert_eq!(output["initial_archive_clock"], "codex_archived_at");
+    assert_eq!(output["initial_cleanup"]["deleted"], 2);
+    assert_eq!(output["initial_cleanup"]["skipped"], 4);
+    assert!(!legacy_path.exists() && !paginated_path.exists());
+    assert_eq!(
+        f.c.query_row(
+            "SELECT count(*) FROM threads WHERE id IN (?,?)",
+            [&legacy, &paginated],
+            |row| row.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+    for (path, bytes) in preserved {
+        assert_eq!(fs::read(path).unwrap(), bytes);
+    }
+    assert_eq!(fs::read(active_path).unwrap(), active_bytes);
+    let receipt: Value =
+        serde_json::from_slice(&fs::read(state.join("last-run.json")).unwrap()).unwrap();
+    assert_eq!(receipt["deleted"], 2);
+    assert_eq!(receipt["status"], "ok");
+    command(&state)
+        .args(["run", "--scheduled"])
+        .assert()
+        .success()
+        .stdout("");
+    let receipt: Value =
+        serde_json::from_slice(&fs::read(state.join("last-run.json")).unwrap()).unwrap();
+    assert_eq!(receipt["deleted"], 0);
+    assert!(!state.join("pending.json").exists());
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn initial_cleanup_reports_busy_and_invalid_artifacts_as_attention_then_retries() {
+    for busy in [true, false] {
+        let mut f = Fixture::new();
+        let id = f.add(420, 1);
+        let path = f.path(&id, true);
+        let original = fs::read(&path).unwrap();
+        let lock = busy.then(|| codex_retain::fsutil::ThreadLock::acquire(&f.home, &id).unwrap());
+        if !busy {
+            fs::write(&path, b"invalid metadata\n").unwrap();
+        }
+        database::uninstall_capture(&mut f.c, &f.policy).unwrap();
+        let bin = binary(f.temp.path());
+        let state = f.store.root.clone();
+        let home = f.home.clone();
+        drop(f.store);
+        let assertion = command(&state)
+            .args(["enable", "--yes", "--no-schedule", "--codex-home"])
+            .arg(&home)
+            .arg("--codex-bin")
+            .arg(bin)
+            .assert()
+            .code(3);
+        let output: Value = serde_json::from_slice(&assertion.get_output().stdout).unwrap();
+        assert_eq!(output["enabled"], true);
+        assert_eq!(output["initial_cleanup"]["deleted"], 0);
+        let receipt: Value =
+            serde_json::from_slice(&fs::read(state.join("last-run.json")).unwrap()).unwrap();
+        assert_eq!(receipt["status"], "attention");
+        assert_eq!(
+            f.c.query_row("SELECT count(*) FROM threads WHERE id=?", [&id], |row| row
+                .get::<_, i64>(
+                0
+            ))
+            .unwrap(),
+            1
+        );
+        assert!(path.exists());
+        drop(lock);
+        fs::write(&path, original).unwrap();
+        command(&state)
+            .args(["run", "--scheduled"])
+            .assert()
+            .success()
+            .stdout("");
+        assert!(!path.exists());
+        let receipt: Value =
+            serde_json::from_slice(&fs::read(state.join("last-run.json")).unwrap()).unwrap();
+        assert_eq!(receipt["deleted"], 1);
+        assert_eq!(receipt["status"], "ok");
+    }
+}
+
+#[test]
+#[cfg(target_os = "macos")]
 fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable() {
     let mut f = Fixture::new();
     let id = f.add(401, 1);
+    f.c.execute(
+        "UPDATE threads SET archived_at=unixepoch() WHERE id=?",
+        [&id],
+    )
+    .unwrap();
     let rowpath = f.path(&id, true);
     database::uninstall_capture(&mut f.c, &f.policy).unwrap();
     let bin = binary(f.temp.path());
@@ -137,7 +297,10 @@ fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable(
             .arg("--codex-bin")
             .arg(&bin),
     );
-    assert_eq!(enabled["existing_archives_given_grace"], 1);
+    assert_eq!(enabled["schema"], 2);
+    assert_eq!(enabled["existing_archives_assessed"], 1);
+    assert_eq!(enabled["initial_cleanup"]["deleted"], 0);
+    assert!(enabled.get("existing_archives_given_grace").is_none());
     assert_eq!(enabled["automatic"], false);
     let preview = json(command(&state).arg("preview"));
     assert_eq!(preview["eligible"], 0);

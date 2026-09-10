@@ -13,7 +13,7 @@ use std::{
 use support::{Fixture, now};
 
 #[test]
-fn first_enable_grants_full_retention_to_an_old_archive() {
+fn first_capture_adopts_the_archive_date_instead_of_creation_or_mtime() {
     let mut f = Fixture::new();
     let id = f.add(1, 1);
     let path = f.path(&id, true);
@@ -24,14 +24,18 @@ fn first_enable_grants_full_retention_to_an_old_archive() {
         .set_times(fs::FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1)))
         .unwrap();
     f.age(&id);
-    let before = now();
+    let archived_at = now() - f.policy.duration() - 100;
+    f.c.execute(
+        "UPDATE threads SET archived_at=? WHERE id=?",
+        params![archived_at, id],
+    )
+    .unwrap();
     database::install_capture(&mut f.c, &f.policy.owner).unwrap();
     let epoch = f.epoch(&id).unwrap();
-    assert!(epoch >= before);
+    assert_eq!(epoch, archived_at);
     let report = f.run(true).unwrap();
-    assert_eq!(report.deleted, 0);
-    assert_eq!(report.entries[0].reason.as_str(), "within_retention");
-    assert!(path.exists() && f.exists(&id));
+    assert_eq!(report.deleted, 1);
+    assert!(!path.exists() && !f.exists(&id));
     assert!(report.actual_reclaimed_bytes.is_none());
 }
 
@@ -763,18 +767,75 @@ fn capture_installation_seeds_preexisting_archive_without_changing_native_rows()
     let before = snapshot(&f.c);
     let archive_bytes = fs::read(f.path(&archived, true)).unwrap();
     let active_bytes = fs::read(f.path(&active, false)).unwrap();
-    let before_install = now();
     assert_eq!(
         database::install_capture(&mut f.c, &f.policy.owner).unwrap(),
         1
     );
     assert_eq!(snapshot(&f.c), before);
-    assert!(f.epoch(&archived).unwrap() >= before_install);
+    assert_eq!(f.epoch(&archived), Some(1));
     assert_eq!(f.epoch(&active), None);
     assert_eq!(fs::read(f.path(&archived, true)).unwrap(), archive_bytes);
     assert_eq!(fs::read(f.path(&active, false)).unwrap(), active_bytes);
     assert_eq!(f.policy.schema, 1);
-    assert_eq!(f.run(true).unwrap().deleted, 0);
+    assert_eq!(f.run(true).unwrap().deleted, 1);
+}
+
+#[test]
+fn initial_capture_preserves_the_exact_expiry_boundary_and_unknown_dates() {
+    let mut f = Fixture::new();
+    let evaluated_at = now();
+    let dates = [
+        Some(evaluated_at - f.policy.duration() - 1),
+        Some(evaluated_at - f.policy.duration()),
+        Some(evaluated_at),
+        None,
+        Some(0),
+        Some(-1),
+        Some(evaluated_at + 100),
+    ];
+    let ids: Vec<_> = dates
+        .iter()
+        .enumerate()
+        .map(|(index, date)| {
+            let id = f.add(200 + index as u128, 1);
+            f.c.execute(
+                "UPDATE threads SET archived_at=? WHERE id=?",
+                params![date, id],
+            )
+            .unwrap();
+            id
+        })
+        .collect();
+    database::install_capture(&mut f.c, &f.policy.owner).unwrap();
+    let report = engine::execute(
+        &mut f.c,
+        &f.policy,
+        &f.store,
+        evaluated_at,
+        engine::ExecutionMode::Run,
+    )
+    .unwrap();
+    assert_eq!(report.deleted, 1);
+    assert!(!f.exists(&ids[0]));
+    assert!(
+        ids[1..]
+            .iter()
+            .all(|id| f.exists(id) && f.path(id, true).exists())
+    );
+    assert_eq!(f.epoch(&ids[1]), dates[1]);
+    // The surviving boundary case becomes due without reseeding capture.
+    assert_eq!(
+        engine::execute(
+            &mut f.c,
+            &f.policy,
+            &f.store,
+            evaluated_at + 1,
+            engine::ExecutionMode::Run
+        )
+        .unwrap()
+        .deleted,
+        1
+    );
 }
 
 #[test]

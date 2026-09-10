@@ -7,8 +7,8 @@ checks. `launchd`, which already belongs to macOS, holds the schedule.
 
 The retention deadline is the earliest time deletion is permitted, not a promise
 to delete at that exact second. Sleep, logout, a busy database, compatibility
-checks, and skipped candidates can delay cleanup. No run starts immediately just
-because the LaunchAgent was loaded. There is no `KeepAlive`, shell wrapper,
+checks, and skipped candidates can delay cleanup. Loading the LaunchAgent alone does not start it immediately; `enable` itself
+performs the initial cleanup. There is no `KeepAlive`, shell wrapper,
 copied hidden binary, or continuously running watcher.
 
 ## Installation and enabling
@@ -16,8 +16,11 @@ copied hidden binary, or continuously running watcher.
 Install the normal `codex-retain` executable into a stable location using the
 installation instructions in the [README](../README.md). Review the retention
 rules and run doctor before enabling; preview becomes available after activation.
-The enable command saves the policy
-and registers the schedule; ordinary scheduled runs need no confirmation.
+The enable command saves the policy, registers the schedule and performs the
+first cleanup before returning. Existing eligible archives older than the chosen
+period are removed using Codex's recorded archive dates. Hourly scheduled runs
+then apply the same rules without confirmation. The initial cleanup also runs
+with `--no-schedule`; only later passes require manual `run` in that mode.
 
 The registration stores the verified absolute invocation path of the executable
 that enabled it (preserving installation symlinks such as Homebrew bin links) and

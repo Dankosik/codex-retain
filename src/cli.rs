@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[command(
     version,
     about = "Predictable retention for local archived Codex chats",
-    long_about = "Keep archived local Codex chats for a chosen number of days. Start with enable --days 30 --yes. Every existing archive receives a full grace period. Only reviewed Codex versions are supported."
+    long_about = "Keep archived local Codex chats for a chosen number of days. Start with enable --days 30 --yes. Enable immediately cleans eligible existing archives using Codex's recorded archive dates. Only reviewed Codex versions are supported."
 )]
 pub struct Cli {
     /// Directory containing this utility's policy and bounded last-run report
@@ -20,7 +20,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Action {
-    /// Enable retention with a fresh grace period for the existing archive
+    /// Enable retention and immediately clean eligible existing archives
     Enable(EnableArgs),
     /// Show the current policy, compatibility, scheduler, and last run
     Status,
@@ -81,10 +81,10 @@ pub struct EnableArgs {
     /// Executable used by the supported Codex client
     #[arg(long, default_value = "codex")]
     pub codex_bin: PathBuf,
-    /// Enable manual runs without installing the macOS hourly LaunchAgent
+    /// Perform initial cleanup and enable manual runs without the hourly LaunchAgent
     #[arg(long)]
     pub no_schedule: bool,
-    /// Consent to permanent local deletion after retention; no later prompts
+    /// Consent to immediate and future permanent deletion of eligible local archives
     #[arg(long)]
     pub yes: bool,
 }

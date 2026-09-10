@@ -163,7 +163,8 @@ def populate(case):
     root = Path(case["fixture_root"])
     count = int(case["scenario"].removeprefix("cleanup-")) if case["scenario"].startswith("cleanup-") else (
         100000 if case["scenario"] == "summary" else 1000 if case["scenario"].startswith("mixed-") else 128)
-    base = fixture.create(root, count, 4096, case["now"])
+    # Initial cleanup must not consume the workload before the timed command.
+    base = fixture.create(root, count, 4096, case["now"], archived_at=case["now"])
     records = [dict(record, db_path=record["path"], archived=1) for record in base["records"]]
     database = root / "codex/state_5.sqlite"
     with closing(sqlite3.connect(database)) as connection:

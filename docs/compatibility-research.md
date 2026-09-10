@@ -2,6 +2,12 @@
 
 Investigation date: 2026-09-09. This document records source findings and isolated protocol experiments; the product's compatibility matrix determines its supported scope.
 
+The initial recommendation to grant every existing archive a new grace period
+has been superseded by the [initial archive-age amendment](product-contract.md#initial-archive-age-amendment-2026-09-10).
+Explicit enable now trusts Codex's recorded archived_at and can clean immediately.
+The source limitations about reconstructed timestamps below still apply; historical
+validation receipts keep their original behavior and are not rewritten.
+
 The initial implementation used the legacy-only scope below. The later
 [paginated review](paginated-support.md) extends source support without changing
 the pinned Codex version or treating different desktop writers as certified.

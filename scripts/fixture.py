@@ -108,7 +108,7 @@ def transcript(thread_id, created_at, size):
     return "".join(lines).encode("utf-8")
 
 
-def create(root, count=1000, rollout_bytes=4096, now=None):
+def create(root, count=1000, rollout_bytes=4096, now=None, *, archived_at=None):
     root = no_symlinks(root)
     if root.exists():
         raise ValueError("fixture destination must not exist: " + str(root))
@@ -117,7 +117,8 @@ def create(root, count=1000, rollout_bytes=4096, now=None):
     if count * rollout_bytes > 2 * 1024**3:
         raise ValueError("fixture exceeds the 2 GiB per-case guardrail")
     now = int(time.time()) if now is None else int(now)
-    created_at, archived_at = now - 100 * DAY, now - 40 * DAY
+    created_at = now - 100 * DAY
+    archived_at = now - 40 * DAY if archived_at is None else int(archived_at)
     root.mkdir(parents=True, mode=0o700)
     write_json(root / MARKER, {"kind": "codex-retain-synthetic-fixture", "schema": 1,
                               "root": str(root), "nonce": str(uuid.uuid4())})

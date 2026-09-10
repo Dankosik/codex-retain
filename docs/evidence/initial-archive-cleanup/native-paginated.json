@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "passed": true,
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "retain_sha256": "2ced0d27ac2abcf4ab190baeb639c485fc47702056d7d9526f0bf3019ee592b4",
+  "codex_launcher_sha256": "c147aa90d34139599711fb568102ceefc6319ca1ac5cb6f4056ca46a1834edd9",
+  "fixture": "new isolated HOME/CODEX_HOME; native paginated starts, archive and fork",
+  "model_turns_submitted": 0,
+  "launchagents_installed": 0,
+  "checks": [
+    {
+      "name": "native_paginated_archive_persisted",
+      "passed": true
+    },
+    {
+      "name": "native_paginated_enable_preserves_recent_archive",
+      "passed": true
+    },
+    {
+      "name": "native_paginated_standalone_deleted",
+      "passed": true,
+      "deleted": 1
+    },
+    {
+      "name": "native_fork_persists_shared_history_base",
+      "passed": true,
+      "history_bases": [
+        {
+          "thread_id": "01a08cd3-2fdf-7983-8b34-f5d749929920",
+          "end_ordinal_exclusive": 5,
+          "end_byte_offset": 23059
+        }
+      ]
+    },
+    {
+      "name": "native_fork_hydrates_complete_inherited_turn",
+      "passed": true,
+      "hydrated_turn_count": 1
+    },
+    {
+      "name": "native_revert_creates_another_owned_rollout",
+      "passed": true
+    },
+    {
+      "name": "external_writer_lock_blocks_native_unarchive",
+      "passed": true,
+      "error": "thread/unarchive: {'code': -32600, 'message': 'thread 01a08cd3-2fdf-7983-8b34-f5d749929920 already has an active writer'}"
+    },
+    {
+      "name": "native_fork_rejects_archived_source",
+      "passed": true,
+      "error": "thread/fork: {'code': -32600, 'message': 'session 01a08cd3-2fdf-7983-8b34-f5d749929920 is archived. Run `codex unarchive 01a08cd3-2fdf-7983-8b34-f5d749929920` to unarchive it first.'}"
+    },
+    {
+      "name": "active_fork_preserves_archived_source",
+      "passed": true,
+      "reason": "referenced_history",
+      "detail": "a surviving thread requires this history"
+    },
+    {
+      "name": "native_child_read_survives_cleanup",
+      "passed": true,
+      "hydrated_turn_count": 1
+    },
+    {
+      "name": "archived_fork_and_released_source_deleted_in_one_run",
+      "passed": true,
+      "deleted": 2,
+      "owned_rollouts_removed": 3
+    },
+    {
+      "name": "native_paginated_cleanup_idempotent",
+      "passed": true
+    },
+    {
+      "name": "no_launchagent_installed",
+      "passed": true
+    }
+  ],
+  "test_only_mutations": [
+    "age synthetic capture epochs",
+    "append synthetic TaskStarted, canonical UserMessage and AgentMessage ItemCompleted, TaskComplete events after native writer shutdown"
+  ],
+  "limitations": [
+    "No model requests; populated history is a canonical synthetic fixture.",
+    "Deletion assertions cover owned rollout files and main thread rows, not separate projection caches."
+  ],
+  "codex_version": "codex-cli 0.153.4",
+  "retain_version": "codex-retain 0.1.3",
+  "app_server_user_agent": "codex-retain-conformance/0.153.4 (Mac OS 26.4.0; arm64) dumb (codex-retain-conformance; 1)",
+  "native_methods": [
+    "initialize",
+    "thread/start",
+    "thread/section/move",
+    "thread/archive",
+    "thread/start",
+    "thread/section/move",
+    "initialize",
+    "thread/fork",
+    "thread/section/move",
+    "thread/read",
+    "thread/resume",
+    "thread/revert",
+    "thread/archive",
+    "thread/read",
+    "thread/archive"
+  ],
+  "native_stderr_tail": "",
+  "finished_at_utc": "2026-09-10T19:37:26Z"
+}

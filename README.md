@@ -48,7 +48,7 @@ codex-retain doctor
 
 The installer checks SHA-256 and installs to `~/.local/bin`. Add that directory
 to your shell's PATH permanently if needed. Installation never enables retention.
-For a specific release, use `CODEX_RETAIN_VERSION=0.1.3 sh /tmp/codex-retain-install.sh`.
+For a specific release, use `CODEX_RETAIN_VERSION=0.1.4 sh /tmp/codex-retain-install.sh`.
 Set `CODEX_RETAIN_INSTALL_DIR` to choose a different absolute installation directory.
 
 ### Homebrew
@@ -72,7 +72,7 @@ This tap installs the same prebuilt binaries and shell completions. Enable using
 To compile the tagged source, install Rust 1.98.1 and a C toolchain, then run:
 
 ```sh
-cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.3 --locked codex-retain
+cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.4 --locked codex-retain
 ```
 
 Or download the matching archive and `SHA256SUMS` from
@@ -91,8 +91,9 @@ codex-retain enable --days 30 --yes
 
 **Deletion is permanent.** `--yes` is your consent to remove eligible local
 archives after the retention period, without asking on every run.
-**Every existing archive receives a fresh full grace period. Nothing is deleted
-when you enable the policy.**
+**The first cleanup happens during `enable`. Existing chats recorded as archived
+more than 30 days ago can be deleted immediately.** Recent archives keep the
+remaining part of their retention period; unknown or invalid dates stay protected.
 
 Check what is configured and what will happen next:
 
@@ -101,8 +102,11 @@ codex-retain status
 codex-retain preview
 ```
 
-macOS now runs the policy hourly. For manual cleanup only, enable with
-`--no-schedule --yes` and use `run` when needed. Both modes honor the same rules.
+After this initial cleanup, macOS checks the policy hourly. For manual cleanup
+only, enable with `--no-schedule --yes`: the first cleanup still runs immediately,
+and later passes use `run`. Both modes honor the same rules. Initial results
+appear in the command output and the retained last-run report. Exit code 3 means
+some archives need attention; the policy remains enabled for later retries.
 
 <details>
 <summary>Choose a different Codex executable or profile</summary>
@@ -154,7 +158,7 @@ to how you installed it. Uninstalling does not delete additional chats.
 | You archive a conversation today | Gives it the full configured retention period, however old the conversation is |
 | You restore it before cleanup | Removes it from the eligible archive |
 | You archive it again | Starts a new retention period, even if both actions happened between cleanup runs |
-| You enable retention on an existing archive | Gives all existing archived chats a new full grace period |
+| You enable retention on an existing archive | Uses Codex's recorded archive dates and immediately cleans eligible old archives |
 | You pin a chat in Codex or exclude its ID | Preserves it during automatic and manual cleanup |
 | A chat is active, busy, ambiguous, or unsupported | Preserves it; reports a skip or stops the run |
 
@@ -166,6 +170,14 @@ A small SQLite extension records archive transitions in the same transaction
 as Codex changes their state, including between utility runs. Neither file
 modification time nor the last message date determines expiration. If Codex
 repairs its archive timestamp, Retain conservatively starts a new full period.
+
+At first activation, Retain accepts Codex's existing `archived_at` as the archive
+age. Codex may have reconstructed that value during metadata repair; it has no
+separate provenance marker. This onboarding policy trusts the recorded date and
+does not prove the chat was continuously archived before Retain was installed.
+Retain never substitutes chat creation time, last-message time or file mtime for
+a missing archive date. After activation, captured transitions and timestamp
+repairs continue to start a new period.
 
 The system clock must be correct. Recognized clock inconsistencies stop cleanup;
 arbitrary forward adjustments cannot be independently detected.
@@ -343,7 +355,16 @@ Before downgrading Retain, finish pending recovery or disable using the newer
 executable. Versions 0.1.2 and 0.1.3 write schema 4 journals with a separate slot
 for every physical file. Earlier versions cannot recover that format; older
 32-chat builds also reject larger groups. The current reader accepts journal
-schemas 1–4. Version 0.1.3 does not change the policy, capture or journal format.
+schemas 1–4. The policy, capture and journal file formats remain compatible.
+The JSON response to `enable` is now schema 2: `existing_archives_assessed`, `initial_archive_clock`
+and `initial_cleanup` replace the former initial-grace fields.
+
+Policies enabled by 0.1.3 or earlier keep their captured periods when the binary
+is updated. To explicitly adopt existing Codex archive dates, use the new binary
+to `disable`, then `enable --days 30 --yes` with your original profile, Codex
+executable and scheduling options. Exclusions are preserved. This reactivation
+can delete old eligible archives immediately; an ordinary `run` never silently
+rewrites a previous policy's recorded periods.
 
 `uninstall` handles pending recovery as well as disabling deletion and removing
 the schedule and transition recorder. The small policy and report remain for

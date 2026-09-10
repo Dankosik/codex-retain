@@ -198,7 +198,7 @@ background_paginated_rollout_migration = false
         "retain_sha256": digest(retain), "codex_launcher_sha256": digest(codex),
         "fixture": "new isolated HOME and CODEX_HOME; native schema and native legacy threads",
         "model_turns_submitted": 0, "launchagents_installed": 0,
-        "checks": [], "test_only_mutation": "age capture epochs; adversarially mark a native-loaded synthetic thread archived while its native writer lock remains held",
+        "checks": [], "test_only_mutation": "age one pre-enable synthetic archive timestamp and later capture epochs; adversarially mark a native-loaded synthetic thread archived while its native writer lock remains held",
     }
     app = None
     def check(name, condition, **details):
@@ -226,15 +226,16 @@ background_paginated_rollout_migration = false
         app = AppServer(codex, env, root)
         receipt["app_server_user_agent"] = app.initialize["userAgent"]
         ids = []
-        for _ in range(3):
+        for _ in range(4):
             result = app.request("thread/start", {"cwd": str(root), "historyMode": "legacy", "ephemeral": False})
             thread_id = result["thread"]["id"]
             # Native section move explicitly persists a thread before its first turn.
             app.request("thread/section/move", {"threadId": thread_id, "sectionId": None, "beforeThreadId": None})
             ids.append(thread_id)
-        candidate, pinned, active = ids
+        candidate, pinned, active, initially_due = ids
         app.request("thread/archive", {"threadId": candidate})
         app.request("thread/archive", {"threadId": pinned})
+        app.request("thread/archive", {"threadId": initially_due})
         # The native SQLx backfill may finish asynchronously.
         deadline = time.monotonic() + 10
         while True:
@@ -245,11 +246,21 @@ background_paginated_rollout_migration = false
             if time.monotonic() >= deadline:
                 raise RuntimeError("native backfill did not complete")
             time.sleep(0.05)
-        before = int(time.time())
-        cli("enable", "--days", "30", "--codex-home", str(codex_home),
+        archived_at = row(candidate)[1]
+        initially_due_path = Path(row(initially_due)[2])
+        with db() as conn:
+            # Synthetic-only: retain the native row/header/locks, but represent
+            # an archive that existed for 31 days before Retain was activated.
+            conn.execute("UPDATE threads SET archived_at=? WHERE id=?",
+                         (int(time.time()) - 31 * 86400, initially_due))
+        enabled = cli("enable", "--days", "30", "--codex-home", str(codex_home),
             "--codex-bin", str(codex), "--no-schedule", "--yes")
         preview = cli("preview")
-        check("actual_utility_enable_full_grace", epoch(candidate) >= before and preview["eligible"] == 0,
+        check("enable_immediately_deletes_preexisting_due_native_archive",
+              enabled["initial_cleanup"]["deleted"] == 1 and row(initially_due) is None
+              and not initially_due_path.exists())
+        check("actual_utility_enable_preserves_recent_archive_date",
+              epoch(candidate) == archived_at and preview["eligible"] == 0,
               eligible=preview["eligible"], archived=preview["examined"])
         old_epoch = epoch(candidate)
         app.request("thread/unarchive", {"threadId": candidate})

@@ -142,7 +142,8 @@ background_paginated_rollout_migration = false
         enabled = cli("enable", "--days", "30", "--codex-home", str(codex_home),
                       "--codex-bin", str(codex), "--no-schedule", "--yes")
         preview = cli("preview")
-        check("native_paginated_enable_preserves_full_grace", enabled["existing_archives_given_grace"] == 1 and preview["eligible"] == 0)
+        check("native_paginated_enable_preserves_recent_archive", enabled["existing_archives_assessed"] == 1
+              and enabled["initial_cleanup"]["deleted"] == 0 and preview["eligible"] == 0)
         age(standalone)
         run = cli("run")
         check("native_paginated_standalone_deleted", run["deleted"] == 1 and row(standalone) is None and not standalone_path.exists(), deleted=run["deleted"])

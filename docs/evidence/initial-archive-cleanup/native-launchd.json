@@ -1,0 +1,108 @@
+{
+  "architecture": "arm64",
+  "before_bootstrap": {
+    "last_exit_code": null,
+    "pid": null,
+    "registered": false,
+    "runs": null
+  },
+  "cleanup": {
+    "bootout_verified": true,
+    "errors": [],
+    "registered": false
+  },
+  "codex_version": "codex-cli 0.153.4",
+  "enable": {
+    "automatic": false,
+    "enabled": true,
+    "existing_archives_assessed": 2,
+    "initial_archive_clock": "codex_archived_at",
+    "initial_cleanup": {
+      "actual_reclaimed_bytes": null,
+      "allocated_bytes_unlinked": 0,
+      "deleted": 0,
+      "eligible": 0,
+      "entries": [
+        {
+          "bytes": null,
+          "detail": null,
+          "eligible_at": 1791661046,
+          "id": "5930e4f4-94c5-58d6-aadf-f86fcb03684b",
+          "reason": "within_retention",
+          "title": "Fixture 0"
+        },
+        {
+          "bytes": null,
+          "detail": null,
+          "eligible_at": 1791661046,
+          "id": "9e5484ff-c96d-5e0a-a2a1-28849b341c44",
+          "reason": "within_retention",
+          "title": "Fixture 1"
+        }
+      ],
+      "examined": 2,
+      "logical_bytes_removed": 0,
+      "mode": "run",
+      "observed_free_space_delta_bytes": 0,
+      "schema": 1,
+      "selected_bytes": 0,
+      "skipped": 2,
+      "started_at": 1789069046,
+      "warnings": []
+    },
+    "policy": "/private/tmp/codex-retain-initial-cleanup-launchd/fixture/state/policy.json",
+    "retention_days": 30,
+    "schema": 2
+  },
+  "finished_at": "2026-09-10T19:37:38Z",
+  "first_completion_seconds": 2.2450284590013325,
+  "fixture_threads": 2,
+  "idle_after_cleanup": {
+    "last_exit_code": 0,
+    "pid": null,
+    "registered": true,
+    "runs": 1,
+    "state": "not running"
+  },
+  "paused_candidate_id": "82bcc863-db03-4659-ab71-bf37957290b3",
+  "paused_candidate_preserved": true,
+  "paused_invocation": {
+    "last_exit_code": 0,
+    "pid": null,
+    "registered": true,
+    "runs": 2,
+    "state": "not running"
+  },
+  "platform": "macOS-26.4-arm64-arm-64bit-Mach-O",
+  "plist_sha256": "3e93b981113c8076e7d61cbd3eb2756779e9f5719d5b87fff56cd178f692264f",
+  "post_cleanup": {
+    "count": 2,
+    "remaining_thread_rows": 0,
+    "removed": true,
+    "verified": true
+  },
+  "production_label_touched": false,
+  "production_launchagents_directory_touched": false,
+  "retention_binary_sha256": "2ced0d27ac2abcf4ab190baeb639c485fc47702056d7d9526f0bf3019ee592b4",
+  "retention_version": "codex-retain 0.1.3",
+  "scheduled_cleanup": {
+    "actual_reclaimed_bytes": null,
+    "allocated_bytes_unlinked": 8192,
+    "deleted": 2,
+    "examined": 2,
+    "logical_bytes_removed": 8192,
+    "observed_free_space_delta_bytes": -45056,
+    "schema": 1,
+    "skipped": 0,
+    "skips": [],
+    "started_at": 1789069048,
+    "status": "ok",
+    "warnings": []
+  },
+  "schema": 1,
+  "scope": "Native temporary test job invokes the real run --scheduled entrypoint. Production install/disable adapter is not invoked; its registration tests remain mocked.",
+  "start_interval_seconds": 2,
+  "started_at": "2026-09-10T19:37:26Z",
+  "status": "passed",
+  "test_label": "io.github.codex-retain.test.db7b9f0b-13e8-4da6-877e-c7fd93d59a06"
+}

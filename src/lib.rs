@@ -137,7 +137,7 @@ fn enable_policy(
     args: cli::EnableArgs,
     out: &mut impl Write,
     json_mode: bool,
-) -> Result<()> {
+) -> Result<u8> {
     let cli::EnableArgs {
         days,
         codex_home,
@@ -148,7 +148,7 @@ fn enable_policy(
     native_mutations()?;
     ensure!(
         yes,
-        "enable permanently deletes eligible local archives without later prompts. Existing archives get {days} full days; transition capture adds a small SQLite table and triggers. Review doctor first, then repeat with --yes"
+        "enable immediately and permanently deletes eligible local archives recorded as archived more than {days} days ago, then applies the same retention without later prompts. Transition capture adds small SQLite tables and triggers. Review doctor first, then repeat with --yes"
     );
     let existing = if store.root.join("policy.json").exists() {
         Some(store.policy()?)
@@ -204,12 +204,24 @@ fn enable_policy(
     }
     policy.enabled = true;
     store.save(&policy)?;
+    let report = cleanup(&mut db, &policy, store, config::now()?, false).context(
+        "policy is enabled, but initial cleanup failed; use run to retry or pause to stop cleanup",
+    )?;
+    let incomplete = report.requires_attention();
     emit(
         out,
         json_mode,
-        &json!({"schema":1,"enabled":true,"retention_days":days,"existing_archives_given_grace":count,"automatic":!no_schedule,"earliest_existing_deletion_after":policy.enabled_at+policy.duration(),"policy":store.root.join("policy.json")}),
+        &json!({"schema":2,"enabled":true,"retention_days":days,"existing_archives_assessed":count,"initial_archive_clock":"codex_archived_at","initial_cleanup":report,"automatic":!no_schedule,"policy":store.root.join("policy.json")}),
         &format!(
-            "Enabled: keep archives for {days} days. {count} existing archives received a full grace period.\n{}\nUse preview to inspect candidates; pause or disable to stop cleanup.",
+            "Enabled: keep archives for {days} days from their recorded archive date.\nInitial cleanup: {} examined, {} deleted, {} skipped.{}\n{}\nUse status or preview for details; pause or disable to stop cleanup.",
+            report.examined,
+            report.deleted,
+            report.skipped,
+            if incomplete {
+                " Some archives need attention; inspect the last-run report."
+            } else {
+                ""
+            },
             if no_schedule {
                 "Manual runs enabled; automatic scheduling is off."
             } else {
@@ -217,7 +229,36 @@ fn enable_policy(
             }
         ),
     )?;
-    Ok(())
+    Ok(if incomplete { 3 } else { 0 })
+}
+
+/// Initial and subsequent cleanup share the same clock guard, deletion engine
+/// and durable result. Setup holds the Store lock through its first run too.
+fn cleanup(
+    db: &mut rusqlite::Connection,
+    policy: &Policy,
+    store: &Store,
+    now: i64,
+    quiet: bool,
+) -> Result<engine::Report> {
+    if store.root.join("last-run.json").exists() {
+        let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
+        ensure!(
+            last["started_at"].as_i64().is_none_or(|t| now >= t),
+            "system clock moved backwards since the last run"
+        );
+    }
+    let report = if quiet {
+        engine::execute_scheduled(db, policy, store, now)?
+    } else {
+        engine::execute(db, policy, store, now, ExecutionMode::Run)?
+    };
+    let incomplete = report.requires_attention();
+    fsutil::atomic_json(
+        &store.root.join("last-run.json"),
+        &json!({"schema":1,"started_at":now,"status":if incomplete{"attention"}else{"ok"},"examined":report.examined,"deleted":report.deleted,"skipped":report.skipped,"logical_bytes_removed":report.logical_bytes_removed,"allocated_bytes_unlinked":report.allocated_bytes_unlinked,"observed_free_space_delta_bytes":report.observed_free_space_delta_bytes,"actual_reclaimed_bytes":null,"warnings":report.warnings.iter().take(10).collect::<Vec<_>>(),"skips":report.entries.iter().filter(|e|e.detail.is_some()).take(10).collect::<Vec<_>>() }),
+    )?;
+    Ok(report)
 }
 
 pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
@@ -258,13 +299,13 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             out,
             cli.json,
             &json!({"schema":1,"enabled":false,"configured":false,"scheduler":scheduler::status()?}),
-            "No policy configured. Run codex-retain enable --days 30 --yes to start with a full grace period.",
+            "No policy configured. Run codex-retain enable --days 30 --yes to clean eligible archives now and enable retention.",
         )?;
         return Ok(0);
     }
     let store = Store::open(root)?;
     match cli.command {
-        Action::Enable(args) => enable_policy(&store, args, out, cli.json)?,
+        Action::Enable(args) => return enable_policy(&store, args, out, cli.json),
         Action::Status => {
             let p = store.policy()?;
             let scheduler = scheduler::status()?;
@@ -354,15 +395,8 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 forecast_at.is_none_or(|at| at >= now),
                 "preview --at must be the current time or a future RFC3339 timestamp"
             );
-            if apply && store.root.join("last-run.json").exists() {
-                let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
-                ensure!(
-                    last["started_at"].as_i64().is_none_or(|t| now >= t),
-                    "system clock moved backwards since the last run"
-                );
-            }
-            let mut report = if quiet {
-                engine::execute_scheduled(&mut db, &p, &store, now)?
+            let mut report = if apply {
+                cleanup(&mut db, &p, &store, now, quiet)?
             } else {
                 engine::execute(&mut db, &p, &store, forecast_at.unwrap_or(now), mode)?
             };
@@ -371,12 +405,6 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 report.evaluated_at = Some(at);
             }
             let incomplete = report.requires_attention();
-            if apply {
-                fsutil::atomic_json(
-                    &store.root.join("last-run.json"),
-                    &json!({"schema":1,"started_at":now,"status":if incomplete{"attention"}else{"ok"},"examined":report.examined,"deleted":report.deleted,"skipped":report.skipped,"logical_bytes_removed":report.logical_bytes_removed,"allocated_bytes_unlinked":report.allocated_bytes_unlinked,"observed_free_space_delta_bytes":report.observed_free_space_delta_bytes,"actual_reclaimed_bytes":null,"warnings":report.warnings.iter().take(10).collect::<Vec<_>>(),"skips":report.entries.iter().filter(|e|e.detail.is_some()).take(10).collect::<Vec<_>>() }),
-                )?;
-            }
             if !quiet {
                 if cli.json {
                     serde_json::to_writer(&mut *out, &report)?;

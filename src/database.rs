@@ -169,7 +169,7 @@ pub fn identity(home: &Path) -> Result<Identity> {
 pub fn verify_policy(c: &Connection, p: &Policy) -> Result<()> {
     ensure!(
         identity(&p.codex_home)? == p.database,
-        "Codex database was replaced; re-enable explicitly to start a new full grace period"
+        "Codex database was replaced; disable and explicitly enable the new profile after reviewing its archive dates"
     );
     let reference = Connection::open_in_memory()?;
     // Trigger SQL is compared as stored by SQLite, avoiding whitespace/normalization guesses.
@@ -217,7 +217,10 @@ pub fn install_capture(c: &mut Connection, owner: &str) -> Result<u64> {
         "INSERT INTO codex_retain_owner(singleton,owner) VALUES(1,?)",
         [owner],
     )?;
-    let count=tx.execute("INSERT INTO codex_retain_epochs(thread_id,archived_since,codex_archived_at) SELECT id,unixepoch(),archived_at FROM threads WHERE archived=1",[])?;
+    // Adopt Codex's recorded archive age only at explicit activation. Missing
+    // dates remain ineligible; do not infer them from creation or file mtime.
+    // Subsequent native transitions/repairs still use the live capture triggers.
+    let count=tx.execute("INSERT INTO codex_retain_epochs(thread_id,archived_since,codex_archived_at) SELECT id,coalesce(archived_at,0),archived_at FROM threads WHERE archived=1",[])?;
     tx.commit()?;
     Ok(count as u64)
 }

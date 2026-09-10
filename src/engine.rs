@@ -1120,7 +1120,7 @@ fn execute_with_detail(
     let apply = mode == ExecutionMode::Run;
     ensure!(
         p.enabled,
-        "policy is disabled; run enable to start a full grace period"
+        "policy is disabled; run enable to apply retention to recorded archive dates"
     );
     ensure!(
         now >= p.enabled_at,

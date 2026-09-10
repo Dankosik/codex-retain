@@ -19,10 +19,17 @@ reserved `codex_retain_` prefix. `codex_retain_owner` binds the extension to one
 canonical policy directory. `codex_retain_epochs` holds one row per archived
 thread: ID, archive transition epoch, and the corresponding Codex timestamp.
 
-Activation occurs in `BEGIN IMMEDIATE`: create/verify the extension and seed all
-current archives with the database's current UTC second. No historical timestamp
-is used to backdate their expiration. Native insertion of an already archived
-thread also starts at its insertion time. Updates changing archive state,
+Explicit activation occurs in `BEGIN IMMEDIATE`: create/verify the extension and
+seed current archives from Codex's recorded `archived_at`. Missing dates seed a
+zero epoch and remain ineligible; nonpositive or future dates are also retained.
+The initial cleanup uses those dates immediately after successful policy and
+scheduler setup. This deliberately trusts Codex's existing timestamp, which may
+have been reconstructed by native backfill and has no provenance marker; it is
+not proof of continuous archive time before activation. No chat creation date,
+last message or file mtime is used as a fallback.
+
+Native insertion of an already archived thread after activation starts at its
+insertion time. Updates changing archive state,
 archive timestamp or identity replace the epoch; unarchive/delete removes it.
 Unrelated updates do not restart retention. Archive timestamp repairs restart
 conservatively, addressing Codex's mtime-based backfill behavior.
@@ -199,7 +206,21 @@ an occupied restore destination preserves the receipt and data for inspection.
 Only `NotFound` means absence. Config cannot switch profiles over a pending receipt.
 
 The policy is saved disabled before scheduler installation and enabled only
-after successful registration. A failed or interrupted automatic setup must be
+after successful registration. While still holding the operation lock, `enable`
+runs the same cleanup engine and saves the same bounded last-run receipt as
+manual/scheduled cleanup. Initial artifact errors return exit 3 with the policy
+still enabled for later retries. A setup failure does not enter cleanup.
+`--no-schedule` also runs the initial cleanup. Installing a binary alone never
+selects a profile or retention policy and still deletes nothing.
+
+The enable JSON envelope is schema 2 and includes `existing_archives_assessed`,
+`initial_archive_clock: "codex_archived_at"` and the full `initial_cleanup`
+report; obsolete grace fields are absent. Run/preview/last-run schemas are unchanged.
+Already enabled older policies retain their epochs across binary updates; only
+explicit disable/re-enable adopts the historical dates. Reactivation retains
+exclusions and refuses pending recovery or incomplete scheduler removal.
+
+A failed or interrupted automatic setup must be
 disabled before retrying, preventing an old LaunchAgent from activating a new
 manual-only policy. Disable saves `enabled=false` first, then unregisters and
 removes capture; failed later steps cannot reauthorize deletion.

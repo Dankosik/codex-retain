@@ -1,6 +1,7 @@
 # Codex Retain: v0.1 contract
 
 Recorded before implementation and measurement, 2026-09-09.
+The initial-age amendment below supersedes the original first-enable grace rule.
 
 Keep archived local conversations for a user-selected number of 24-hour days.
 Default hypothesis: 30 days. New policies give every existing archive a full
@@ -83,3 +84,22 @@ restartable recovery. Separate paginated projection caches remain outside the
 declared deletion scope. Doctor/status expose format coverage separately from
 schema/binary verification and never use counts as proof of deletion eligibility.
 See [source review and validation](paginated-support.md).
+
+## Initial archive-age amendment (2026-09-10)
+
+Explicit `enable --days N --yes` now adopts Codex's recorded `archived_at` for
+existing archived rows and performs cleanup before returning. Archives older
+than N complete days can be removed immediately; recent archives keep their
+remaining time. Missing/invalid/future dates, pins, exclusions, dependencies,
+writer locks and artifact checks still prevent removal. Ordinary hourly runs
+use the same engine and captured periods. The initial import trusts native
+archive timestamps, including ones reconstructed by Codex; it cannot prove
+continuous pre-installation archive time.
+
+Installation of a binary still does not select a policy or delete anything.
+`--no-schedule` performs the first cleanup with no future automatic scheduling.
+Initial attention returns exit 3 and a saved last-run receipt. The `enable` JSON
+envelope advances to schema 2 and contains the actual initial cleanup report.
+The persisted policy/capture/journal formats and other command schemas stay the
+same. Older enabled policies opt into historical seeding through an explicit
+disable/re-enable, never by a silent rewrite during an upgrade or hourly run.

@@ -1,0 +1,58 @@
+{
+  "kind": "unreleased-local-initial-archive-cleanup-candidate",
+  "observed_at": "2026-09-10T19:39:09.358815+00:00",
+  "base_commit": "97e55a388171ee29cbdfcf4a97a482d96a1f0158",
+  "binary_sha256": "2ced0d27ac2abcf4ab190baeb639c485fc47702056d7d9526f0bf3019ee592b4",
+  "binary_version": "0.1.3 (version not yet bumped for publication)",
+  "sources_sha256": {
+    "src/lib.rs": "03d0340c397ef65475f66d02287508274d1e0b616c75b9e0538e9ef343392bc1",
+    "src/database.rs": "962614883ebf0b3efd28855388e32d62580b7423d4fee97df0cd8886dbe6490b",
+    "src/cli.rs": "11739e3549aa4767822abef8ae1f214ff5a476f2c72278c59d55b3a857a6062d",
+    "src/engine.rs": "aedeb2b9eb78bff7d239d875a3c7ba35e1ad507a9eaa3cb2a66d018386da3904",
+    "src/config.rs": "a5988c332ee0d468577f59f5c48352928fc4f6bc2cc0e2b334bacee4246f10db",
+    "Cargo.toml": "48b2190689d0b45c2fcf35624b8885ab6461f0da34c4bdc0878ea69a77b9c927",
+    "Cargo.lock": "8740a21facdc4c1d5f73fe455e8d1d764e1867bacdd212a1550e7080576877be",
+    "compatibility/capture.sql": "69d02e6291e323794d249d60d4c17caf0e4f812da5ebb013d04ade7fd62e1f1c",
+    "tests/cli.rs": "3ec892ae3351a9787083550245bd78c42ca30ab757a8b2442f85ffb4204b8af3",
+    "tests/lifecycle.rs": "62300cdc42b9e7f630ec50bac9a03e841cd3bb994c76e7ed1c9ae675c6115fd0",
+    "scripts/codex_integration.py": "bfe596b6f085ab64c9ba6d47eb444a69250645724acdbc4055b354a5780a0069",
+    "scripts/paginated_integration.py": "1ed130bd9885eb76c648118397b6f266074ab5df7474a5768f15493d08171199",
+    "scripts/launchd_integration.py": "e198dfe097c939fa34435d8cdde9a2c13b2f24f1e60c46e6d4da8ac16a0bb393",
+    "scripts/fixture.py": "7c548a976077aa79b4efa63586779f9cb7965d92810cf470e55372cd6e789537",
+    "scripts/benchmark.py": "423ddd04812c4785f7cd8dec9126b355eddc46260fa384cabbc8dec50c8b9bfa",
+    "scripts/performance_matrix.py": "74a49eb3b3715c4b7c76f58701b29df5f6910e62d6784f62f877d2efb5971c33",
+    "scripts/compare_semantics.py": "af3831654d2e6bb317ef0d34c008736bf9df47bea1cab0c8d5e372ff3167bf9a"
+  },
+  "checks": {
+    "make_check": {
+      "passed": true,
+      "rust_tests": 195
+    },
+    "python_unittest_discover": {
+      "passed": true,
+      "tests": 53
+    },
+    "locked_release_build": true,
+    "native": {
+      "native-lifecycle": {
+        "checks": 11,
+        "passed": true,
+        "sha256": "8828e4c5cfd478e3b927873be848e4feaaf4ab6bf54c7e4022a81e66e6d065b8"
+      },
+      "native-paginated": {
+        "checks": 13,
+        "passed": true,
+        "sha256": "34cd62ecdbc97d3ee9f81f3185f4621f4e772a6174f3b462a08bb76e89d14284"
+      },
+      "native-launchd": {
+        "checks": 0,
+        "passed": true,
+        "sha256": "4df237b5c17bcf068d46c469c4121a50702996a2e61f8d09ebf5caf3af8a4d95"
+      }
+    }
+  },
+  "local_changes_only": true,
+  "published": false,
+  "installed": false,
+  "real_chats_deleted": false
+}

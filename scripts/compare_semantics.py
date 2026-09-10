@@ -43,7 +43,7 @@ def compare(args):
     reports = {}
     for tool in ("retain", "janitor"):
         case_root = root / tool
-        manifest = fixture.create(case_root, len(CASES))
+        manifest = fixture.create(case_root, len(CASES), archived_at=int(time.time()))
         fixture.owned_root(case_root)
         home, state = case_root / "codex", case_root / "state"
         env = {"HOME": str(case_root / "home"), "CODEX_HOME": str(home),
@@ -59,6 +59,7 @@ def compare(args):
         now = int(time.time())
         with sqlite3.connect(home / "state_5.sqlite") as db:
             # Test-only time setup. Real users never need to edit capture epochs.
+            db.execute("UPDATE threads SET archived_at=?", (now - 40 * fixture.DAY,))
             if tool == "retain":
                 db.execute("UPDATE codex_retain_epochs SET archived_since=?", (now - 40 * fixture.DAY,))
             db.execute("UPDATE threads SET archived_at=? WHERE id=?",
