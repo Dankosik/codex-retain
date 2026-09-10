@@ -13,8 +13,8 @@ its tests, template-consumer setup checks, product docs, and unused runtime
 dependencies. Windows releases were removed; local destructive validation is
 macOS-first. Linux CI checks portable core logic and non-mutating CLI paths.
 
-The project is published at [Dankosik/codex-retain](https://github.com/Dankosik/codex-retain)
-as unreleased source. No version tags, public binary releases, registry packages
-or deployments are part of the initial publication. Original Git history is
-retained for provenance; the local upstream remote is named `template` to avoid
+The initial publication at [Dankosik/codex-retain](https://github.com/Dankosik/codex-retain)
+was source-only. [Release 0.1.0](https://github.com/Dankosik/codex-retain/releases/tag/0.1.0)
+adds macOS binaries, an installer and a Homebrew tap; Cargo registry publication
+remains disabled. Original Git history is retained for provenance; the local upstream remote is named `template` to avoid
 an accidental push to the template repository.
