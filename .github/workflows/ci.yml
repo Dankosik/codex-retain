@@ -28,7 +28,7 @@ jobs:
       - name: Read pinned toolchain
         id: rust
         run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
-      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master, 2026-09-08
         with:
           toolchain: ${{ steps.rust.outputs.version }}
           components: rustfmt, clippy
@@ -57,7 +57,7 @@ jobs:
       - name: Read pinned toolchain
         id: rust
         run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
-      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master, 2026-09-08
         with:
           toolchain: ${{ steps.rust.outputs.version }}
       - run: cargo test --locked --all-targets
@@ -78,7 +78,7 @@ jobs:
       - name: Read declared minimum Rust
         id: baseline
         run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("Cargo.toml","rb"))["package"]["rust-version"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
-      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master, 2026-09-08
         with:
           toolchain: ${{ steps.baseline.outputs.version }}
       - name: Test declared minimum Rust
