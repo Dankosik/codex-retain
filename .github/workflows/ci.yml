@@ -22,13 +22,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Read pinned toolchain
         id: rust
         run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
-      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-09-08
         with:
           toolchain: ${{ steps.rust.outputs.version }}
           components: rustfmt, clippy
@@ -51,13 +51,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Read pinned toolchain
         id: rust
         run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("rust-toolchain.toml","rb"))["toolchain"]["channel"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
-      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-09-08
         with:
           toolchain: ${{ steps.rust.outputs.version }}
       - run: cargo test --locked --all-targets
@@ -72,13 +72,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Read declared minimum Rust
         id: baseline
         run: python -c 'import os,tomllib; print("version=" + tomllib.load(open("Cargo.toml","rb"))["package"]["rust-version"], file=open(os.environ["GITHUB_OUTPUT"],"a"))'
-      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master, 2026-09-08
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-09-08
         with:
           toolchain: ${{ steps.baseline.outputs.version }}
       - name: Test declared minimum Rust
