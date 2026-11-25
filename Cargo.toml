@@ -19,11 +19,11 @@ serde_json = "1.0.151"
 anyhow = "1.0.104"
 tempfile = "3.27.0"
 walkdir = "2.5.0"
-rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
+rusqlite = { version = "0.43.0", default-features = false, features = ["bundled"] }
 uuid = { version = "1.26.0", features = ["serde"] }
 zstd = { version = "0.14.0", default-features = false }
 rustix = { version = "1.1.4", features = ["fs"] }
-jiff = { version = "0.2.35", default-features = false, features = ["std"] }
+jiff = { version = "1.0.2", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 assert_cmd = "2.2.2"
