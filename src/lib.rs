@@ -19,6 +19,7 @@ use cli::{Action, Cli};
 use config::{Policy, Store};
 use database::DatabaseAccess;
 use engine::ExecutionMode;
+use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
@@ -100,7 +101,12 @@ fn date(value: Option<i64>) -> String {
         .map(|v| v.to_string())
         .unwrap_or_else(|| "unknown".into())
 }
-fn emit(out: &mut impl Write, json_mode: bool, value: &Value, message: &str) -> Result<()> {
+fn emit<T: Serialize>(
+    out: &mut impl Write,
+    json_mode: bool,
+    value: &T,
+    message: &str,
+) -> Result<()> {
     if json_mode {
         serde_json::to_writer(&mut *out, value)?;
         writeln!(out)?;
@@ -204,32 +210,86 @@ fn enable_policy(
     }
     policy.enabled = true;
     store.save(&policy)?;
-    let report = cleanup(&mut db, &policy, store, config::now()?, false).context(
+    if json_mode {
+        let report = cleanup_compact(&mut db, &policy, store, config::now()?).context(
+            "policy is enabled, but initial cleanup failed; use run to retry or pause to stop cleanup",
+        )?;
+        let incomplete = report.requires_attention();
+        write!(
+            out,
+            "{{\"automatic\":{},\"enabled\":true,\"existing_archives_assessed\":{count},\"initial_archive_clock\":\"codex_archived_at\",\"initial_cleanup\":",
+            !no_schedule
+        )?;
+        report.write_json(out)?;
+        out.write_all(b",\"policy\":")?;
+        serde_json::to_writer(&mut *out, &store.root.join("policy.json"))?;
+        writeln!(out, ",\"retention_days\":{days},\"schema\":2}}")?;
+        out.flush()?;
+        return Ok(if incomplete { 3 } else { 0 });
+    }
+    let report = cleanup(
+        &mut db,
+        &policy,
+        store,
+        config::now()?,
+        CleanupDetail::Summary,
+    )
+    .context(
         "policy is enabled, but initial cleanup failed; use run to retry or pause to stop cleanup",
     )?;
     let incomplete = report.requires_attention();
-    emit(
+    writeln!(
         out,
-        json_mode,
-        &json!({"schema":2,"enabled":true,"retention_days":days,"existing_archives_assessed":count,"initial_archive_clock":"codex_archived_at","initial_cleanup":report,"automatic":!no_schedule,"policy":store.root.join("policy.json")}),
-        &format!(
-            "Enabled: keep archives for {days} days from their recorded archive date.\nInitial cleanup: {} examined, {} deleted, {} skipped.{}\n{}\nUse status or preview for details; pause or disable to stop cleanup.",
-            report.examined,
-            report.deleted,
-            report.skipped,
-            if incomplete {
-                " Some archives need attention; inspect the last-run report."
-            } else {
-                ""
-            },
-            if no_schedule {
-                "Manual runs enabled; automatic scheduling is off."
-            } else {
-                "Automatic cleanup: hourly macOS LaunchAgent; no resident process."
-            }
-        ),
+        "Enabled: keep archives for {days} days from their recorded archive date.\nInitial cleanup: {} examined, {} deleted, {} skipped.{}\n{}\nUse status or preview for details; pause or disable to stop cleanup.",
+        report.examined,
+        report.deleted,
+        report.skipped,
+        if incomplete {
+            " Some archives need attention; inspect the last-run report."
+        } else {
+            ""
+        },
+        if no_schedule {
+            "Manual runs enabled; automatic scheduling is off."
+        } else {
+            "Automatic cleanup: hourly macOS LaunchAgent; no resident process."
+        }
     )?;
+    out.flush()?;
     Ok(if incomplete { 3 } else { 0 })
+}
+
+#[derive(Clone, Copy)]
+enum CleanupDetail {
+    Text,
+    Summary,
+}
+
+#[derive(Serialize)]
+struct LastRunReceipt<'a> {
+    actual_reclaimed_bytes: Option<u64>,
+    allocated_bytes_unlinked: u64,
+    deleted: u64,
+    examined: u64,
+    logical_bytes_removed: u64,
+    observed_free_space_delta_bytes: Option<i64>,
+    schema: u32,
+    skipped: u64,
+    skips: &'a [&'a engine::Entry],
+    started_at: i64,
+    status: &'static str,
+    warnings: &'a [String],
+}
+
+fn check_last_run_clock(store: &Store, now: i64) -> Result<()> {
+    if store.root.join("last-run.json").exists() {
+        let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
+        ensure!(
+            last["started_at"].as_i64().is_none_or(|t| now >= t),
+            "system clock moved backwards since the last run"
+        );
+    }
+    Ok(())
 }
 
 /// Initial and subsequent cleanup share the same clock guard, deletion engine
@@ -239,25 +299,66 @@ fn cleanup(
     policy: &Policy,
     store: &Store,
     now: i64,
-    quiet: bool,
+    detail: CleanupDetail,
 ) -> Result<engine::Report> {
-    if store.root.join("last-run.json").exists() {
-        let last: Value = fsutil::read_json(&store.root.join("last-run.json"))?;
-        ensure!(
-            last["started_at"].as_i64().is_none_or(|t| now >= t),
-            "system clock moved backwards since the last run"
-        );
-    }
-    let report = if quiet {
-        engine::execute_scheduled(db, policy, store, now)?
-    } else {
-        engine::execute(db, policy, store, now, ExecutionMode::Run)?
+    check_last_run_clock(store, now)?;
+    let report = match detail {
+        CleanupDetail::Summary => engine::execute_scheduled(db, policy, store, now)?,
+        CleanupDetail::Text => engine::execute_text(db, policy, store, now, ExecutionMode::Run)?,
     };
     let incomplete = report.requires_attention();
-    fsutil::atomic_json(
-        &store.root.join("last-run.json"),
-        &json!({"schema":1,"started_at":now,"status":if incomplete{"attention"}else{"ok"},"examined":report.examined,"deleted":report.deleted,"skipped":report.skipped,"logical_bytes_removed":report.logical_bytes_removed,"allocated_bytes_unlinked":report.allocated_bytes_unlinked,"observed_free_space_delta_bytes":report.observed_free_space_delta_bytes,"actual_reclaimed_bytes":null,"warnings":report.warnings.iter().take(10).collect::<Vec<_>>(),"skips":report.entries.iter().filter(|e|e.detail.is_some()).take(10).collect::<Vec<_>>() }),
-    )?;
+    let warnings_len = report.warnings.len().min(10);
+    let skips: Vec<&engine::Entry> = report
+        .entries
+        .iter()
+        .filter(|e| e.detail.is_some())
+        .take(10)
+        .collect();
+    let receipt = LastRunReceipt {
+        actual_reclaimed_bytes: None,
+        allocated_bytes_unlinked: report.allocated_bytes_unlinked,
+        deleted: report.deleted,
+        examined: report.examined,
+        logical_bytes_removed: report.logical_bytes_removed,
+        observed_free_space_delta_bytes: report.observed_free_space_delta_bytes,
+        schema: 1,
+        skipped: report.skipped,
+        skips: &skips,
+        started_at: now,
+        status: if incomplete { "attention" } else { "ok" },
+        warnings: &report.warnings[..warnings_len],
+    };
+    fsutil::atomic_json(&store.root.join("last-run.json"), &receipt)?;
+    Ok(report)
+}
+
+fn cleanup_compact(
+    db: &mut rusqlite::Connection,
+    policy: &Policy,
+    store: &Store,
+    now: i64,
+) -> Result<engine::CompactReport> {
+    check_last_run_clock(store, now)?;
+    let report = engine::execute_compact(db, policy, store, now, ExecutionMode::Run)?;
+    let incomplete = report.requires_attention();
+    let warnings_len = report.warnings.len().min(10);
+    let owned_skips = report.first_skips(10);
+    let skips: Vec<&engine::Entry> = owned_skips.iter().collect();
+    let receipt = LastRunReceipt {
+        actual_reclaimed_bytes: None,
+        allocated_bytes_unlinked: report.allocated_bytes_unlinked,
+        deleted: report.deleted,
+        examined: report.examined,
+        logical_bytes_removed: report.logical_bytes_removed,
+        observed_free_space_delta_bytes: report.observed_free_space_delta_bytes,
+        schema: 1,
+        skipped: report.skipped,
+        skips: &skips,
+        started_at: now,
+        status: if incomplete { "attention" } else { "ok" },
+        warnings: &report.warnings[..warnings_len],
+    };
+    fsutil::atomic_json(&store.root.join("last-run.json"), &receipt)?;
     Ok(report)
 }
 
@@ -395,10 +496,30 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 forecast_at.is_none_or(|at| at >= now),
                 "preview --at must be the current time or a future RFC3339 timestamp"
             );
+            if !quiet && cli.json {
+                let mut report = if apply {
+                    cleanup_compact(&mut db, &p, &store, now)?
+                } else {
+                    engine::execute_compact(&mut db, &p, &store, forecast_at.unwrap_or(now), mode)?
+                };
+                if let Some(at) = forecast_at {
+                    report.set_forecast(now, at);
+                }
+                let incomplete = report.requires_attention();
+                report.write_json(out)?;
+                writeln!(out)?;
+                out.flush()?;
+                return Ok(if apply && incomplete { 3 } else { 0 });
+            }
             let mut report = if apply {
-                cleanup(&mut db, &p, &store, now, quiet)?
+                let detail = if quiet {
+                    CleanupDetail::Summary
+                } else {
+                    CleanupDetail::Text
+                };
+                cleanup(&mut db, &p, &store, now, detail)?
             } else {
-                engine::execute(&mut db, &p, &store, forecast_at.unwrap_or(now), mode)?
+                engine::execute_text(&mut db, &p, &store, forecast_at.unwrap_or(now), mode)?
             };
             if let Some(at) = forecast_at {
                 report.started_at = now;
@@ -406,62 +527,53 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             }
             let incomplete = report.requires_attention();
             if !quiet {
-                if cli.json {
-                    serde_json::to_writer(&mut *out, &report)?;
-                    writeln!(out)?;
-                } else {
-                    if let Some(at) = forecast_at {
-                        writeln!(
-                            out,
-                            "Forecast for {} using the current profile snapshot. No deletion. Future changes can alter eligibility; this is not a cleanup guarantee.",
-                            date(Some(at))
-                        )?;
-                    }
+                if let Some(at) = forecast_at {
                     writeln!(
                         out,
-                        "{}: {} examined, {} eligible, {} deleted, {} skipped.",
-                        report.mode,
-                        report.examined,
-                        report.eligible,
-                        report.deleted,
-                        report.skipped
+                        "Forecast for {} using the current profile snapshot. No deletion. Future changes can alter eligibility; this is not a cleanup guarantee.",
+                        date(Some(at))
                     )?;
-                    for e in report.entries.iter().take(30) {
-                        writeln!(
-                            out,
-                            "{}  {}  due={}  {}{}",
-                            safe_text(&e.id),
-                            e.reason,
-                            date(e.eligible_at),
-                            safe_text(&e.title),
-                            e.detail
-                                .as_ref()
-                                .map(|d| format!("  {}", safe_text(d)))
-                                .unwrap_or_default()
-                        )?;
-                    }
-                    if report.entries.len() > 30 {
-                        writeln!(
-                            out,
-                            "Showing 30 entries; use --json for all {}.",
-                            report.entries.len()
-                        )?;
-                    }
-                    if apply {
-                        writeln!(
-                            out,
-                            "Removed {} logical bytes; unlinked {} allocated bytes (estimate).\nObserved volume free-space change: {} bytes. Exact reclaimed space is unknown (snapshots/shared blocks/other activity).",
-                            report.logical_bytes_removed,
-                            report.allocated_bytes_unlinked,
-                            report
-                                .observed_free_space_delta_bytes
-                                .map(|v| v.to_string())
-                                .unwrap_or_else(|| "unknown".into())
-                        )?;
-                    }
-                    for warning in &report.warnings {
-                        writeln!(out, "Note: {}", safe_text(warning))?;
-                    }
+                }
+                writeln!(
+                    out,
+                    "{}: {} examined, {} eligible, {} deleted, {} skipped.",
+                    report.mode, report.examined, report.eligible, report.deleted, report.skipped
+                )?;
+                for e in report.entries.iter().take(30) {
+                    writeln!(
+                        out,
+                        "{}  {}  due={}  {}{}",
+                        safe_text(&e.id),
+                        e.reason,
+                        date(e.eligible_at),
+                        safe_text(&e.title),
+                        e.detail
+                            .as_ref()
+                            .map(|d| format!("  {}", safe_text(d)))
+                            .unwrap_or_default()
+                    )?;
+                }
+                if report.examined > 30 {
+                    writeln!(
+                        out,
+                        "Showing 30 entries; use --json for all {}.",
+                        report.examined
+                    )?;
+                }
+                if apply {
+                    writeln!(
+                        out,
+                        "Removed {} logical bytes; unlinked {} allocated bytes (estimate).\nObserved volume free-space change: {} bytes. Exact reclaimed space is unknown (snapshots/shared blocks/other activity).",
+                        report.logical_bytes_removed,
+                        report.allocated_bytes_unlinked,
+                        report
+                            .observed_free_space_delta_bytes
+                            .map(|v| v.to_string())
+                            .unwrap_or_else(|| "unknown".into())
+                    )?;
+                }
+                for warning in &report.warnings {
+                    writeln!(out, "Note: {}", safe_text(warning))?;
                 }
                 out.flush()?;
             }

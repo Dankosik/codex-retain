@@ -1,6 +1,6 @@
 [package]
 name = "codex-retain"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 rust-version = "1.98.1"
 description = "Predictable local retention for archived Codex chats."
@@ -15,15 +15,18 @@ clap_complete = "4.6.9"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 
-# Selected filesystem, SQLite, identity and timestamp capabilities.
+# Selected filesystem, SQLite, identity, timestamp, and hot-path capabilities.
 anyhow = "1.0.104"
 tempfile = "3.27.0"
-walkdir = "2.5.0"
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
 uuid = { version = "1.26.0", features = ["serde"] }
 zstd = { version = "0.14.0", default-features = false }
 rustix = { version = "1.1.4", features = ["fs"] }
 jiff = { version = "0.2.35", default-features = false, features = ["std"] }
+memchr = { version = "2.8.3", default-features = false, features = ["std"] }
+simdutf8 = { version = "0.1.5", default-features = false, features = ["std"] }
+itoa = { version = "1.0.18", default-features = false }
+smallvec = { version = "1.16.0", default-features = false, features = ["const_generics"] }
 
 [dev-dependencies]
 assert_cmd = "2.2.2"
@@ -32,10 +35,12 @@ assert_cmd = "2.2.2"
 unsafe_code = "forbid"
 
 [profile.release]
-lto = "thin"
-strip = "debuginfo"
+lto = "fat"
+codegen-units = 1
+strip = true
 
 [profile.profiling]
 inherits = "release"
+lto = "thin"
 debug = 1
 strip = "none"

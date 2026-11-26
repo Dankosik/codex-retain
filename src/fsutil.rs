@@ -1,6 +1,12 @@
 //! Bounded reads, durable replacement, and the locks shared with Codex 0.153.4.
 use anyhow::{Context, Result, bail, ensure};
+use rustix::fd::{AsFd, BorrowedFd, OwnedFd};
+use rustix::fs::{
+    AtFlags, CWD, FileType, Mode, OFlags, RenameFlags, Stat, fstat, openat, renameat,
+    renameat_with, statat, unlinkat,
+};
 use serde::{Deserialize, Serialize};
+use std::ffi::{CStr, OsStr};
 use std::os::unix::{
     ffi::OsStrExt,
     fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
@@ -23,6 +29,75 @@ impl Identity {
             inode: meta.ino(),
         }
     }
+
+    #[allow(clippy::unnecessary_cast)]
+    pub(crate) fn of_stat(stat: &Stat) -> Self {
+        Self {
+            device: stat.st_dev as u64,
+            inode: stat.st_ino as u64,
+        }
+    }
+}
+
+#[allow(clippy::unnecessary_cast)]
+pub(crate) fn stat_bytes_and_allocated(stat: &Stat) -> (u64, u64) {
+    (
+        stat.st_size as u64,
+        (stat.st_blocks as u64).saturating_mul(512),
+    )
+}
+
+pub(crate) fn open_dir_nofollow(path: &Path) -> Result<OwnedFd> {
+    let fd = openat(
+        CWD,
+        path,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(std::io::Error::from)
+    .with_context(|| format!("open directory {}", path.display()))?;
+    Ok(fd)
+}
+
+pub(crate) fn path_exists_at(
+    dir_fd: BorrowedFd<'_>,
+    name: &OsStr,
+    display_path: &Path,
+) -> Result<bool> {
+    match statat(dir_fd, name, AtFlags::SYMLINK_NOFOLLOW) {
+        Ok(_) => Ok(true),
+        Err(rustix::io::Errno::NOENT) => Ok(false),
+        Err(error) => Err(std::io::Error::from(error))
+            .with_context(|| format!("inspect {}", display_path.display())),
+    }
+}
+
+pub(crate) fn regular_at_with_stat(
+    dir_fd: BorrowedFd<'_>,
+    name: &OsStr,
+    display_path: &Path,
+) -> Result<(File, Stat)> {
+    let fd = openat(
+        dir_fd,
+        name,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(std::io::Error::from)
+    .with_context(|| format!("open {}", display_path.display()))?;
+    let file = File::from(fd);
+    let stat = fstat(&file).map_err(std::io::Error::from)?;
+    ensure!(
+        FileType::from_raw_mode(stat.st_mode) == FileType::RegularFile && stat.st_nlink == 1,
+        "expected a regular file with one link: {}",
+        display_path.display()
+    );
+    Ok((file, stat))
+}
+
+pub(crate) fn unlink_at(dir_fd: BorrowedFd<'_>, name: &OsStr) -> Result<()> {
+    unlinkat(dir_fd, name, AtFlags::empty()).map_err(std::io::Error::from)?;
+    Ok(())
 }
 
 pub fn private_dir(path: &Path) -> Result<()> {
@@ -229,14 +304,52 @@ impl std::error::Error for LockAcquisitionError {
     }
 }
 
+fn try_lock_at(dir_fd: BorrowedFd<'_>, dir: &Path, name: &CStr) -> Result<File> {
+    let fd = openat(
+        dir_fd,
+        name,
+        OFlags::RDWR | OFlags::CREATE | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::from_raw_mode(0o600),
+    )
+    .map_err(std::io::Error::from)
+    .with_context(|| {
+        format!(
+            "open {}",
+            dir.join(OsStr::from_bytes(name.to_bytes())).display()
+        )
+    })?;
+    let file = File::from(fd);
+    let stat = fstat(&file).map_err(std::io::Error::from)?;
+    ensure!(
+        FileType::from_raw_mode(stat.st_mode) == FileType::RegularFile && stat.st_nlink == 1,
+        "expected a regular file with one link: {}",
+        dir.join(OsStr::from_bytes(name.to_bytes())).display()
+    );
+    file.try_lock().map_err(|error| {
+        anyhow::anyhow!(
+            "busy or unavailable lock {}: {error}",
+            dir.join(OsStr::from_bytes(name.to_bytes())).display()
+        )
+    })?;
+    Ok(file)
+}
+
+fn lock_filename(id: uuid::Uuid) -> [u8; 42] {
+    let mut buf = [0u8; 42];
+    id.hyphenated().encode_lower(&mut buf[..36]);
+    buf[36..41].copy_from_slice(b".lock");
+    buf[41] = 0;
+    buf
+}
+
 /// Own all requested thread locks or none, with one coordination lock.
 ///
 /// Codex removes stale UUID lock paths while holding coordination. Match its
 /// protocol: coordinate acquisition and cleanup, but retain only the UUID locks
 /// while doing filesystem and SQLite work so unrelated writers can start.
 pub struct ThreadLocks {
-    files: Vec<(PathBuf, File)>,
-    coordination_path: PathBuf,
+    dir_fd: OwnedFd,
+    files: Vec<([u8; 42], File)>,
     acquisition_guard: Option<File>,
 }
 impl ThreadLocks {
@@ -245,13 +358,37 @@ impl ThreadLocks {
             !ids.is_empty() && ids.len() <= MAX_BATCH_THREADS,
             "thread lock batch must contain 1..={MAX_BATCH_THREADS} IDs"
         );
-        for id in ids {
-            ensure!(
-                uuid::Uuid::parse_str(id)?.to_string() == *id,
-                "noncanonical thread ID"
-            );
+        let mut parsed = Vec::with_capacity(ids.len());
+        for &id in ids {
+            let uuid = match crate::lineage::parse_canonical_uuid(id) {
+                Some(uuid) => uuid,
+                None => {
+                    let uuid = uuid::Uuid::parse_str(id)?;
+                    ensure!(
+                        uuid.hyphenated().encode_lower(&mut [0; 36]) == id,
+                        "noncanonical thread ID"
+                    );
+                    uuid
+                }
+            };
+            parsed.push(uuid);
         }
-        let mut ordered = ids.to_vec();
+        Self::acquire_sorted_uuids(home, parsed)
+    }
+
+    pub(crate) fn acquire_uuids(
+        home: &Path,
+        ids: impl IntoIterator<Item = uuid::Uuid>,
+    ) -> Result<Self> {
+        let parsed: Vec<uuid::Uuid> = ids.into_iter().collect();
+        ensure!(
+            !parsed.is_empty() && parsed.len() <= MAX_BATCH_THREADS,
+            "thread lock batch must contain 1..={MAX_BATCH_THREADS} IDs"
+        );
+        Self::acquire_sorted_uuids(home, parsed)
+    }
+
+    fn acquire_sorted_uuids(home: &Path, mut ordered: Vec<uuid::Uuid>) -> Result<Self> {
         ordered.sort_unstable();
         ensure!(
             ordered.windows(2).all(|pair| pair[0] != pair[1]),
@@ -262,25 +399,34 @@ impl ThreadLocks {
             scope: LockScope::Global,
             source,
         })?;
-        let coordination_path = dir.join(".coordination.lock");
-        let coordination = try_lock(&coordination_path).map_err(|source| LockAcquisitionError {
+        let dir_fd = open_dir_nofollow(&dir).map_err(|source| LockAcquisitionError {
             scope: LockScope::Global,
             source,
         })?;
+        let coordination =
+            try_lock_at(dir_fd.as_fd(), &dir, c".coordination.lock").map_err(|source| {
+                LockAcquisitionError {
+                    scope: LockScope::Global,
+                    source,
+                }
+            })?;
         let mut owned = Self {
+            dir_fd,
             files: Vec::with_capacity(ordered.len()),
-            coordination_path,
             acquisition_guard: Some(coordination),
         };
         for id in ordered {
-            let path = dir.join(format!("{id}.lock"));
-            let file = try_lock(&path).map_err(|source| LockAcquisitionError {
-                scope: LockScope::Thread(id.to_owned()),
-                source,
+            let name_buf = lock_filename(id);
+            let name = CStr::from_bytes_with_nul(&name_buf).expect("fixed ASCII NUL lock name");
+            let file = try_lock_at(owned.dir_fd.as_fd(), &dir, name).map_err(|source| {
+                LockAcquisitionError {
+                    scope: LockScope::Thread(id.to_string()),
+                    source,
+                }
             })?;
             // Only successfully locked paths enter cleanup ownership. A busy
             // pathname belongs to another writer and must never be unlinked.
-            owned.files.push((path, file));
+            owned.files.push((name_buf, file));
         }
         drop(owned.acquisition_guard.take());
         Ok(owned)
@@ -291,14 +437,33 @@ impl Drop for ThreadLocks {
         // A partial acquisition already owns coordination. Successful guards
         // reacquire it only for cleanup, as Codex does. If it is busy, close
         // without unlinking: a stale empty file is safe, an inode race is not.
-        let coordination = self
-            .acquisition_guard
-            .take()
-            .or_else(|| try_lock(&self.coordination_path).ok());
-        while let Some((path, file)) = self.files.pop() {
+        let coordination = self.acquisition_guard.take().or_else(|| {
+            let fd = openat(
+                self.dir_fd.as_fd(),
+                c".coordination.lock",
+                OFlags::RDWR
+                    | OFlags::CREATE
+                    | OFlags::NOFOLLOW
+                    | OFlags::NONBLOCK
+                    | OFlags::CLOEXEC,
+                Mode::from_raw_mode(0o600),
+            )
+            .ok()?;
+            let file = File::from(fd);
+            let stat = fstat(&file).ok()?;
+            if FileType::from_raw_mode(stat.st_mode) != FileType::RegularFile || stat.st_nlink != 1
+            {
+                return None;
+            }
+            file.try_lock().ok()?;
+            Some(file)
+        });
+        while let Some((name_buf, file)) = self.files.pop() {
             drop(file);
-            if coordination.is_some() {
-                let _ = fs::remove_file(path);
+            if coordination.is_some()
+                && let Ok(name) = CStr::from_bytes_with_nul(&name_buf)
+            {
+                let _ = unlinkat(self.dir_fd.as_fd(), name, AtFlags::empty());
             }
         }
     }
@@ -334,7 +499,7 @@ pub fn checked_absolute(path: &Path) -> Result<PathBuf> {
     let canonical =
         fs::canonicalize(path).with_context(|| format!("resolve {}", path.display()))?;
     ensure!(
-        !canonical.as_os_str().as_bytes().contains(&0),
+        memchr::memchr(0, canonical.as_os_str().as_bytes()).is_none(),
         "invalid path"
     );
     Ok(canonical)
@@ -354,15 +519,56 @@ pub fn rename_without_overwrite(source: &Path, destination: &Path) -> Result<()>
 /// Rename under the caller's thread lock without syncing the directory.
 /// The caller must sync after its bounded group of moves before committing.
 pub fn rename_without_overwrite_unsynced(source: &Path, destination: &Path) -> Result<()> {
-    if path_exists(destination)? {
-        bail!(
+    rename_at_without_overwrite_unsynced(CWD, source, CWD, destination, destination)
+}
+
+pub(crate) fn rename_at_without_overwrite_unsynced<
+    P: rustix::path::Arg + Copy,
+    Q: rustix::path::Arg + Copy,
+>(
+    source_dir: BorrowedFd<'_>,
+    source: P,
+    dest_dir: BorrowedFd<'_>,
+    destination: Q,
+    destination_display: &Path,
+) -> Result<()> {
+    // Prefer an atomic kernel no-replace rename (RENAME_EXCL on macOS,
+    // RENAME_NOREPLACE on Linux) to avoid an extra lstat syscall per file.
+    match renameat_with(
+        source_dir,
+        source,
+        dest_dir,
+        destination,
+        RenameFlags::NOREPLACE,
+    ) {
+        Ok(()) => Ok(()),
+        Err(rustix::io::Errno::EXIST) => bail!(
             "recovery destination already exists: {}",
-            destination.display()
-        );
+            destination_display.display()
+        ),
+        // ENOTSUP and EOPNOTSUPP are distinct errnos on macOS/BSD and equal on Linux.
+        Err(error)
+            if error == rustix::io::Errno::NOSYS
+                || error == rustix::io::Errno::NOTSUP
+                || error == rustix::io::Errno::OPNOTSUPP
+                || error == rustix::io::Errno::INVAL =>
+        {
+            match statat(dest_dir, destination, AtFlags::SYMLINK_NOFOLLOW) {
+                Ok(_) => bail!(
+                    "recovery destination already exists: {}",
+                    destination_display.display()
+                ),
+                Err(rustix::io::Errno::NOENT) => {}
+                Err(error) => {
+                    return Err(std::io::Error::from(error))
+                        .with_context(|| format!("inspect {}", destination_display.display()));
+                }
+            }
+            renameat(source_dir, source, dest_dir, destination).map_err(std::io::Error::from)?;
+            Ok(())
+        }
+        Err(error) => Err(std::io::Error::from(error).into()),
     }
-    // Cooperating Codex clients cannot touch this thread while ThreadLock is held.
-    fs::rename(source, destination)?;
-    Ok(())
 }
 
 #[cfg(test)]

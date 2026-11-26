@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "generator": "scripts/notices.py",
-  "cargo_lock_sha256": "dc489b4279d980f0c1d4f251295e25ecb0f0fa39f20cd9beac6c7d5b2b888f2d",
+  "cargo_lock_sha256": "384787059e65a8b34c707d1bf6faa84944479365076a77b2e1a975eb3ab8a588",
   "scope": "All resolved default-feature packages, including build/dev/platform-conditional dependencies",
   "packages": [
     {
@@ -1184,25 +1184,6 @@
       ]
     },
     {
-      "id": "registry+https://github.com/rust-lang/crates.io-index#same-file@1.0.6",
-      "name": "same-file",
-      "version": "1.0.6",
-      "license": "Unlicense/MIT",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "files": [
-        {
-          "path": "COPYING",
-          "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
-          "bytes": 126
-        },
-        {
-          "path": "LICENSE-MIT",
-          "sha256": "cb3c929a05e6cbc9de9ab06a4c57eeb60ca8c724bef6c138c87d3a577e27aa14",
-          "bytes": 1081
-        }
-      ]
-    },
-    {
       "id": "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
       "name": "serde",
       "version": "1.0.229",
@@ -1294,6 +1275,25 @@
           "path": "LICENSE-MIT",
           "sha256": "4455bf75a91154108304cb283e0fea9948c14f13e20d60887cf2552449dea3b1",
           "bytes": 1092
+        }
+      ]
+    },
+    {
+      "id": "registry+https://github.com/rust-lang/crates.io-index#simdutf8@0.1.5",
+      "name": "simdutf8",
+      "version": "0.1.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "files": [
+        {
+          "path": "LICENSE-Apache",
+          "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9",
+          "bytes": 10173
+        },
+        {
+          "path": "LICENSE-MIT",
+          "sha256": "1847e0e0698142ed4347c1441a9fa81c8fbddd44b1d8bbcd5e3647f991759d7f",
+          "bytes": 1035
         }
       ]
     },
@@ -1554,25 +1554,6 @@
       ]
     },
     {
-      "id": "registry+https://github.com/rust-lang/crates.io-index#walkdir@2.5.0",
-      "name": "walkdir",
-      "version": "2.5.0",
-      "license": "Unlicense/MIT",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "files": [
-        {
-          "path": "COPYING",
-          "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
-          "bytes": 126
-        },
-        {
-          "path": "LICENSE-MIT",
-          "sha256": "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f",
-          "bytes": 1081
-        }
-      ]
-    },
-    {
       "id": "registry+https://github.com/rust-lang/crates.io-index#wasm-bindgen@0.2.128",
       "name": "wasm-bindgen",
       "version": "0.2.128",
@@ -1645,25 +1626,6 @@
           "path": "LICENSE-MIT",
           "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397",
           "bytes": 1057
-        }
-      ]
-    },
-    {
-      "id": "registry+https://github.com/rust-lang/crates.io-index#winapi-util@0.1.11",
-      "name": "winapi-util",
-      "version": "0.1.11",
-      "license": "Unlicense OR MIT",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "files": [
-        {
-          "path": "COPYING",
-          "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
-          "bytes": 126
-        },
-        {
-          "path": "LICENSE-MIT",
-          "sha256": "cb3c929a05e6cbc9de9ab06a4c57eeb60ca8c724bef6c138c87d3a577e27aa14",
-          "bytes": 1081
         }
       ]
     },

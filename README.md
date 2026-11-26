@@ -48,7 +48,7 @@ codex-retain doctor
 
 The installer checks SHA-256 and installs to `~/.local/bin`. Add that directory
 to your shell's PATH permanently if needed. Installation never enables retention.
-For a specific release, use `CODEX_RETAIN_VERSION=0.1.4 sh /tmp/codex-retain-install.sh`.
+For a specific release, use `CODEX_RETAIN_VERSION=0.1.5 sh /tmp/codex-retain-install.sh`.
 Set `CODEX_RETAIN_INSTALL_DIR` to choose a different absolute installation directory.
 
 ### Homebrew
@@ -72,7 +72,7 @@ This tap installs the same prebuilt binaries and shell completions. Enable using
 To compile the tagged source, install Rust 1.98.1 and a C toolchain, then run:
 
 ```sh
-cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.4 --locked codex-retain
+cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.5 --locked codex-retain
 ```
 
 Or download the matching archive and `SHA256SUMS` from
@@ -298,47 +298,51 @@ or notarized. Browser downloads may require approval in macOS Privacy & Security
 
 ## Measured performance
 
-Version 0.1.3 reuses unchanged rollout headers between deletion groups and
-removes a duplicate directory sync. Every group still discovers files and
-rechecks dependencies, eligibility, ownership and writer locks. The cache lasts
-for one run; it does not store deletion permission or persist across invocations.
+Version 0.1.5 reduces peak memory footprint and CPU cost across large archive
+evaluations, previews, scheduled runs, and cleanups without altering policy,
+durability, schema, or output contracts:
 
-Recently modified files are read again on every scan until both their change
-and modification times precede the previous whole wall-clock second. Timestamp
-fields alone can otherwise miss rapid edits on a filesystem with coarse clock
-updates. This freshness condition affects caching, not the archive grace period.
+- Compact slab-backed report storage (`CompactEntries`), direct streaming JSON
+  serialization without intermediate DOM trees, and bounded text/scheduled
+  materialization.
+- Decoupled SQLite archive scans (`visit_archived_compact`), due-count
+  pre-sizing, reusable prepared batch statements, and bounded SQLite page
+  caches with explicit `PRAGMA shrink_memory` before inventory peaks.
+- Direct descriptor-based traversal (`rustix::fs::Dir` and `openat`/`statat`/
+  `unlinkat`/`renameat_with`), compact 48-byte `HeaderCache` slabs, inline
+  rollout filename packing in `OwnedRollout`, reusable `zstd` decoders, SIMD
+  newline/NUL scanning (`memchr`) and UTF-8 validation (`simdutf8`), `itoa`
+  integer formatting, `smallvec` batch scratch, and non-cryptographic internal
+  hash maps seeded per process.
 
-The first full header inventory remains expensive. Preview does not use the
-run cache, and the scheduled no-candidate path skips the inventory entirely.
-The cache retains memory proportional to the file inventory; it holds parsed
-metadata and file stamps, not transcripts or open file handles.
+Paired local release measurements against `0.1.4` on ARM64 macOS using synthetic
+profiles (`/usr/bin/time -l`, local Rust 1.98.1 release builds):
 
-The final runtime implementation was measured against installed 0.1.2 on
-ARM64 macOS 26.4 using synthetic 4-KiB archives, three warmups and five timed
-runs per case. Each pair shared a profile and policy; restoration and result
-checks were outside timing. The candidate was a local Rust 1.98.1 release build
-of tag 0.1.3, not a timing of the GitHub-built archives.
+| Synthetic workload | 0.1.4 peak footprint | 0.1.5 peak footprint | 0.1.4 user CPU | 0.1.5 user CPU |
+| --- | ---: | ---: | ---: | ---: |
+| `enable --json` (100,000 archives, none due) | 111.05 MiB | **9.30 MiB (−91.6%)** | 0.28 s | **0.17 s** |
+| `preview --json` (100,000 archives, none due) | 26.48 MiB | **7.00 MiB (−73.6%)** | 0.16 s | **0.07 s** |
+| `preview` text (100,000 archives, none due) | 26.45 MiB | **2.16 MiB (−91.8%)** | 0.14 s | **< 0.01 s** |
+| `run --scheduled` (100,000 archives, none due) | 4.42 MiB | **2.41 MiB (−45.5%)** | 0.14 s | **< 0.01 s** |
+| `run --json` (delete 10,000 legacy archives) | 29.00 MiB | **7.94 MiB (−72.6%)** | 1.22 s | **0.32 s** |
+| `run --scheduled` (delete 10,000 legacy archives) | 27.50 MiB | **7.80 MiB (−71.6%)** | 0.86 s | **0.34 s** |
+| `preview --json` (99k active + 1k archived, 1 due) | 11.11 MiB | **3.83 MiB (−65.5%)** | 1.27 s | **0.41 s** |
+| `run --json` (99k active + 1k archived, 1 due) | 50.25 MiB | **8.05 MiB (−84.0%)** | 0.77 s | **0.23 s** |
 
-| Workload | 0.1.2 median | Local 0.1.3 median |
-| --- | ---: | ---: |
-| Delete 1,000 independent paginated archives | 660 ms | 628 ms |
-| Delete 1,000 legacy archives | 799 ms | 557 ms |
-| Delete 10,000 legacy archives | 16.331 s | **9.158 s (44% less time)** |
+Release binary size on `aarch64-apple-darwin` also dropped from 4.43 MiB to
+3.54 MiB (−20.1%) with full symbol stripping (`strip = true`) and removal of
+`walkdir`. These local synthetic benchmarks on a shared desktop do not establish
+cold-cache I/O latency, Intel timings, or live-writer contention.
 
-The large cleanup ranges do not overlap: 15.697–18.445 s versus 7.960–12.162 s.
-Small paginated timings remain noisy, with overlapping ranges and a slightly
-higher candidate mean; a stable speedup is not established. Separately sampled
-process RSS for the 10,000-file case was 26.78 MiB versus 31.59 MiB. Samples can
-miss the peak and exclude child processes.
+Earlier 0.1.3 run-local header reuse and timestamp-freshness rules remain
+unchanged: every group still discovers files freshly, rechecks dependencies,
+eligibility, ownership and writer locks, and refuses to cache recently modified
+files until both change and modification times precede the previous whole
+wall-clock second.
 
-All 30 timed runs passed result checks. These warm-cache observations on a
-shared desktop do not establish cold-cache behavior, live-writer latency or
-performance on another host. The earlier candidate's measurements are retained
-as historical evidence and are not substituted for this corrected version.
-
-[Final comparison and reproduction](docs/performance-0.1.3.md) ·
-[All samples and RSS](docs/evidence/performance-0.1.3/comparison.json) ·
-[Published-package verification](docs/release-0.1.3-validation.md) ·
+[0.1.3 comparison and reproduction](docs/performance-0.1.3.md) ·
+[0.1.3 samples and RSS](docs/evidence/performance-0.1.3/comparison.json) ·
+[0.1.3 package verification](docs/release-0.1.3-validation.md) ·
 [Earlier candidate and CI correction](docs/inventory-performance-2026-09-10.md)
 
 We also [reviewed five existing Codex cleanup tools](docs/competitors.md) and

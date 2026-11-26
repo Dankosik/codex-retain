@@ -1,8 +1,10 @@
 //! Removal ordering for organizational ownership and shared rollout history.
 
+use crate::lineage::{FastHashMap, FastHashSet};
 use anyhow::{Result, ensure};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::fmt;
+use std::hash::BuildHasher;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,9 +29,9 @@ impl std::error::Error for Blocker {}
 #[derive(Default)]
 pub(crate) struct Dependencies {
     // Deduplicate a dependent/source pair even when both edge kinds apply.
-    dependents: HashMap<Uuid, HashMap<Uuid, EdgeKinds>>,
-    prerequisites: HashMap<Uuid, HashSet<Uuid>>,
-    parents: HashMap<Uuid, HashSet<Uuid>>,
+    dependents: FastHashMap<Uuid, FastHashMap<Uuid, EdgeKinds>>,
+    prerequisites: FastHashMap<Uuid, FastHashSet<Uuid>>,
+    parents: FastHashMap<Uuid, FastHashSet<Uuid>>,
 }
 
 #[derive(Default)]
@@ -51,10 +53,24 @@ impl EdgeKinds {
 
 pub(crate) struct Plan {
     pub layers: Vec<Vec<Uuid>>,
-    pub blocked: HashMap<Uuid, Blocker>,
+    pub blocked: FastHashMap<Uuid, Blocker>,
 }
 
 impl Dependencies {
+    pub(crate) fn clear(&mut self) {
+        self.dependents.clear();
+        self.prerequisites.clear();
+        self.parents.clear();
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.dependents.is_empty() && self.parents.is_empty()
+    }
+
+    pub(crate) fn has_no_parents(&self) -> bool {
+        self.parents.is_empty()
+    }
+
     pub(crate) fn add_parent(&mut self, child: Uuid, parent: Uuid) {
         self.parents.entry(child).or_default().insert(parent);
         self.dependents
@@ -81,10 +97,24 @@ impl Dependencies {
 
     /// Produce deterministic leaves-first layers. Noncandidates remain alive
     /// and block every prerequisite reachable from them. Cycles stay untouched.
-    pub(crate) fn plan(&self, candidates: &HashSet<Uuid>) -> Plan {
-        let mut remaining: HashMap<_, _> = candidates
+    pub(crate) fn plan<S: BuildHasher>(&self, candidates: &HashSet<Uuid, S>) -> Plan {
+        if self.dependents.is_empty() {
+            if candidates.is_empty() {
+                return Plan {
+                    layers: Vec::new(),
+                    blocked: FastHashMap::default(),
+                };
+            }
+            let mut layer: Vec<_> = candidates.iter().copied().collect();
+            layer.sort_unstable();
+            return Plan {
+                layers: vec![layer],
+                blocked: FastHashMap::default(),
+            };
+        }
+        let mut remaining: FastHashMap<Uuid, usize> = candidates
             .iter()
-            .map(|&id| (id, self.dependents.get(&id).map_or(0, HashMap::len)))
+            .map(|&id| (id, self.dependents.get(&id).map_or(0, FastHashMap::len)))
             .collect();
         let mut ready: Vec<_> = remaining
             .iter()
@@ -112,7 +142,7 @@ impl Dependencies {
 
         // Identify ordinary survivors first, then propagate that protection.
         // Remaining nodes unreachable from external survivors depend on cycles.
-        let mut blocked = HashMap::new();
+        let mut blocked = FastHashMap::default();
         let mut queue = VecDeque::new();
         for &id in remaining.keys() {
             if let Some(dependents) = self.dependents.get(&id) {
@@ -139,12 +169,60 @@ impl Dependencies {
         Plan { layers, blocked }
     }
 
+    /// Check whether a single thread's organizational ancestry fits within `limit`
+    /// without allocating when it has no recorded parents.
+    pub(crate) fn has_bounded_ancestors(&self, id: Uuid, limit: usize) -> Result<()> {
+        ensure!(
+            1 <= limit,
+            "deletion guard set exceeds {limit} writer locks"
+        );
+        let Some(direct_parents) = self.parents.get(&id) else {
+            return Ok(());
+        };
+        let mut ancestors = FastHashSet::with_capacity_and_hasher(
+            direct_parents.len().saturating_add(1),
+            Default::default(),
+        );
+        ancestors.insert(id);
+        let mut queue = VecDeque::with_capacity(direct_parents.len());
+        for &parent in direct_parents {
+            if ancestors.insert(parent) {
+                ensure!(
+                    ancestors.len() <= limit,
+                    "deletion ancestry exceeds {limit} writer locks"
+                );
+                queue.push_back(parent);
+            }
+        }
+        while let Some(current) = queue.pop_front() {
+            if let Some(parents) = self.parents.get(&current) {
+                for &parent in parents {
+                    if ancestors.insert(parent) {
+                        ensure!(
+                            ancestors.len() <= limit,
+                            "deletion ancestry exceeds {limit} writer locks"
+                        );
+                        queue.push_back(parent);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Organizational ancestors only; history sources do not own the caller.
-    pub(crate) fn ancestors(&self, ids: &HashSet<Uuid>, limit: usize) -> Result<HashSet<Uuid>> {
+    pub(crate) fn ancestors<S: BuildHasher + Clone>(
+        &self,
+        ids: &HashSet<Uuid, S>,
+        limit: usize,
+    ) -> Result<HashSet<Uuid, S>> {
         ensure!(
             ids.len() <= limit,
             "deletion guard set exceeds {limit} writer locks"
         );
+        if self.parents.is_empty() {
+            return Ok(ids.clone());
+        }
         let mut ancestors = ids.clone();
         let mut queue: VecDeque<_> = ids.iter().copied().collect();
         while let Some(id) = queue.pop_front() {
@@ -164,7 +242,10 @@ impl Dependencies {
     }
 
     /// Recheck a concrete group against a fresh graph before mutation.
-    pub(crate) fn verify_removal(&self, deleting: &HashSet<Uuid>) -> Result<()> {
+    pub(crate) fn verify_removal<S: BuildHasher>(&self, deleting: &HashSet<Uuid, S>) -> Result<()> {
+        if self.dependents.is_empty() {
+            return Ok(());
+        }
         let plan = self.plan(deleting);
         for reason in [Blocker::Children, Blocker::History, Blocker::Cycle] {
             if plan.blocked.values().any(|&blocked| blocked == reason) {
@@ -176,7 +257,7 @@ impl Dependencies {
 }
 
 fn mark_blocked(
-    blocked: &mut HashMap<Uuid, Blocker>,
+    blocked: &mut FastHashMap<Uuid, Blocker>,
     queue: &mut VecDeque<Uuid>,
     id: Uuid,
     reason: Blocker,
@@ -209,7 +290,7 @@ mod tests {
         for number in 1..300 {
             graph.add_parent(id(number), id(number - 1));
         }
-        let candidates = (0..300).map(id).collect();
+        let candidates: HashSet<_> = (0..300).map(id).collect();
         let plan = graph.plan(&candidates);
         assert!(plan.blocked.is_empty());
         assert_eq!(
@@ -247,7 +328,7 @@ mod tests {
         assert!(plan.layers.is_empty());
         assert_eq!(
             plan.blocked,
-            HashMap::from([(id(1), Blocker::Children), (id(2), Blocker::Children)])
+            FastHashMap::from_iter([(id(1), Blocker::Children), (id(2), Blocker::Children)])
         );
         assert_eq!(
             graph
@@ -296,7 +377,7 @@ mod tests {
         assert_eq!(plan.layers, vec![vec![id(4)]]);
         assert_eq!(
             plan.blocked,
-            HashMap::from([
+            FastHashMap::from_iter([
                 (id(1), Blocker::Cycle),
                 (id(2), Blocker::Cycle),
                 (id(3), Blocker::Cycle)
@@ -336,7 +417,7 @@ mod tests {
         let plan = graph.plan(&HashSet::from([id(1), id(2)]));
         assert_eq!(
             plan.blocked,
-            HashMap::from([(id(1), Blocker::Children), (id(2), Blocker::History)])
+            FastHashMap::from_iter([(id(1), Blocker::Children), (id(2), Blocker::History)])
         );
         assert!(plan.layers.is_empty());
     }
