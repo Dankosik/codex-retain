@@ -1,0 +1,80 @@
+{
+  "version": "0.1.5",
+  "release_url": "https://github.com/Dankosik/codex-retain/releases/tag/0.1.5",
+  "published_at": "2026-11-27T00:19:41Z",
+  "source_commit": "33d9a7d83f5385c8beb3a07b08fb0f12a6e0a979",
+  "workflow_url": "https://github.com/Dankosik/codex-retain/actions/runs/45915435492",
+  "workflow_conclusion": "success",
+  "jobs": [
+    {
+      "name": "Archive (aarch64-apple-darwin)",
+      "conclusion": "success"
+    },
+    {
+      "name": "Archive (x86_64-apple-darwin)",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Test (ubuntu-22.04)",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Test (macos-15)",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Quality and maintenance",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Declared minimum Rust",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / Dependency policy",
+      "conclusion": "success"
+    },
+    {
+      "name": "checks / required",
+      "conclusion": "success"
+    },
+    {
+      "name": "publish",
+      "conclusion": "success"
+    }
+  ],
+  "assets": [
+    {
+      "name": "codex-retain-0.1.5-aarch64-apple-darwin.tar.gz",
+      "sha256": "f8d5093ba6bfeb713a9656b51e7f031f57d6653076d7ac1ad19d78f3c32eaa6f",
+      "bytes": 1886352
+    },
+    {
+      "name": "codex-retain-0.1.5-x86_64-apple-darwin.tar.gz",
+      "sha256": "c9c570457a4b529f97601ed022351c72a2807b11b10ed7b89285f7ba56a639a9",
+      "bytes": 2043698
+    },
+    {
+      "name": "codex-retain.rb",
+      "sha256": "02dfd38825ba80fdcd50970c9acace193a107800fd4dcb6c5c9e1f5cd5ee953f",
+      "bytes": 1515
+    },
+    {
+      "name": "install.sh",
+      "sha256": "02e08de2a2f654673c4ec3825795240c7a8cb8fc2c5a508ec4980c810500676d",
+      "bytes": 4088
+    },
+    {
+      "name": "SHA256SUMS",
+      "sha256": "ca980b3f84192518f6a8326cc0f28c2e09892d080304365b7922f77d0e03ab58",
+      "bytes": 225
+    }
+  ],
+  "both_archive_manifests_verified": true,
+  "all_asset_checksums_verified": true,
+  "regenerated_formula_matches_asset": true,
+  "installed_binary_sha256": "a70ad55805ab56a0c860ca67748230f49b2a1f3fa250fa65bfa414b22e305e43",
+  "isolated_installer_smoke": true,
+  "isolated_homebrew_style": true,
+  "verification_scope": "Synthetic profiles and isolated package locations; live Homebrew installation was left untouched for user-controlled upgrade."
+}
