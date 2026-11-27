@@ -25,16 +25,16 @@ fn configure(f: &mut Fixture) {
     let bin = f.temp.path().join("codex-version");
     fs::write(&bin, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 0.153.4'\n").unwrap();
     fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
-    f.policy.codex_bin = bin;
+    f.policy.codex_bin = Some(bin);
     f.store.save(&f.policy).unwrap();
 }
 
 fn doctor(f: &Fixture, json: bool) -> Command {
     let mut cmd = command(f.temp.path(), &f.store.root, json);
-    cmd.args(["doctor", "--codex-home"])
-        .arg(&f.home)
-        .arg("--codex-bin")
-        .arg(&f.policy.codex_bin);
+    cmd.args(["doctor", "--codex-home"]).arg(&f.home);
+    if let Some(bin) = &f.policy.codex_bin {
+        cmd.arg("--codex-bin").arg(bin);
+    }
     cmd
 }
 
@@ -58,10 +58,7 @@ fn doctor_warns_when_every_archive_has_an_unsupported_format() {
     configure(&mut f);
     let result = json(&mut doctor(&f, true));
     assert_eq!(result["compatible"], true);
-    assert_eq!(
-        result["compatibility_scope"],
-        "schema_and_selected_codex_binary"
-    );
+    assert_eq!(result["compatibility_scope"], "storage_contract");
     assert_eq!(result["archived_threads"], 1);
     assert_eq!(result["history_coverage"]["supported_threads"], 0);
     assert_eq!(result["history_coverage"]["unsupported_threads"], 1);
@@ -159,7 +156,7 @@ fn status_reports_supported_formats_without_claiming_retention_eligibility() {
         .stdout
         .clone();
     let text = String::from_utf8(output).unwrap();
-    assert!(text.contains("Schema, selected Codex executable and enabled policy: verified"));
+    assert!(text.contains("Storage contract and enabled policy (state_5.sqlite): verified"));
     assert!(text.contains("Format counts do not establish deletion eligibility"));
     assert!(path.exists());
 }
@@ -197,8 +194,7 @@ fn status_keeps_compatibility_errors_and_marks_coverage_unavailable() {
     let mut f = Fixture::new();
     f.add(507, 1);
     configure(&mut f);
-    f.c.execute_batch("DROP TRIGGER codex_retain_update")
-        .unwrap();
+    codex_retain::tracker::remove_files(&f.store).unwrap();
     let state = f.store.root.clone();
     drop(f.store);
     let result = json(command(f.temp.path(), &state, true).arg("status"));
@@ -206,7 +202,7 @@ fn status_keeps_compatibility_errors_and_marks_coverage_unavailable() {
         result["compatibility_error"]
             .as_str()
             .unwrap()
-            .contains("capture")
+            .contains("tracker")
     );
     assert!(result["history_coverage"].is_null());
     let output = command(f.temp.path(), &state, false)

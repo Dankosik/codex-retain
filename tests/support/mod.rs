@@ -1,8 +1,8 @@
 use codex_retain::{
     config::{Policy, Store},
-    database, engine, fsutil,
+    database, engine, fsutil, tracker,
 };
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
@@ -60,20 +60,22 @@ impl Fixture {
         database::verify_base(&c).unwrap();
         let store = Store::open(root.join("state")).unwrap();
         let owner = store.root.to_str().unwrap().to_owned();
-        database::install_capture(&mut c, &owner).unwrap();
+        let enabled_at = now() - 10;
         let policy = Policy {
             schema: 1,
             codex_home: home.clone(),
-            codex_bin: PathBuf::from("/synthetic/codex"),
-            database: database::identity(&home).unwrap(),
+            codex_bin: None,
+            database: Some(database::identity(&home).unwrap()),
+            database_name: Some(database::DB_NAME.to_owned()),
             retention_days: 30,
             enabled: true,
             paused: false,
             automatic: false,
-            enabled_at: now() - 10,
+            enabled_at,
             owner,
             exclusions: BTreeSet::new(),
         };
+        tracker::seed(&store, &mut c, &policy, enabled_at).unwrap();
         Self {
             temp,
             home,
@@ -81,6 +83,9 @@ impl Fixture {
             policy,
             store,
         }
+    }
+    pub fn tracker_conn(&self) -> Connection {
+        Connection::open(tracker::tracker_path(&self.store)).unwrap()
     }
     pub fn path(&self, id: &str, archived: bool) -> PathBuf {
         self.home
@@ -96,28 +101,44 @@ impl Fixture {
         let path = self.path(&id, archived != 0);
         let header = json!({"timestamp":"2025-01-01T00:00:00Z","type":"session_meta","payload":{"id":id,"timestamp":"2025-01-01T00:00:00Z","history_mode":"legacy"}});
         fs::write(&path,format!("{header}\n{{\"type\":\"event_msg\",\"payload\":{{\"message\":\"synthetic only\"}}}}\n")).unwrap();
+        let archived_at = if archived == 0 { None } else { Some(1i64) };
         self.c.execute("INSERT INTO threads(id,rollout_path,created_at,updated_at,source,model_provider,cwd,title,sandbox_policy,approval_mode,archived,archived_at) VALUES(?,?,1,1,'cli','fixture',?,'fixture','{}','never',?,?)",
-            params![id,path.to_str().unwrap(),self.home.to_str().unwrap(),archived,if archived==0{None}else{Some(1i64)}]).unwrap();
+            params![id,path.to_str().unwrap(),self.home.to_str().unwrap(),archived,archived_at]).unwrap();
+        if archived == 1 && tracker::tracker_path(&self.store).exists() {
+            let tc = self.tracker_conn();
+            tc.execute(
+                "INSERT OR REPLACE INTO tracked_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?3)",
+                params![&id, now(), archived_at],
+            )
+            .unwrap();
+        }
         id
     }
     pub fn epoch(&self, id: &str) -> Option<i64> {
-        use rusqlite::OptionalExtension;
-        self.c
-            .query_row(
-                "SELECT archived_since FROM codex_retain_epochs WHERE thread_id=?",
-                [id],
-                |r| r.get(0),
-            )
-            .optional()
-            .unwrap()
+        let tc = self.tracker_conn();
+        tc.query_row(
+            "SELECT archived_since FROM tracked_epochs WHERE thread_id=?",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()
+        .unwrap()
     }
     pub fn age(&self, id: &str) {
-        self.c
-            .execute(
-                "UPDATE codex_retain_epochs SET archived_since=? WHERE thread_id=?",
-                params![now() - self.policy.duration() - 100, id],
-            )
-            .unwrap();
+        let tc = self.tracker_conn();
+        let archived_at: Option<i64> = self
+            .c
+            .query_row("SELECT archived_at FROM threads WHERE id=?", [id], |r| {
+                r.get(0)
+            })
+            .optional()
+            .unwrap()
+            .flatten();
+        tc.execute(
+            "INSERT OR REPLACE INTO tracked_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?3)",
+            params![id, now() - self.policy.duration() - 100, archived_at],
+        )
+        .unwrap();
     }
     pub fn run(&mut self, apply: bool) -> anyhow::Result<engine::Report> {
         engine::execute(

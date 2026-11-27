@@ -4,7 +4,7 @@ mod support;
 
 use assert_cmd::Command;
 #[cfg(target_os = "macos")]
-use codex_retain::database;
+use codex_retain::{clients, database, tracker};
 use serde_json::Value;
 use std::path::Path;
 #[cfg(target_os = "macos")]
@@ -84,7 +84,8 @@ fn consent_is_required_before_profile_mutation() {
     let state = f.store.root.clone();
     let home = f.home.clone();
     let bin = binary(f.temp.path());
-    database::uninstall_capture(&mut { f.c }, &f.policy).unwrap();
+    tracker::remove_files(&f.store).unwrap();
+    drop(f.c);
     drop(f.store);
     command(&state)
         .args(["enable", "--no-schedule", "--codex-home"])
@@ -109,6 +110,7 @@ fn consent_is_required_before_profile_mutation() {
         .unwrap(),
         0
     );
+    assert!(!state.join("tracker.sqlite").exists());
 }
 
 #[test]
@@ -159,7 +161,7 @@ fn enable_cleans_old_legacy_and_paginated_archives_and_preserves_protected_owner
     f.policy.enabled = false;
     f.policy.exclusions.insert(excluded.clone());
     f.store.save(&f.policy).unwrap();
-    database::uninstall_capture(&mut f.c, &f.policy).unwrap();
+    tracker::remove_files(&f.store).unwrap();
     let bin = binary(f.temp.path());
     let state = f.store.root.clone();
     let home = f.home.clone();
@@ -216,7 +218,7 @@ fn enable_cleans_old_legacy_and_paginated_archives_and_preserves_protected_owner
 #[cfg(target_os = "macos")]
 fn initial_cleanup_reports_busy_and_invalid_artifacts_as_attention_then_retries() {
     for busy in [true, false] {
-        let mut f = Fixture::new();
+        let f = Fixture::new();
         let id = f.add(420, 1);
         let path = f.path(&id, true);
         let original = fs::read(&path).unwrap();
@@ -224,7 +226,7 @@ fn initial_cleanup_reports_busy_and_invalid_artifacts_as_attention_then_retries(
         if !busy {
             fs::write(&path, b"invalid metadata\n").unwrap();
         }
-        database::uninstall_capture(&mut f.c, &f.policy).unwrap();
+        tracker::remove_files(&f.store).unwrap();
         let bin = binary(f.temp.path());
         let state = f.store.root.clone();
         let home = f.home.clone();
@@ -269,7 +271,7 @@ fn initial_cleanup_reports_busy_and_invalid_artifacts_as_attention_then_retries(
 #[test]
 #[cfg(target_os = "macos")]
 fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable() {
-    let mut f = Fixture::new();
+    let f = Fixture::new();
     let id = f.add(401, 1);
     f.c.execute(
         "UPDATE threads SET archived_at=unixepoch() WHERE id=?",
@@ -277,7 +279,7 @@ fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable(
     )
     .unwrap();
     let rowpath = f.path(&id, true);
-    database::uninstall_capture(&mut f.c, &f.policy).unwrap();
+    tracker::remove_files(&f.store).unwrap();
     let bin = binary(f.temp.path());
     let state = f.store.root.clone();
     let home = f.home.clone();
@@ -320,12 +322,13 @@ fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable(
         .failure();
     json(command(&state).args(["policy", "--days", "1", "--yes"]));
     json(command(&state).arg("exclude").arg(&id));
-    let c = database::open(&home, database::DatabaseAccess::ReadWrite).unwrap();
-    c.execute(
-        "UPDATE codex_retain_epochs SET archived_since=unixepoch()-3*86400",
+    let tc = rusqlite::Connection::open(state.join("tracker.sqlite")).unwrap();
+    tc.execute(
+        "UPDATE tracked_epochs SET archived_since=unixepoch()-3*86400",
         [],
     )
     .unwrap();
+    drop(tc);
     assert_eq!(json(command(&state).arg("run"))["deleted"], 0);
     assert!(rowpath.exists());
     command(&state).arg("include").arg(&id).assert().failure();
@@ -343,6 +346,8 @@ fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable(
         json(command(&state).arg("disable"))["capture_removed"],
         true
     );
+    assert!(!state.join("tracker.sqlite").exists());
+    let c = database::open(&home, database::DatabaseAccess::ReadOnly).unwrap();
     assert_eq!(
         c.query_row(
             "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'codex_retain_%'",
@@ -367,11 +372,10 @@ fn executable_lifecycle_is_local_predictable_and_confirmation_free_after_enable(
 #[cfg(target_os = "macos")]
 fn scheduled_errors_replace_one_bounded_receipt_and_remain_quiet() {
     let mut f = Fixture::new();
-    f.policy.codex_bin = binary(f.temp.path());
+    f.policy.codex_bin = Some(binary(f.temp.path()));
     f.store.save(&f.policy).unwrap();
     let state = f.store.root.clone();
-    f.c.execute_batch("DROP TRIGGER codex_retain_update")
-        .unwrap();
+    tracker::remove_files(&f.store).unwrap();
     drop(f.store);
     for _ in 0..2 {
         command(&state)
@@ -384,7 +388,7 @@ fn scheduled_errors_replace_one_bounded_receipt_and_remain_quiet() {
     let value: Value =
         serde_json::from_slice(&fs::read(state.join("last-run.json")).unwrap()).unwrap();
     assert_eq!(value["status"], "error");
-    assert!(value["error"].as_str().unwrap().contains("capture"));
+    assert!(value["error"].as_str().unwrap().contains("tracker"));
     assert!(fs::metadata(state.join("last-run.json")).unwrap().len() < 4096);
 }
 
@@ -399,7 +403,7 @@ fn scheduled_artifact_failures_keep_attention_and_the_same_first_ten_diagnostics
         fs::remove_file(f.path(&id, true)).unwrap();
         ids.push(id);
     }
-    f.policy.codex_bin = binary(f.temp.path());
+    f.policy.codex_bin = Some(binary(f.temp.path()));
     f.store.save(&f.policy).unwrap();
     let state = f.store.root.clone();
     drop(f.store);
@@ -455,7 +459,7 @@ fn large_json_preview_exits_successfully_when_the_reader_closes_early() {
     for number in 1..=1000 {
         f.add(number, 1);
     }
-    f.policy.codex_bin = binary(f.temp.path());
+    f.policy.codex_bin = Some(binary(f.temp.path()));
     f.store.save(&f.policy).unwrap();
     let state = f.store.root.clone();
     drop(f.store);
@@ -494,14 +498,14 @@ fn large_json_preview_exits_successfully_when_the_reader_closes_early() {
 #[cfg(target_os = "macos")]
 fn incomplete_automatic_setup_cannot_become_a_manual_policy() {
     let mut f = Fixture::new();
+    let bin = binary(f.temp.path());
     f.policy.enabled = false;
     f.policy.automatic = true;
-    f.policy.codex_bin = binary(f.temp.path());
+    f.policy.codex_bin = Some(bin.clone());
     f.store.save(&f.policy).unwrap();
     let state = f.store.root.clone();
     let before = fs::read(state.join("policy.json")).unwrap();
     let home = f.home.clone();
-    let bin = f.policy.codex_bin.clone();
     drop(f.store);
     command(&state)
         .args(["enable", "--no-schedule", "--yes", "--codex-home"])
@@ -519,14 +523,14 @@ fn pending_recovery_prevents_policy_replacement() {
     let mut f = Fixture::new();
     let id = f.add(420, 1);
     f.pending(&id, &f.path(&id, true));
+    let bin = binary(f.temp.path());
     f.policy.enabled = false;
-    f.policy.codex_bin = binary(f.temp.path());
+    f.policy.codex_bin = Some(bin.clone());
     f.store.save(&f.policy).unwrap();
     let state = f.store.root.clone();
     let before = fs::read(state.join("policy.json")).unwrap();
     let pending = fs::read(state.join("pending.json")).unwrap();
     let home = f.home.clone();
-    let bin = f.policy.codex_bin.clone();
     drop(f.store);
     command(&state)
         .args(["enable", "--no-schedule", "--yes", "--codex-home"])
@@ -553,7 +557,8 @@ fn version_probe_isolates_and_removes_codex_startup_side_effects() {
     );
     fs::write(&bin, script).unwrap();
     fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
-    database::verify_binary(&bin).unwrap();
+    let version = clients::probe_binary_version(&bin).unwrap();
+    assert_eq!(version, "codex-cli 0.153.4");
     let isolated = PathBuf::from(fs::read_to_string(receipt).unwrap());
     assert!(
         !isolated.exists(),

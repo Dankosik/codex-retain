@@ -2,58 +2,98 @@
 
 ## Decisions
 
-One synchronous Rust CLI, an hourly macOS LaunchAgent, and a small transactional
-extension to Codex's existing SQLite database. No async runtime, polling daemon,
-model calls or app-server startup in a normal cleanup. The executable checks
-`codex --version` but does not initialize the model or read credentials.
+One synchronous Rust CLI, an hourly macOS LaunchAgent, and an external sidecar
+epoch tracker (`state_dir/tracker.sqlite`) alongside Codex's local `$CODEX_HOME`
+storage. No async runtime, polling daemon, model calls, app-server startup, or
+private DDL inside Codex's database. `doctor` and `status` optionally discover
+local Codex CLI and Desktop (`/Applications/Codex.app`) binaries for version
+diagnostics, without requiring any `codex` binary to be installed or on `PATH`.
 
 App-server `thread/delete` cannot express a conditional archived-only deletion
 and cascades to spawned descendants. A separate read followed by that RPC races
-with restore. The supported local storage adapter therefore deletes one reviewed
-thread and its exclusively owned rollouts under the locks that supported Codex writers already honor.
+with restore. The local storage adapter therefore validates the structural
+`threads` contract on the highest-versioned `state_<N>.sqlite` and deletes
+reviewed threads and their exclusively owned rollouts under the locks that
+Codex writers honor.
 
-## Capture instead of inferred timestamps
+## Sidecar epoch tracking instead of inferred timestamps
 
-`compatibility/capture.sql` owns exactly two tables and three triggers, with a
-reserved `codex_retain_` prefix. `codex_retain_owner` binds the extension to one
-canonical policy directory. `codex_retain_epochs` holds one row per archived
-thread: ID, archive transition epoch, and the corresponding Codex timestamp.
+`state_dir/tracker.sqlite` (private `0o600`, `DELETE` journal mode, `synchronous=FULL`)
+owns `tracker_meta` (binding the tracker to one canonical policy owner and
+`codex_home`, plus `last_synced_at`) and `tracked_epochs` (`thread_id`,
+`archived_since`, `codex_archived_at`). Codex's own `state_<N>.sqlite` receives
+**zero** `codex_retain_*` tables or triggers, preventing conflicts with future
+Codex SQLx migrations and allowing `state_5 -> state_6` upgrades without
+disabling Retain first.
 
-Explicit activation occurs in `BEGIN IMMEDIATE`: create/verify the extension and
-seed current archives from Codex's recorded `archived_at`. Missing dates seed a
-zero epoch and remain ineligible; nonpositive or future dates are also retained.
-The initial cleanup uses those dates immediately after successful policy and
-scheduler setup. This deliberately trusts Codex's existing timestamp, which may
-have been reconstructed by native backfill and has no provenance marker; it is
-not proof of continuous archive time before activation. No chat creation date,
-last message or file mtime is used as a fallback.
+Explicit activation seeds `tracker.sqlite` from Codex's current archived rows'
+recorded `archived_at`. Missing dates seed a zero epoch and remain ineligible;
+nonpositive or future dates are also retained. The initial cleanup uses those
+dates immediately after successful policy and scheduler setup. This deliberately
+trusts Codex's existing timestamp, which may have been reconstructed by native
+backfill and has no provenance marker; it is not proof of continuous archive
+time before activation. No chat creation date, last message or file mtime is
+used as a fallback.
 
-Native insertion of an already archived thread after activation starts at its
-insertion time. Updates changing archive state,
-archive timestamp or identity replace the epoch; unarchive/delete removes it.
-Unrelated updates do not restart retention. Archive timestamp repairs restart
-conservatively, addressing Codex's mtime-based backfill behavior.
+On every `run` (and quietly on paused `run --scheduled`, opening Codex strictly
+read-only), `tracker.sync` reconciles `tracked_epochs` against Codex's current
+`threads` rows using a pure transition rule shared identically with read-only
+`preview`:
+- Unchanged `archived_at` preserves the recorded `archived_since` epoch
+  (unrelated edits like renames do not reset retention).
+- Unarchived or deleted threads are pruned from `tracked_epochs`.
+- Newly archived threads or threads whose `archived_at` changed (restore +
+  rearchive or timestamp repair) adopt `archived_at` only if it lies in
+  `[last_synced_at, observed_now]`; older repaired/backfilled timestamps
+  conservatively start a fresh period at `observed_now`.
+- Legacy `0.1.x` policies with `codex_retain_epochs` inside `state_5.sqlite` are
+  read in-memory during read-only `status`/`preview` and seamlessly migrated to
+  `tracker.sqlite` (with legacy triggers/tables removed from Codex's DB) on the
+  first `run`.
 
-The triggers are durable and execute in the writer's transaction, so even
-restore/rearchive entirely between runs is captured. No append-only event log
-is retained. The recorder adds a small indexed write to relevant transitions;
-paused policies retain capture, disabled policies remove it. The capture schema,
-owner, source timestamp, base schema and migration checksums are revalidated.
-Missing/altered capture never becomes an inferred permission to delete.
+Missing or tampered `tracker.sqlite` fails closed and never becomes an inferred
+permission to delete. Note one inherent polling boundary of zero-DDL external
+tracking: if an external writer unarchives and re-archives a thread entirely
+between two syncs while preserving the exact identical old `archived_at` value,
+that transition is indistinguishable from an unchanged archive; normal Codex
+clients stamp a fresh `archived_at` on re-archive, which is always detected.
 
 Expiration requires `now > archived_since + days * 86400`, avoiding an early
 deletion at the timestamp's one-second precision boundary. A backwards clock
-before activation/last run is rejected; future epochs are skipped. The operating
-system's wall clock must be correct: there is no independent offline time oracle
-that could detect every forward clock adjustment.
+before activation/last sync is rejected; future epochs are skipped. The
+operating system's wall clock must be correct: there is no independent offline
+time oracle that could detect every forward clock adjustment.
 
 ## Adapter boundary
 
-The immutable `compatibility/schema.json` and `migrations.json` were captured
-from a new synthetic profile initialized by the actual supported CLI. Runtime
-schema comparison includes tables, indexes and triggers, plus migration version,
-success and checksum. This deliberately rejects unknown schema extensions and
-future databases. No automatic SQL migration guesses are made.
+Instead of pinning one exact Codex executable version or full `sqlite_schema` /
+`_sqlx_migrations` checksums (`compatibility/schema.json` and `migrations.json`
+remain as synthetic baseline test fixtures), `database::discover_state_db`
+selects the highest numeric `state_<N>.sqlite` in `$CODEX_HOME` and
+`database::probe_schema` validates a capability-based structural contract:
+
+- **Required core contract (fail closed if violated):** `threads` table with
+  primary key `id`, plus `rollout_path`, `archived`, and `archived_at`; no
+  self-referential `ON DELETE CASCADE` on `threads`; no failed or NULL rows in
+  `_sqlx_migrations` (when present); `backfill_state.status == 'complete'`
+  (when present and populated).
+- **Dynamic optional capabilities:** adapts automatically to the presence or
+  absence of `name`, `title`, `history_mode` (absent implies `legacy`),
+  `is_pinned`, `thread_section_id`, `thread_sections`, `thread_spawn_edges`,
+  and `idx_threads_archived`.
+- **Forward-compatible safeguards:** dynamically discovers any `thread_sections`
+  row named `"Pinned"` (case-insensitive) alongside the legacy `PINNED_SECTION_ID`;
+  flags unknown protective columns on `threads` (names containing `pin`,
+  `protect`, `keep`, `retain`, `star`, `fav`, `bookmark`, `preserve`, `hold`)
+  so non-zero/non-empty/non-null values protect the thread; detects child tables
+  referencing `threads` with `ON DELETE RESTRICT` or `NO ACTION` and protects
+  referenced rows as `dependent_thread` before staging files; and skips unknown
+  per-thread `history_mode` values cleanly.
+- **Codex Desktop pin protection:** `desktop::DesktopPins` reads
+  `$CODEX_HOME/.codex-global-state.json` (when present) with `O_NOFOLLOW`,
+  regular-file verification, and a 16 MiB cap, protecting pinned thread UUIDs
+  across known JSON representations and failing closed on unreadable, corrupt,
+  or symlinked global state.
 
 Deletion supports legacy and paginated JSONL/zstd files below both managed roots,
 `sessions` and `archived_sessions`, including nested directories. The database
@@ -107,8 +147,8 @@ See [related-thread design](related-support.md) and
 
 No active thread is recursively removed. Other local stores and global indexes
 are retained. Deleting individually checked rows also removes their incident
-spawn edges and reviewed foreign-key metadata in the same transaction. The
-migration contract does not certify a differently versioned desktop client.
+spawn edges and CASCADE-owned child metadata in the same transaction; child
+tables with `RESTRICT`/`NO ACTION` foreign keys protect referenced rows.
 
 ## Mutation and crash protocol
 
@@ -127,11 +167,14 @@ that bound; a single owner with more than 128 files is retained. For each group:
    Release coordination once all UUID locks are owned, matching Codex's native
    acquisition protocol. Those UUID locks remain held through finalization;
    unrelated writers can acquire their own locks while cleanup does I/O.
-3. Begin an immediate SQLite transaction. Verify schema, recorder, current row,
-   epoch, native pin, exclusion, history mode, path and file identity for every
-   member again. Rebuild parent/history dependencies and verify that the fresh
-   ancestor set is covered by the acquired guards. A new ancestor or surviving
-   dependent blocks the group; stale planning never authorizes removal.
+3. Begin an immediate SQLite transaction. Re-probe schema capabilities (recompiling
+   batch SQL if optional columns or pinned sections changed), refresh Desktop
+   global-state pins, and re-verify current row, sidecar epoch, native/Desktop
+   pin, exclusion, history mode, path and file identity for every member. Rebuild
+   parent/history/restricting-FK dependencies and verify that the fresh ancestor
+   set is covered by the acquired guards. A new ancestor, pin, or surviving
+   dependent blocks the group before any journal write; stale planning never
+   authorizes removal.
 4. Serialize the intent through a 64 KiB buffer, explicitly flush it, then
    atomically write and fsync a single `pending.json` naming every member.
    Rename those exact rollouts to hidden staging files in `archived_sessions`.

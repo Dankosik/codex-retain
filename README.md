@@ -26,12 +26,15 @@ You can preview deletions, protect specific chats, or pause the policy. Once
 enabled, ordinary runs need no further confirmation. The utility needs no cloud
 service, subscription, account, or LLM, and leaves no process running between checks.
 
-> **Check compatibility before enabling.** The current adapter supports Codex CLI
-> **0.153.4** local history on macOS. Native conformance tests cover both the
-> CLI and the Desktop-embedded 0.153.4 executable; a different Desktop build
-> still needs its own compatibility check. Cleanup removes eligible dependent
-> chats before their parents or shared history. Surviving dependents keep those
-> sources protected. See [the full compatibility boundary](#compatibility).
+> **Universal client and version compatibility.** Codex Retain validates the
+> local `$CODEX_HOME` storage contract directly instead of pinning one exact
+> Codex version or full database schema checksum. On macOS it works across
+> **Codex CLI, Codex Desktop (`/Applications/Codex.app`), IDE extensions, and
+> mixed setups**, and adapts across older, current, and future `state_<N>.sqlite`
+> databases as long as the core archive contract holds. It writes no private
+> tables or triggers into Codex's SQLite database. Cleanup removes eligible
+> dependent chats before their parents or shared history; surviving dependents
+> keep those sources protected. See [the full compatibility boundary](#compatibility).
 
 ## Quick start
 
@@ -48,7 +51,7 @@ codex-retain doctor
 
 The installer checks SHA-256 and installs to `~/.local/bin`. Add that directory
 to your shell's PATH permanently if needed. Installation never enables retention.
-For a specific release, use `CODEX_RETAIN_VERSION=0.1.5 sh /tmp/codex-retain-install.sh`.
+For a specific release, use `CODEX_RETAIN_VERSION=0.2.0 sh /tmp/codex-retain-install.sh`.
 Set `CODEX_RETAIN_INSTALL_DIR` to choose a different absolute installation directory.
 
 ### Homebrew
@@ -72,7 +75,7 @@ This tap installs the same prebuilt binaries and shell completions. Enable using
 To compile the tagged source, install Rust 1.98.1 and a C toolchain, then run:
 
 ```sh
-cargo install --git https://github.com/Dankosik/codex-retain --tag 0.1.5 --locked codex-retain
+cargo install --git https://github.com/Dankosik/codex-retain --tag 0.2.0 --locked codex-retain
 ```
 
 Or download the matching archive and `SHA256SUMS` from
@@ -82,8 +85,9 @@ There is no crates.io package; use the explicit Git URL for Cargo.
 
 ### Enable a policy
 
-`doctor` checks the selected Codex executable and local database without enabling
-retention. If it reports compatibility, choose your policy:
+`doctor` checks the local Codex storage database, Desktop global state (if
+present), and installed local Codex clients without enabling retention. If it
+reports compatibility, choose your policy:
 
 ```sh
 codex-retain enable --days 30 --yes
@@ -109,19 +113,22 @@ appear in the command output and the retained last-run report. Exit code 3 means
 some archives need attention; the policy remains enabled for later retries.
 
 <details>
-<summary>Choose a different Codex executable or profile</summary>
+<summary>Choose a different Codex profile or diagnostic executable</summary>
 
-The default profile is `$CODEX_HOME`, otherwise `~/.codex`. The default executable
-is `codex` on PATH. To select both explicitly:
+The default profile is `$CODEX_HOME`, otherwise `~/.codex`. No `codex` binary on
+`PATH` is required — Desktop-only and IDE-only setups work directly against
+`$CODEX_HOME`. To specify a profile path (and optionally a Codex executable for
+`doctor`/`status` version diagnostics):
 
 ```sh
-codex-retain doctor --codex-home /path/to/codex-home --codex-bin /path/to/codex
-codex-retain enable --days 7 --codex-home /path/to/codex-home --codex-bin /path/to/codex --yes
+codex-retain doctor --codex-home /path/to/codex-home
+codex-retain enable --days 7 --codex-home /path/to/codex-home --yes
 ```
 
-Keep that executable available. If you use Codex's npm launcher, keep its Node.js
-runtime available too. The LaunchAgent captures your installation shell's PATH.
-Codex Retain itself is one native executable; Rust is needed only to build it.
+Pass `--codex-bin /path/to/codex` only if you want `doctor`/`status` to also
+report a specific CLI or Desktop binary's version. Scheduled runs never spawn
+`codex` or require Node.js. Codex Retain itself is one native executable; Rust
+is needed only to build it.
 
 Use `--state-dir PATH` for a separate utility policy directory. It must be
 separate from, and not nested inside, the Codex profile. One automatic policy per
@@ -159,24 +166,30 @@ to how you installed it. Uninstalling does not delete additional chats.
 | You restore it before cleanup | Removes it from the eligible archive |
 | You archive it again | Starts a new retention period, even if both actions happened between cleanup runs |
 | You enable retention on an existing archive | Uses Codex's recorded archive dates and immediately cleans eligible old archives |
-| You pin a chat in Codex or exclude its ID | Preserves it during automatic and manual cleanup |
+| You pin a chat in Codex CLI/Desktop or exclude its ID | Preserves it during automatic and manual cleanup |
 | A chat is active, busy, ambiguous, or unsupported | Preserves it; reports a skip or stops the run |
 
 A day means 86,400 elapsed UTC seconds. Deletion is permitted only after the full
 period has passed, on the next successful check. Sleep, logout, contention, or a
 paused policy may delay cleanup.
 
-A small SQLite extension records archive transitions in the same transaction
-as Codex changes their state, including between utility runs. Neither file
-modification time nor the last message date determines expiration. If Codex
-repairs its archive timestamp, Retain conservatively starts a new full period.
+Retain tracks archive epochs in its own sidecar SQLite database
+(`tracker.sqlite` inside its state directory) rather than injecting private
+tables or triggers into Codex's `state_<N>.sqlite`. Neither file modification
+time nor the last message date determines expiration. Each sync (including quiet
+hourly syncs while paused) reconciles Codex's current `archived` and
+`archived_at` state: newly archived chats, restore-and-rearchive transitions
+with an updated `archived_at`, and timestamp repairs (`archived_at` changed to
+an older value) conservatively start a fresh full period. Codex Desktop pins in
+`$CODEX_HOME/.codex-global-state.json`, SQLite pin flags/sections, and future
+protective columns are all checked before deletion.
 
 At first activation, Retain accepts Codex's existing `archived_at` as the archive
 age. Codex may have reconstructed that value during metadata repair; it has no
 separate provenance marker. This onboarding policy trusts the recorded date and
 does not prove the chat was continuously archived before Retain was installed.
 Retain never substitutes chat creation time, last-message time or file mtime for
-a missing archive date. After activation, captured transitions and timestamp
+a missing archive date. After activation, observed transitions and timestamp
 repairs continue to start a new period.
 
 The system clock must be correct. Recognized clock inconsistencies stop cleanup;
@@ -278,18 +291,20 @@ Space reports keep different measurements separate:
 
 | Environment or history type | Current status |
 | --- | --- |
-| macOS with Codex CLI 0.153.4 | Supported adapter; native conformance tested on macOS 26.4 ARM64 |
-| Local legacy JSONL and zstd rollouts in `state_5.sqlite` | Supported within the reviewed schema |
-| Codex Desktop-embedded 0.153.4 | Native paginated and organizational conformance tested on macOS 26.4 ARM64; other embedded versions are not covered |
-| Threads with spawn relationships (0.1.2+) | Eligible children can be removed; surviving descendants preserve ancestors |
-| Paginated JSONL/zstd (0.1.1+) | All owned physical copies are checked; surviving references preserve their sources |
+| macOS with Codex CLI, Codex Desktop (`/Applications/Codex.app`), IDE extensions, or mixed clients | Supported via capability-based `$CODEX_HOME` storage contract; no `codex` binary on `PATH` required |
+| Older, current, and future `state_<N>.sqlite` databases | Automatically selects highest numeric `state_<N>.sqlite` and adapts to optional columns/tables (`history_mode`, `is_pinned`, `thread_section_id`, `thread_sections`, `thread_spawn_edges`, `name`, `title`, `backfill_state`, `_sqlx_migrations`) |
+| Local legacy and paginated JSONL/zstd rollouts | All owned physical copies under `sessions` and `archived_sessions` are checked; unknown per-thread `history_mode` values are skipped |
+| Codex Desktop pins & future pin/FK safeguards | Protects Desktop pins in `.codex-global-state.json`, dynamic `"Pinned"` sections, unknown protective columns (e.g. `pinned_at`, `is_starred`), and child tables with `RESTRICT`/`NO ACTION` foreign keys |
+| Threads with spawn relationships | Eligible children can be removed; surviving descendants preserve ancestors |
 | Linux | Experimental core, doctor, and preview paths; destructive commands and scheduling disabled |
 | Windows | Not supported |
 
-Unknown Codex versions, schema changes, a replaced database, or a missing or
-modified transition recorder stop cleanup. There is no unsafe override.
-This is why some archived chats may remain after a run. See
-[the source review and real Codex tests](docs/compatibility-research.md).
+Retain fails closed whenever core safety invariants cannot be proven: missing
+required `threads` columns (`id` PK, `rollout_path`, `archived`, `archived_at`),
+failed SQLx migrations (`success = 0` or `NULL`), incomplete `backfill_state`,
+self-referential `ON DELETE CASCADE` on `threads`, unreadable/corrupt/symlinked
+`.codex-global-state.json`, or a missing/tampered `tracker.sqlite`. There is no
+unsafe override. See [the source review and real Codex tests](docs/compatibility-research.md).
 
 Release binaries target macOS 15 and later on Apple Silicon and Intel. Binary
 startup is tested separately on each architecture; this does not extend the
@@ -351,24 +366,32 @@ The differences concern their actual cleanup rules and effects.
 
 ## Recovery and compatibility changes
 
-**Disable Retain before upgrading Codex** so the next storage version can be
-reviewed before the SQLite extension is used with it. Your policy and exclusions
-persist through ordinary Retain updates at the same installation path.
+Because archive epochs now live in Retain's external `tracker.sqlite` with **zero
+tables or triggers injected into Codex's database**, ordinary Codex upgrades
+(including additive columns/tables and `state_5.sqlite -> state_6.sqlite`
+migrations) no longer require disabling Retain first. Breaking future schemas
+still fail closed without modifying data. Your policy and exclusions persist
+through ordinary Retain updates at the same installation path.
+
+Upgrading from `0.1.x` policies that used legacy `codex_retain_*` SQLite tables
+and triggers inside `state_5.sqlite` is seamless: `status` and `preview` read
+legacy epochs without mutating either database, and the next `run` migrates
+those epochs into `tracker.sqlite` and cleans the legacy triggers/tables out of
+Codex's database.
 
 Before downgrading Retain, finish pending recovery or disable using the newer
-executable. Versions 0.1.2 and 0.1.3 write schema 4 journals with a separate slot
-for every physical file. Earlier versions cannot recover that format; older
-32-chat builds also reject larger groups. The current reader accepts journal
-schemas 1–4. The policy, capture and journal file formats remain compatible.
-The JSON response to `enable` is now schema 2: `existing_archives_assessed`, `initial_archive_clock`
-and `initial_cleanup` replace the former initial-grace fields.
+executable. Versions 0.1.2+ write schema 4 journals with a separate slot for
+every physical file. Earlier versions cannot recover that format or read
+`tracker.sqlite`; older 32-chat builds also reject larger groups. The current
+reader accepts journal schemas 1–4. The JSON response to `enable` is schema 2:
+`existing_archives_assessed`, `initial_archive_clock` and `initial_cleanup`.
 
 Policies enabled by 0.1.3 or earlier keep their captured periods when the binary
 is updated. To explicitly adopt existing Codex archive dates, use the new binary
-to `disable`, then `enable --days 30 --yes` with your original profile, Codex
-executable and scheduling options. Exclusions are preserved. This reactivation
-can delete old eligible archives immediately; an ordinary `run` never silently
-rewrites a previous policy's recorded periods.
+to `disable`, then `enable --days 30 --yes` with your original profile and
+scheduling options. Exclusions are preserved. This reactivation can delete old
+eligible archives immediately; an ordinary `run` never silently rewrites a
+previous policy's recorded periods.
 
 `uninstall` handles pending recovery as well as disabling deletion and removing
 the schedule and transition recorder. The small policy and report remain for

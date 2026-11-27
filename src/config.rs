@@ -13,8 +13,12 @@ use std::{
 pub struct Policy {
     pub schema: u32,
     pub codex_home: PathBuf,
-    pub codex_bin: PathBuf,
-    pub database: Identity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_bin: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub database: Option<Identity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub database_name: Option<String>,
     pub retention_days: u32,
     pub enabled: bool,
     /// Whether automatic scheduling was requested. Remains true during incomplete
@@ -35,8 +39,14 @@ impl Policy {
             "retention must be 1..36500 days"
         );
         ensure!(
-            self.codex_home.is_absolute() && self.codex_bin.is_absolute(),
-            "policy paths must be absolute"
+            self.codex_home.is_absolute(),
+            "policy codex_home path must be absolute"
+        );
+        ensure!(
+            self.codex_bin
+                .as_ref()
+                .is_none_or(|path| path.is_absolute()),
+            "policy codex_bin path must be absolute"
         );
         ensure!(self.enabled_at > 0, "invalid policy start time");
         Ok(())

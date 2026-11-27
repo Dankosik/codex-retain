@@ -32,6 +32,8 @@ pub(crate) struct Dependencies {
     dependents: FastHashMap<Uuid, FastHashMap<Uuid, EdgeKinds>>,
     prerequisites: FastHashMap<Uuid, FastHashSet<Uuid>>,
     parents: FastHashMap<Uuid, FastHashSet<Uuid>>,
+    // Threads referenced by an external child-table restricting foreign key.
+    external_protected: FastHashSet<Uuid>,
 }
 
 #[derive(Default)]
@@ -61,14 +63,19 @@ impl Dependencies {
         self.dependents.clear();
         self.prerequisites.clear();
         self.parents.clear();
+        self.external_protected.clear();
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        self.dependents.is_empty() && self.parents.is_empty()
+        self.dependents.is_empty() && self.parents.is_empty() && self.external_protected.is_empty()
     }
 
     pub(crate) fn has_no_parents(&self) -> bool {
         self.parents.is_empty()
+    }
+
+    pub(crate) fn add_external_dependent(&mut self, id: Uuid) {
+        self.external_protected.insert(id);
     }
 
     pub(crate) fn add_parent(&mut self, child: Uuid, parent: Uuid) {
@@ -98,7 +105,7 @@ impl Dependencies {
     /// Produce deterministic leaves-first layers. Noncandidates remain alive
     /// and block every prerequisite reachable from them. Cycles stay untouched.
     pub(crate) fn plan<S: BuildHasher>(&self, candidates: &HashSet<Uuid, S>) -> Plan {
-        if self.dependents.is_empty() {
+        if self.dependents.is_empty() && self.external_protected.is_empty() {
             if candidates.is_empty() {
                 return Plan {
                     layers: Vec::new(),
@@ -114,7 +121,11 @@ impl Dependencies {
         }
         let mut remaining: FastHashMap<Uuid, usize> = candidates
             .iter()
-            .map(|&id| (id, self.dependents.get(&id).map_or(0, FastHashMap::len)))
+            .map(|&id| {
+                let count = self.dependents.get(&id).map_or(0, FastHashMap::len)
+                    + usize::from(self.external_protected.contains(&id));
+                (id, count)
+            })
             .collect();
         let mut ready: Vec<_> = remaining
             .iter()
@@ -145,6 +156,9 @@ impl Dependencies {
         let mut blocked = FastHashMap::default();
         let mut queue = VecDeque::new();
         for &id in remaining.keys() {
+            if self.external_protected.contains(&id) {
+                mark_blocked(&mut blocked, &mut queue, id, Blocker::Children);
+            }
             if let Some(dependents) = self.dependents.get(&id) {
                 for (dependent, kinds) in dependents {
                     if !candidates.contains(dependent) {
@@ -243,7 +257,7 @@ impl Dependencies {
 
     /// Recheck a concrete group against a fresh graph before mutation.
     pub(crate) fn verify_removal<S: BuildHasher>(&self, deleting: &HashSet<Uuid, S>) -> Result<()> {
-        if self.dependents.is_empty() {
+        if self.dependents.is_empty() && self.external_protected.is_empty() {
             return Ok(());
         }
         let plan = self.plan(deleting);

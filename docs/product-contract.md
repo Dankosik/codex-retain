@@ -103,3 +103,30 @@ envelope advances to schema 2 and contains the actual initial cleanup report.
 The persisted policy/capture/journal formats and other command schemas stay the
 same. Older enabled policies opt into historical seeding through an explicit
 disable/re-enable, never by a silent rewrite during an upgrade or hourly run.
+
+## Universal multi-client and multi-version amendment
+
+To support Codex CLI, macOS Codex Desktop (`/Applications/Codex.app`), IDE
+extensions, and past/current/future Codex versions sharing `$CODEX_HOME` without
+fragile version pins or DDL inside Codex's database:
+
+- **Capability-based storage contract:** Discover the highest numeric
+  `state_<N>.sqlite`, require the core `threads` contract (`id` PK,
+  `rollout_path`, `archived`, `archived_at`), adapt dynamically to optional
+  columns and tables (`name`, `title`, `history_mode`, `is_pinned`,
+  `thread_section_id`, `thread_sections`, `thread_spawn_edges`, `backfill_state`,
+  `_sqlx_migrations`), protect dynamically discovered `"Pinned"` sections,
+  unknown protective columns, and child-table `RESTRICT`/`NO ACTION` foreign
+  keys, and fail closed on breaking schema violations or incomplete
+  migrations/backfills.
+- **External sidecar epoch tracker:** Move tracked archive epochs out of Codex's
+  SQLite database into `state_dir/tracker.sqlite` so Codex Retain never creates
+  tables or triggers inside Codex's database and survives `state_5 -> state_6`
+  upgrades. Seamlessly migrate legacy `0.1.x` `codex_retain_*` epochs into
+  `tracker.sqlite` and clean up legacy triggers on `run`/`disable`/`uninstall`.
+- **No mandatory Codex binary:** `--codex-bin` is optional for diagnostics only.
+  Desktop-only and IDE-only setups work without `codex` on `PATH`, and scheduled
+  runs never spawn `codex --version`.
+- **Codex Desktop pin protection:** Read `$CODEX_HOME/.codex-global-state.json`
+  (when present) with strict regular-file/no-symlink bounds and fail closed on
+  corrupt or unreadable state so Desktop-pinned threads are never deleted.

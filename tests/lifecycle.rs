@@ -1,6 +1,6 @@
 mod support;
 
-use codex_retain::{database, engine};
+use codex_retain::{database, engine, tracker};
 use rusqlite::{Connection, params};
 use serde_json::json;
 use std::{
@@ -30,7 +30,7 @@ fn first_capture_adopts_the_archive_date_instead_of_creation_or_mtime() {
         params![archived_at, id],
     )
     .unwrap();
-    database::install_capture(&mut f.c, &f.policy.owner).unwrap();
+    tracker::seed(&f.store, &mut f.c, &f.policy, now()).unwrap();
     let epoch = f.epoch(&id).unwrap();
     assert_eq!(epoch, archived_at);
     let report = f.run(true).unwrap();
@@ -86,14 +86,14 @@ fn restore_and_rearchive_between_cleaner_runs_resets_capture() {
     let id = f.add(3, 1);
     f.age(&id);
     assert!(f.epoch(&id).unwrap() < now() - f.policy.duration());
+    let caps = database::probe_schema(&f.c, database::DB_NAME).unwrap();
     f.c.execute(
         "UPDATE threads SET archived=0,archived_at=NULL WHERE id=?",
         [&id],
     )
     .unwrap();
-    assert_eq!(f.epoch(&id), None);
     assert_eq!(
-        database::lookup_thread(&mut database::prepare_thread_lookup(&f.c).unwrap(), &id)
+        database::lookup_thread_row(&f.c, &caps, &id)
             .unwrap()
             .unwrap()
             .archived,
@@ -106,8 +106,8 @@ fn restore_and_rearchive_between_cleaner_runs_resets_capture() {
         params![before, &id],
     )
     .unwrap();
-    assert!(f.epoch(&id).unwrap() >= before);
     assert_eq!(f.run(true).unwrap().deleted, 0);
+    assert!(f.epoch(&id).unwrap() >= before);
     assert!(f.path(&id, true).exists());
 }
 
@@ -119,12 +119,13 @@ fn timestamp_repair_is_a_new_conservative_epoch_but_title_edit_is_not() {
     let old = f.epoch(&id).unwrap();
     f.c.execute("UPDATE threads SET title='renamed' WHERE id=?", [&id])
         .unwrap();
+    assert_eq!(f.run(false).unwrap().eligible, 1);
     assert_eq!(f.epoch(&id), Some(old));
     let before = now();
     f.c.execute("UPDATE threads SET archived_at=2 WHERE id=?", [&id])
         .unwrap();
-    assert!(f.epoch(&id).unwrap() >= before);
     assert_eq!(f.run(true).unwrap().deleted, 0);
+    assert!(f.epoch(&id).unwrap() >= before);
 }
 
 #[test]
@@ -190,15 +191,17 @@ fn missing_or_ambiguous_clock_and_history_mode_fail_closed() {
                     .unwrap();
             }
             1 => {
-                f.c.execute("DELETE FROM codex_retain_epochs WHERE thread_id=?", [&id])
+                f.tracker_conn()
+                    .execute("DELETE FROM tracked_epochs WHERE thread_id=?", [&id])
                     .unwrap();
             }
             2 => {
-                f.c.execute(
-                    "UPDATE codex_retain_epochs SET codex_archived_at=2 WHERE thread_id=?",
-                    [&id],
-                )
-                .unwrap();
+                f.tracker_conn()
+                    .execute(
+                        "UPDATE tracked_epochs SET codex_archived_at=2 WHERE thread_id=?",
+                        [&id],
+                    )
+                    .unwrap();
             }
             3 => {
                 f.c.execute(
@@ -208,11 +211,12 @@ fn missing_or_ambiguous_clock_and_history_mode_fail_closed() {
                 .unwrap();
             }
             _ => {
-                f.c.execute(
-                    "UPDATE codex_retain_epochs SET archived_since=? WHERE thread_id=?",
-                    params![now() + 100, &id],
-                )
-                .unwrap();
+                f.tracker_conn()
+                    .execute(
+                        "UPDATE tracked_epochs SET archived_since=? WHERE thread_id=?",
+                        params![now() + 100, &id],
+                    )
+                    .unwrap();
             }
         }
         assert_eq!(f.run(true).unwrap().deleted, 0);
@@ -221,21 +225,29 @@ fn missing_or_ambiguous_clock_and_history_mode_fail_closed() {
 }
 
 #[test]
-fn missing_trigger_and_schema_or_migration_drift_are_rejected() {
+fn missing_tracker_and_breaking_schema_or_migration_failures_are_rejected() {
     let mut f = Fixture::new();
     let id = f.add(30, 1);
     f.age(&id);
-    f.c.execute_batch("DROP TRIGGER codex_retain_update")
-        .unwrap();
+    tracker::remove_files(&f.store).unwrap();
     assert!(f.run(true).is_err());
     assert!(f.exists(&id) && f.path(&id, true).exists());
+
+    // Additive future tables are tolerated by capability-based probing.
     let f = Fixture::new();
-    f.c.execute_batch("CREATE TABLE alien_extension(value TEXT)")
+    f.c.execute_batch("CREATE TABLE future_codex_feature(value TEXT)")
         .unwrap();
-    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
+    assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_ok());
+
+    // Failed SQLx migrations and incomplete backfill still fail closed.
     let f = Fixture::new();
-    f.c.execute("UPDATE _sqlx_migrations SET checksum=x'00' WHERE version=(SELECT MAX(version) FROM _sqlx_migrations)",[]).unwrap();
+    f.c.execute(
+        "UPDATE _sqlx_migrations SET success=0 WHERE version=(SELECT MAX(version) FROM _sqlx_migrations)",
+        [],
+    )
+    .unwrap();
     assert!(database::open(&f.home, database::DatabaseAccess::ReadWrite).is_err());
+
     let f = Fixture::new();
     f.c.execute("UPDATE backfill_state SET status='running'", [])
         .unwrap();
@@ -243,7 +255,7 @@ fn missing_trigger_and_schema_or_migration_drift_are_rejected() {
 }
 
 #[test]
-fn database_replacement_invalidates_saved_policy_identity() {
+fn database_replacement_preserves_tracking_when_contract_holds_and_rejects_broken_db() {
     let mut f = Fixture::new();
     let id = f.add(31, 1);
     f.age(&id);
@@ -251,6 +263,18 @@ fn database_replacement_invalidates_saved_policy_identity() {
     let old = f.home.join("old-database");
     fs::rename(&db, &old).unwrap();
     fs::copy(&old, &db).unwrap();
+    drop(std::mem::replace(
+        &mut f.c,
+        Connection::open_in_memory().unwrap(),
+    ));
+    f.c = database::open(&f.home, database::DatabaseAccess::ReadWrite).unwrap();
+    // Sidecar tracker preserves tracked epochs across DB rebuilds/copies
+    // without requiring Codex-DB triggers or inode pinning.
+    assert_eq!(f.run(false).unwrap().eligible, 1);
+
+    // Replacing with a broken schema fails closed without deleting anything.
+    f.c.execute("UPDATE backfill_state SET status='running'", [])
+        .unwrap();
     assert!(f.run(true).is_err());
     assert!(f.exists(&id) && f.path(&id, true).exists());
 }
@@ -453,7 +477,7 @@ fn recovery_never_overwrites_a_new_original_or_unlinks_replaced_staging() {
 
 #[test]
 fn a_rolled_back_archive_transition_does_not_reset_the_epoch() {
-    let f = Fixture::new();
+    let mut f = Fixture::new();
     let id = f.add(90, 1);
     f.age(&id);
     let epoch = f.epoch(&id);
@@ -463,8 +487,8 @@ fn a_rolled_back_archive_transition_does_not_reset_the_epoch() {
         [&id],
     )
     .unwrap();
-    assert_eq!(f.epoch(&id), None);
     f.c.execute_batch("ROLLBACK").unwrap();
+    assert_eq!(f.run(false).unwrap().eligible, 1);
     assert_eq!(f.epoch(&id), epoch);
 }
 
@@ -623,10 +647,10 @@ fn native_pinned_section_protects_even_a_pre_pin_deletion_snapshot() {
     let mut f = Fixture::new();
     let id = f.add(110, 1);
     f.age(&id);
-    let before_pin =
-        database::lookup_thread(&mut database::prepare_thread_lookup(&f.c).unwrap(), &id)
-            .unwrap()
-            .unwrap();
+    let caps = database::probe_schema(&f.c, database::DB_NAME).unwrap();
+    let before_pin = database::lookup_thread_row(&f.c, &caps, &id)
+        .unwrap()
+        .unwrap();
     assert_eq!(before_pin.pinned, 0);
     f.c.execute(
         "INSERT INTO thread_sections(id,name) VALUES(?,'Pinned')",
@@ -652,7 +676,7 @@ fn native_pinned_section_protects_even_a_pre_pin_deletion_snapshot() {
     assert_eq!(preview.entries[0].reason.as_str(), "pinned_or_unknown_pin");
     assert_eq!(f.run(true).unwrap().deleted, 0);
     assert!(
-        database::delete_row(&mut database::prepare_delete(&f.c).unwrap(), &before_pin).is_err(),
+        database::delete_thread_checked(&f.c, &caps, &before_pin).is_err(),
         "final SQL guard accepted a thread pinned after its snapshot"
     );
     assert!(f.exists(&id) && f.path(&id, true).exists());
@@ -751,7 +775,7 @@ fn oversized_zstd_window_is_rejected_before_processing_a_small_valid_frame() {
 #[test]
 fn capture_installation_seeds_preexisting_archive_without_changing_native_rows() {
     let mut f = Fixture::new();
-    database::uninstall_capture(&mut f.c, &f.policy).unwrap();
+    tracker::remove_files(&f.store).unwrap();
     let archived = f.add(113, 1);
     let active = f.add(114, 0);
     fn snapshot(c: &Connection) -> Vec<(String, String, i64, Option<i64>, String)> {
@@ -768,10 +792,19 @@ fn capture_installation_seeds_preexisting_archive_without_changing_native_rows()
     let archive_bytes = fs::read(f.path(&archived, true)).unwrap();
     let active_bytes = fs::read(f.path(&active, false)).unwrap();
     assert_eq!(
-        database::install_capture(&mut f.c, &f.policy.owner).unwrap(),
+        tracker::seed(&f.store, &mut f.c, &f.policy, now()).unwrap(),
         1
     );
     assert_eq!(snapshot(&f.c), before);
+    assert_eq!(
+        f.c.query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'codex_retain_%'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
     assert_eq!(f.epoch(&archived), Some(1));
     assert_eq!(f.epoch(&active), None);
     assert_eq!(fs::read(f.path(&archived, true)).unwrap(), archive_bytes);
@@ -806,7 +839,7 @@ fn initial_capture_preserves_the_exact_expiry_boundary_and_unknown_dates() {
             id
         })
         .collect();
-    database::install_capture(&mut f.c, &f.policy.owner).unwrap();
+    tracker::seed(&f.store, &mut f.c, &f.policy, evaluated_at).unwrap();
     let report = engine::execute(
         &mut f.c,
         &f.policy,

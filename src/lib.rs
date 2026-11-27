@@ -1,6 +1,8 @@
 pub mod cli;
+pub mod clients;
 pub mod config;
 pub mod database;
+pub mod desktop;
 mod diagnostics;
 pub mod engine;
 pub mod fsutil;
@@ -9,6 +11,7 @@ mod metadata;
 mod owners;
 mod relations;
 pub mod scheduler;
+pub mod tracker;
 
 #[cfg(test)]
 extern crate self as codex_retain;
@@ -24,7 +27,7 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
     io::{self, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process::ExitCode,
 };
 
@@ -123,19 +126,46 @@ fn native_mutations() -> Result<()> {
     );
     Ok(())
 }
-fn profile(
-    home: Option<std::path::PathBuf>,
-    binary: &Path,
-) -> Result<(std::path::PathBuf, std::path::PathBuf)> {
+fn profile(home: Option<PathBuf>, binary: Option<&Path>) -> Result<(PathBuf, Option<PathBuf>)> {
     let home = fsutil::checked_absolute(&home.map(Ok).unwrap_or_else(config::default_home)?)?;
-    let binary = config::resolve_executable(binary)?;
-    database::verify_binary(&binary)?;
+    let binary = match binary {
+        Some(path) => {
+            let resolved = config::resolve_executable(path)?;
+            let _ = clients::probe_binary_version(&resolved)?;
+            Some(resolved)
+        }
+        None => None,
+    };
     Ok((home, binary))
 }
 fn enabled(store: &Store) -> Result<Policy> {
     let p = store.policy()?;
     ensure!(p.enabled, "policy is disabled; run enable first");
     Ok(p)
+}
+
+fn format_clients_summary(discovered: &[clients::ClientInfo]) -> String {
+    if discovered.is_empty() {
+        return "Detected Codex clients: none on PATH or standard Desktop paths (retention operates directly on the local profile).".into();
+    }
+    let parts: Vec<String> = discovered
+        .iter()
+        .map(|c| {
+            let kind = match c.kind {
+                clients::ClientKind::Cli => "CLI",
+                clients::ClientKind::Desktop => "Desktop",
+                clients::ClientKind::Custom => "custom",
+            };
+            match (&c.version, &c.error) {
+                (Some(version), _) => {
+                    format!("{kind} ({}, {})", safe_text(version), c.path.display())
+                }
+                (None, Some(err)) => format!("{kind} ({}: {})", c.path.display(), safe_text(err)),
+                (None, None) => format!("{kind} ({})", c.path.display()),
+            }
+        })
+        .collect();
+    format!("Detected Codex clients: {}.", parts.join("; "))
 }
 
 fn enable_policy(
@@ -154,7 +184,7 @@ fn enable_policy(
     native_mutations()?;
     ensure!(
         yes,
-        "enable immediately and permanently deletes eligible local archives recorded as archived more than {days} days ago, then applies the same retention without later prompts. Transition capture adds small SQLite tables and triggers. Review doctor first, then repeat with --yes"
+        "enable immediately and permanently deletes eligible local archives recorded as archived more than {days} days ago, then applies the same retention without later prompts. Archive transitions are tracked in this utility's own state directory without modifying Codex's database schema. Review doctor first, then repeat with --yes"
     );
     let existing = if store.root.join("policy.json").exists() {
         Some(store.policy()?)
@@ -173,29 +203,32 @@ fn enable_policy(
         !fsutil::path_exists(&store.root.join("pending.json"))?,
         "an interrupted deletion needs recovery; run disable before re-enabling"
     );
-    let (home, binary) = profile(codex_home, &codex_bin)?;
-    if let Some(previous) = existing.as_ref().filter(|p| p.codex_home != home) {
-        let mut old_db = database::open(&previous.codex_home, DatabaseAccess::ReadWrite)
-            .context("finish disabling the previous Codex profile before changing profiles")?;
-        database::uninstall_capture(&mut old_db, previous)
-            .context("finish removing the previous capture extension before changing profiles")?;
+    let (home, binary) = profile(codex_home, codex_bin.as_deref())?;
+    if let Some(previous) = existing.as_ref().filter(|p| p.codex_home != home)
+        && let Ok(mut old_db) = database::open(&previous.codex_home, DatabaseAccess::ReadWrite)
+    {
+        let _ = database::remove_legacy_capture(&mut old_db, &previous.owner);
     }
     ensure!(
         !store.root.starts_with(&home) && !home.starts_with(&store.root),
         "policy directory and Codex home must be separate, non-nested directories"
     );
-    let mut db = database::open(&home, DatabaseAccess::ReadWrite)?;
+    let (mut db, caps) = database::open_with_capabilities(&home, DatabaseAccess::ReadWrite)?;
+    // Verify Codex Desktop global state is valid before enabling retention.
+    let _ = desktop::DesktopPins::load(&home)?;
     let identity = database::identity(&home)?;
+    let now = config::now()?;
     let mut policy = Policy {
         schema: 1,
         codex_home: home,
         codex_bin: binary,
-        database: identity,
+        database: Some(identity),
+        database_name: Some(caps.database_name.clone()),
         retention_days: days,
         enabled: false,
         automatic: !no_schedule,
         paused: false,
-        enabled_at: config::now()?,
+        enabled_at: now,
         owner: store
             .root
             .to_str()
@@ -204,7 +237,7 @@ fn enable_policy(
         exclusions: existing.map(|p| p.exclusions).unwrap_or_else(BTreeSet::new),
     };
     store.save(&policy)?;
-    let count = database::install_capture(&mut db, &policy.owner)?;
+    let count = tracker::seed(store, &mut db, &policy, now)?;
     if !no_schedule {
         scheduler::install(&store.root, &scheduler::installation_executable()?)?;
     }
@@ -304,7 +337,9 @@ fn cleanup(
     check_last_run_clock(store, now)?;
     let report = match detail {
         CleanupDetail::Summary => engine::execute_scheduled(db, policy, store, now)?,
-        CleanupDetail::Text => engine::execute_text(db, policy, store, now, ExecutionMode::Run)?,
+        CleanupDetail::Text => {
+            engine::execute_text(db, policy, store, now, now, ExecutionMode::Run)?
+        }
     };
     let incomplete = report.requires_attention();
     let warnings_len = report.warnings.len().min(10);
@@ -339,7 +374,7 @@ fn cleanup_compact(
     now: i64,
 ) -> Result<engine::CompactReport> {
     check_last_run_clock(store, now)?;
-    let report = engine::execute_compact(db, policy, store, now, ExecutionMode::Run)?;
+    let report = engine::execute_compact(db, policy, store, now, now, ExecutionMode::Run)?;
     let incomplete = report.requires_attention();
     let warnings_len = report.warnings.len().min(10);
     let owned_skips = report.first_skips(10);
@@ -376,16 +411,46 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
         codex_bin,
     } = cli.command
     {
-        let (home, binary) = profile(codex_home, &codex_bin)?;
-        let db = database::open(&home, DatabaseAccess::ReadOnly)?;
-        let coverage = diagnostics::HistoryCoverage::read(&db)?;
+        let (home, binary) = profile(codex_home, codex_bin.as_deref())?;
+        let (db, caps) = database::open_with_capabilities(&home, DatabaseAccess::ReadOnly)?;
+        let desktop_pins = desktop::DesktopPins::load(&home)?;
+        let coverage = diagnostics::HistoryCoverage::read(&db, &caps)?;
+        let discovered = clients::discover(binary.as_deref());
+        let primary_bin = binary.or_else(|| discovered.first().map(|c| c.path.clone()));
+        let primary_version = discovered.first().and_then(|c| c.version.clone());
+        let desktop_line = if desktop_pins.present() {
+            format!(
+                "Codex Desktop global state: present ({} pinned thread IDs protected).",
+                desktop_pins.len()
+            )
+        } else {
+            "Codex Desktop global state: not present.".into()
+        };
         emit(
             out,
             cli.json,
-            &json!({"schema":1,"compatible":true,"compatibility_scope":diagnostics::COMPATIBILITY_SCOPE,"codex_version":database::CODEX_VERSION,"codex_home":home,"codex_bin":binary,"archived_threads":coverage.archived_threads(),"history_coverage":coverage,"mutation_platform_supported":cfg!(target_os="macos")}),
+            &json!({
+                "schema": 1,
+                "compatible": true,
+                "compatibility_scope": diagnostics::COMPATIBILITY_SCOPE,
+                "database": caps.database_name,
+                "schema_capabilities": caps,
+                "desktop_global_state_present": desktop_pins.present(),
+                "desktop_pinned_threads": desktop_pins.len(),
+                "clients": discovered,
+                "codex_version": primary_version,
+                "codex_home": home,
+                "codex_bin": primary_bin,
+                "archived_threads": coverage.archived_threads(),
+                "history_coverage": coverage,
+                "mutation_platform_supported": cfg!(target_os = "macos")
+            }),
             &format!(
-                "Schema and selected Codex executable: verified for {}.\nThis checks the selected executable; every writer of this profile must use the supported version.\n{}",
-                database::CODEX_VERSION,
+                "Storage contract verified for {} in {}.\n{}\n{}\n{}",
+                caps.database_name,
+                home.display(),
+                format_clients_summary(&discovered),
+                desktop_line,
                 coverage.message()
             ),
         )?;
@@ -410,20 +475,34 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
         Action::Status => {
             let p = store.policy()?;
             let scheduler = scheduler::status()?;
-            let compatibility = database::verify_binary(&p.codex_bin)
-                .and_then(|()| database::open(&p.codex_home, DatabaseAccess::ReadOnly))
-                .and_then(|c| {
-                    if p.enabled {
-                        database::verify_policy(&c, &p)?;
+            let discovered = clients::discover(p.codex_bin.as_deref());
+            let compatibility =
+                database::open_with_capabilities(&p.codex_home, DatabaseAccess::ReadOnly).and_then(
+                    |(c, caps)| {
+                        let desktop_pins = desktop::DesktopPins::load(&p.codex_home)?;
+                        if p.enabled {
+                            let now = config::now()?;
+                            let _ = tracker::Tracker::open_readonly(&store, &c, &p, now)?;
+                        }
+                        Ok((c, caps, desktop_pins))
+                    },
+                );
+            let (error, caps, desktop_pins, coverage, coverage_error) = match compatibility {
+                Ok((c, caps, desktop_pins)) => {
+                    match diagnostics::HistoryCoverage::read(&c, &caps) {
+                        Ok(coverage) => {
+                            (None, Some(caps), Some(desktop_pins), Some(coverage), None)
+                        }
+                        Err(error) => (
+                            None,
+                            Some(caps),
+                            Some(desktop_pins),
+                            None,
+                            Some(format!("{error:#}")),
+                        ),
                     }
-                    Ok(c)
-                });
-            let (error, coverage, coverage_error) = match compatibility {
-                Ok(c) => match diagnostics::HistoryCoverage::read(&c) {
-                    Ok(coverage) => (None, Some(coverage), None),
-                    Err(error) => (None, None, Some(format!("{error:#}"))),
-                },
-                Err(error) => (Some(format!("{error:#}")), None, None),
+                }
+                Err(error) => (Some(format!("{error:#}")), None, None, None, None),
             };
             let coverage_message = coverage.as_ref().map_or_else(
                 || match &coverage_error {
@@ -437,8 +516,13 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             } else {
                 None
             };
+            let db_label = caps
+                .as_ref()
+                .map(|c| c.database_name.as_str())
+                .or(p.database_name.as_deref())
+                .unwrap_or("unknown");
             let message = format!(
-                "Policy: {}{}; {} days.\nScheduler: {:?}; plist {}.\nSchema, selected Codex executable and enabled policy: {}.\n{}\nExclusions: {}. Pending recovery: {}.\nLast run: {}",
+                "Policy: {}{}; {} days.\nScheduler: {:?}; plist {}.\nStorage contract and enabled policy ({db_label}): {}.\n{}\n{}\nExclusions: {}. Pending recovery: {}.\nLast run: {}",
                 if p.enabled { "enabled" } else { "disabled" },
                 if p.paused { " (paused)" } else { "" },
                 p.retention_days,
@@ -452,6 +536,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                     .as_deref()
                     .map(safe_text)
                     .unwrap_or_else(|| "verified".into()),
+                format_clients_summary(&discovered),
                 coverage_message,
                 p.exclusions.len(),
                 store.root.join("pending.json").exists(),
@@ -462,7 +547,22 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             emit(
                 out,
                 cli.json,
-                &json!({"schema":1,"policy":p,"scheduler":scheduler,"compatibility_scope":"schema_selected_codex_binary_and_enabled_policy","compatibility_error":error,"history_coverage":coverage,"history_coverage_error":coverage_error,"last_run":last,"pending_recovery":store.root.join("pending.json").exists()}),
+                &json!({
+                    "schema": 1,
+                    "policy": p,
+                    "scheduler": scheduler,
+                    "compatibility_scope": "storage_contract_and_enabled_policy",
+                    "compatibility_error": error,
+                    "database": caps.as_ref().map(|c| &c.database_name),
+                    "schema_capabilities": caps,
+                    "desktop_global_state_present": desktop_pins.as_ref().map(desktop::DesktopPins::present),
+                    "desktop_pinned_threads": desktop_pins.as_ref().map(desktop::DesktopPins::len),
+                    "clients": discovered,
+                    "history_coverage": coverage,
+                    "history_coverage_error": coverage_error,
+                    "last_run": last,
+                    "pending_recovery": store.root.join("pending.json").exists()
+                }),
                 &message,
             )?;
         }
@@ -474,20 +574,33 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
             };
             let apply = mode == ExecutionMode::Run;
             let quiet = matches!(cli.command, Action::Run { scheduled: true });
-            let p = enabled(&store)?;
+            let mut p = enabled(&store)?;
+            let now = config::now()?;
             if quiet && p.paused {
+                // Keep observing archive/restore/rearchive transitions in the
+                // sidecar tracker while paused, opening Codex strictly read-only.
+                if let Ok((db, caps)) =
+                    database::open_with_capabilities(&p.codex_home, DatabaseAccess::ReadOnly)
+                    && let Ok(mut tr) =
+                        tracker::Tracker::open_readwrite_with_ro_codex(&store, &db, &p, now)
+                {
+                    let _ = tr.sync(&db, &caps, now);
+                }
                 return Ok(0);
             }
             if apply {
                 native_mutations()?;
             }
-            database::verify_binary(&p.codex_bin)?;
             let access = match mode {
                 ExecutionMode::Preview => DatabaseAccess::ReadOnly,
                 ExecutionMode::Run => DatabaseAccess::ReadWrite,
             };
-            let mut db = database::open(&p.codex_home, access)?;
-            let now = config::now()?;
+            let (mut db, caps) = database::open_with_capabilities(&p.codex_home, access)?;
+            if apply && p.database_name.as_deref() != Some(caps.database_name.as_str()) {
+                p.database_name = Some(caps.database_name.clone());
+                p.database = database::identity(&p.codex_home).ok();
+                store.save(&p)?;
+            }
             let forecast_at = match cli.command {
                 Action::Preview { at } => at.map(|timestamp| timestamp.as_second()),
                 _ => None,
@@ -500,7 +613,14 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 let mut report = if apply {
                     cleanup_compact(&mut db, &p, &store, now)?
                 } else {
-                    engine::execute_compact(&mut db, &p, &store, forecast_at.unwrap_or(now), mode)?
+                    engine::execute_compact(
+                        &mut db,
+                        &p,
+                        &store,
+                        now,
+                        forecast_at.unwrap_or(now),
+                        mode,
+                    )?
                 };
                 if let Some(at) = forecast_at {
                     report.set_forecast(now, at);
@@ -519,7 +639,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 };
                 cleanup(&mut db, &p, &store, now, detail)?
             } else {
-                engine::execute_text(&mut db, &p, &store, forecast_at.unwrap_or(now), mode)?
+                engine::execute_text(&mut db, &p, &store, now, forecast_at.unwrap_or(now), mode)?
             };
             if let Some(at) = forecast_at {
                 report.started_at = now;
@@ -589,7 +709,7 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 cli.json,
                 &json!({"schema":1,"paused":pause}),
                 if pause {
-                    "Paused. No deletion; archive transition capture continues."
+                    "Paused. No deletion; archive transition tracking continues."
                 } else {
                     "Resumed. Time already spent in the archive still counts; inspect preview before the next run."
                 },
@@ -649,16 +769,26 @@ pub fn execute(cli: Cli, out: &mut impl Write) -> Result<u8> {
                 p.automatic = false;
                 store.save(&p)?;
             }
-            let mut db = database::open(&p.codex_home, DatabaseAccess::ReadWrite)?;
-            if store.root.join("pending.json").exists() {
-                engine::recover(&mut db, &p, &store)?;
+            let pending = fsutil::path_exists(&store.root.join("pending.json"))?;
+            match database::open(&p.codex_home, DatabaseAccess::ReadWrite) {
+                Ok(mut db) => {
+                    if pending {
+                        engine::recover(&mut db, &p, &store)?;
+                    }
+                    database::remove_legacy_capture(&mut db, &p.owner)?;
+                }
+                Err(error) if pending => {
+                    return Err(error)
+                        .context("pending deletion recovery requires the Codex database");
+                }
+                Err(_) => {}
             }
-            database::uninstall_capture(&mut db, &p)?;
+            tracker::remove_files(&store)?;
             emit(
                 out,
                 cli.json,
                 &json!({"schema":1,"enabled":false,"scheduler_removed":true,"capture_removed":true}),
-                "Disabled. LaunchAgent and transition capture removed.\nYou can now remove the executable (for Cargo: cargo uninstall codex-retain). Policy and last-run report remain for inspection.",
+                "Disabled. LaunchAgent and local tracking state removed.\nYou can now remove the executable (for Cargo: cargo uninstall codex-retain). Policy and last-run report remain for inspection.",
             )?;
         }
         Action::Doctor { .. } | Action::Completions { .. } => unreachable!("handled above"),

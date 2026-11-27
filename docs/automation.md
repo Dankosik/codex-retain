@@ -24,11 +24,11 @@ with `--no-schedule`; only later passes require manual `run` in that mode.
 
 The registration stores the verified absolute invocation path of the executable
 that enabled it (preserving installation symlinks such as Homebrew bin links) and
-the absolute state directory. It also captures the current `PATH`, so a Codex
-installation whose launcher uses `/usr/bin/env node` can find the same Node.js
-runtime during scheduled runs. The configured Codex executable and its runtime
-must remain available; the utility itself has no Node.js runtime requirement.
-Avoid enabling from a temporary Cargo build
+the absolute state directory. It also preserves `PATH` in the plist format for
+backward compatibility with existing installations, though scheduled runs
+operate directly on `$CODEX_HOME` and `state_dir/tracker.sqlite` without
+launching `codex` or requiring Node.js or a CLI binary on `PATH` (Desktop-only
+and IDE-only setups work natively). Avoid enabling from a temporary Cargo build
 directory. The release installer, Homebrew command on PATH, and `cargo install` supply
 stable executable paths. Do not enable using a versioned Homebrew Cellar path. One user has one
 LaunchAgent for this utility. Enabling with a different state directory is
@@ -65,7 +65,10 @@ configuration file exists; a file alone does not prove the job is registered.
 `missing` means the service was positively reported absent. Query failures are
 reported as `error`, not disguised as a disabled schedule.
 
-Pause preserves the policy for later resumption. Disable removes the schedule.
+Pause preserves the policy for later resumption without deleting any chats;
+hourly scheduled runs while paused quietly sync archive/restore transitions into
+`tracker.sqlite` (opening Codex's database read-only). Disable removes the
+schedule and local tracking state.
 Run disable before deleting the utility. Repeating disable is safe when the job
 is already absent. An actual launchctl failure is returned as an error; check
 status and resolve the failure instead of assuming background cleanup stopped.

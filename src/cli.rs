@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[command(
     version,
     about = "Predictable retention for local archived Codex chats",
-    long_about = "Keep archived local Codex chats for a chosen number of days. Start with enable --days 30 --yes. Enable immediately cleans eligible existing archives using Codex's recorded archive dates. Only reviewed Codex versions are supported."
+    long_about = "Keep archived local Codex chats for a chosen number of days across Codex CLI, Codex Desktop, and IDE clients. Start with enable --days 30 --yes. Enable immediately cleans eligible existing archives using Codex's recorded archive dates and tracks transitions in its own sidecar state without modifying Codex's database schema."
 )]
 pub struct Cli {
     /// Directory containing this utility's policy and bounded last-run report
@@ -56,7 +56,7 @@ pub enum Action {
         #[arg(long)]
         yes: bool,
     },
-    /// Disable deletion, unregister the LaunchAgent, and remove transition capture
+    /// Disable deletion, unregister the LaunchAgent, and remove local tracking state
     Disable,
     /// Disable safely before removing the executable with your package manager
     Uninstall,
@@ -64,8 +64,9 @@ pub enum Action {
     Doctor {
         #[arg(long)]
         codex_home: Option<PathBuf>,
-        #[arg(long, default_value = "codex")]
-        codex_bin: PathBuf,
+        /// Optional Codex executable to include in diagnostics (CLI/Desktop auto-detected if omitted)
+        #[arg(long)]
+        codex_bin: Option<PathBuf>,
     },
     /// Generate shell completions
     Completions { shell: clap_complete::Shell },
@@ -78,9 +79,9 @@ pub struct EnableArgs {
     /// Profile to manage (default: CODEX_HOME or ~/.codex)
     #[arg(long)]
     pub codex_home: Option<PathBuf>,
-    /// Executable used by the supported Codex client
-    #[arg(long, default_value = "codex")]
-    pub codex_bin: PathBuf,
+    /// Optional Codex executable for diagnostics (not required for CLI or Desktop)
+    #[arg(long)]
+    pub codex_bin: Option<PathBuf>,
     /// Perform initial cleanup and enable manual runs without the hourly LaunchAgent
     #[arg(long)]
     pub no_schedule: bool,

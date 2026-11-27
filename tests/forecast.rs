@@ -25,7 +25,7 @@ fn configure(f: &mut Fixture) {
     let bin = f.temp.path().join("codex-version");
     fs::write(&bin, "#!/bin/sh\nprintf '%s\\n' 'codex-cli 0.153.4'\n").unwrap();
     fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
-    f.policy.codex_bin = bin;
+    f.policy.codex_bin = Some(bin);
     f.store.save(&f.policy).unwrap();
 }
 
@@ -97,9 +97,10 @@ fn forecast_changes_retention_evaluation_without_changing_profile_or_receipts() 
         )
         .unwrap();
     assert_eq!(archived_after, archived_before);
+    let tc = rusqlite::Connection::open(state.join("tracker.sqlite")).unwrap();
     assert_eq!(
-        f.c.query_row(
-            "SELECT archived_since FROM codex_retain_epochs WHERE thread_id=?",
+        tc.query_row(
+            "SELECT archived_since FROM tracked_epochs WHERE thread_id=?",
             [&id],
             |r| r.get::<_, i64>(0)
         )

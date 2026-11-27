@@ -1,9 +1,11 @@
 use crate::{
     config::{Policy, Store},
-    database::{self, BatchThread, BorrowedThread, Thread},
+    database::{self, BatchThread, BorrowedThreadRow, Thread},
+    desktop::DesktopPins,
     fsutil::{self, Identity, ThreadLocks},
     lineage::{FastHashMap, FastHashSet},
     owners::RolloutOwners,
+    tracker::{self, TrackedEpoch, Tracker},
 };
 use anyhow::{Context, Result, ensure};
 use rusqlite::Connection;
@@ -549,15 +551,6 @@ impl CompactEntries {
             }
         }
         Ok(())
-    }
-
-    fn clear_unmatched_missing_capture(&mut self) {
-        for entry in &mut self.entries {
-            if entry.reason() == CompactReason::MissingCapture {
-                entry.meta &= !(COMPACT_FLAG_HAS_ELIGIBLE_AT | COMPACT_FLAG_OVERFLOW_DEADLINE);
-                entry.eligible_delta = 0;
-            }
-        }
     }
 
     fn sort_entries_only(&mut self) {
@@ -1330,18 +1323,20 @@ fn assess_fields(
     archived: i64,
     archived_at: Option<i64>,
     pinned: i64,
+    desktop_pinned: bool,
     history_mode: &str,
     epoch: Option<i64>,
     recorded_archive: Option<i64>,
     p: &Policy,
-    now: i64,
+    observed_at: i64,
+    evaluated_at: i64,
 ) -> Assessment {
     let deadline = epoch.and_then(|epoch| epoch.checked_add(p.duration()));
     let reason = if archived != 1 {
         EntryReason::UnknownArchiveStatus
     } else if !p.exclusions.is_empty() && p.exclusions.contains(id) {
         EntryReason::Excluded
-    } else if pinned != 0 {
+    } else if pinned != 0 || desktop_pinned {
         EntryReason::PinnedOrUnknownPin
     } else if !supported_history_mode(history_mode) {
         EntryReason::UnsupportedHistoryMode
@@ -1351,11 +1346,11 @@ fn assess_fields(
         EntryReason::MissingCapture
     } else if archived_at != recorded_archive {
         EntryReason::CaptureMismatch
-    } else if epoch.is_some_and(|v| v <= 0 || v > now)
-        || archived_at.is_some_and(|v| v <= 0 || v > now)
+    } else if epoch.is_some_and(|v| v <= 0 || v > observed_at)
+        || archived_at.is_some_and(|v| v <= 0 || v > observed_at)
     {
         EntryReason::InvalidOrFutureClock
-    } else if deadline.is_none_or(|v| now <= v) {
+    } else if deadline.is_none_or(|v| evaluated_at <= v) {
         EntryReason::WithinRetention
     } else {
         EntryReason::Eligible
@@ -1366,17 +1361,28 @@ fn assess_fields(
     }
 }
 
-fn assess_borrowed(t: &BorrowedThread<'_>, p: &Policy, now: i64) -> Assessment {
+#[allow(clippy::too_many_arguments)]
+fn assess_row(
+    t: &BorrowedThreadRow<'_>,
+    desktop_pinned: bool,
+    epoch: Option<i64>,
+    recorded_archive: Option<i64>,
+    p: &Policy,
+    observed_at: i64,
+    evaluated_at: i64,
+) -> Assessment {
     assess_fields(
         t.id,
         t.archived,
         t.archived_at,
         t.pinned,
+        desktop_pinned,
         t.history_mode,
-        t.epoch,
-        t.recorded_archive,
+        epoch,
+        recorded_archive,
         p,
-        now,
+        observed_at,
+        evaluated_at,
     )
 }
 
@@ -1388,10 +1394,12 @@ pub fn assess(t: &Thread, p: &Policy, now: i64) -> Assessment {
         t.archived,
         t.archived_at,
         t.pinned,
+        false,
         &t.history_mode,
         t.epoch,
         t.recorded_archive,
         p,
+        now,
         now,
     )
 }
@@ -2112,8 +2120,8 @@ pub fn recover(c: &mut Connection, p: &Policy, store: &Store) -> Result<Option<S
     ids.dedup();
     let _writers = ThreadLocks::acquire(&p.codex_home, &ids)?;
     let tx = c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-    database::verify_base(&tx)?;
-    database::verify_policy(&tx, p)?;
+    let db_name = p.database_name.as_deref().unwrap_or(database::DB_NAME);
+    database::probe_schema(&tx, db_name)?;
     let mut restored_parents = std::collections::BTreeSet::new();
     let mut restored = 0;
     let mut finished = 0;
@@ -2220,10 +2228,13 @@ struct BatchScratch {
 struct Cleanup<'run, 'connection> {
     policy: &'run Policy,
     store: &'run Store,
+    db_name: &'run str,
     now: i64,
     graph: &'run crate::relations::Dependencies,
     owners: RolloutOwners<'connection>,
     headers: crate::lineage::HeaderCache,
+    tracker: &'run mut Tracker,
+    desktop_pins: &'run mut DesktopPins,
     detail: ReportDetail,
     #[cfg(test)]
     completed_batches: usize,
@@ -2283,25 +2294,36 @@ impl Cleanup<'_, '_> {
         let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate)?;
         let batch_stmts = match stmts {
             Some(existing) => {
-                if let Err(error) = existing.verify_base_and_policy(p) {
+                if let Err(error) = existing.verify_and_refresh() {
                     *stmts = None;
                     return Err(error).context(GlobalCleanupFailure);
                 }
                 existing
             }
             None => stmts.insert(
-                database::BatchStatements::prepare_and_verify(c, p)
+                database::BatchStatements::prepare_and_verify(c, self.db_name)
                     .context(GlobalCleanupFailure)?,
             ),
         };
+        self.desktop_pins.refresh().context(GlobalCleanupFailure)?;
         scratch.threads.clear();
         if scratch.threads.capacity() < ids.len() {
             scratch.threads.reserve(ids.len() - scratch.threads.len());
         }
         for &id in ids {
+            let tracked = self.tracker.lookup(id).context(GlobalCleanupFailure)?;
+            let desktop_pinned = self.desktop_pins.contains(id);
             let thread = batch_stmts
                 .lookup_batch_thread(id, |row| {
-                    let assessment = assess_borrowed(&row, p, self.now);
+                    let assessment = assess_row(
+                        &row,
+                        desktop_pinned,
+                        tracked.map(|e| e.archived_since),
+                        tracked.and_then(|e| e.codex_archived_at),
+                        p,
+                        self.now,
+                        self.now,
+                    );
                     ensure!(
                         assessment.reason == EntryReason::Eligible,
                         "thread {id} is no longer eligible: {}",
@@ -2482,6 +2504,7 @@ impl Cleanup<'_, '_> {
         }
         fsutil::sync_dir(&archive)?;
         fsutil::remove_durable(&intent_path(store))?;
+        let _ = self.tracker.remove_deleted(ids);
         ids.iter()
             .map(|id| {
                 removed
@@ -2678,32 +2701,55 @@ pub fn execute(
     now: i64,
     mode: ExecutionMode,
 ) -> Result<Report> {
-    Ok(execute_core(c, p, store, now, mode, ReportDetail::Full)?.into_report(ReportDetail::Full))
+    Ok(
+        execute_core(c, p, store, now, now, mode, ReportDetail::Full)?
+            .into_report(ReportDetail::Full),
+    )
 }
 
-/// Preview or run retention at `now` for CLI `--json` output using compact
-/// entry storage and direct JSON streaming without materializing `Vec<Entry>`.
+/// Preview or run retention using separate observation and forecast timestamps
+/// for CLI `--json` output using compact entry storage and direct JSON streaming.
 pub(crate) fn execute_compact(
     c: &mut Connection,
     p: &Policy,
     store: &Store,
-    now: i64,
+    observed_at: i64,
+    evaluated_at: i64,
     mode: ExecutionMode,
 ) -> Result<CompactReport> {
-    Ok(execute_core(c, p, store, now, mode, ReportDetail::CompactJson)?.into_compact_report())
+    Ok(execute_core(
+        c,
+        p,
+        store,
+        observed_at,
+        evaluated_at,
+        mode,
+        ReportDetail::CompactJson,
+    )?
+    .into_compact_report())
 }
 
-/// Preview or run retention at `now` for human text output, retaining only the
+/// Preview or run retention for human text output, retaining only the
 /// lexicographically smallest 30 display entries plus any of the first 10
 /// diagnostic skip entries beyond index 30 needed for `last-run.json`.
 pub(crate) fn execute_text(
     c: &mut Connection,
     p: &Policy,
     store: &Store,
-    now: i64,
+    observed_at: i64,
+    evaluated_at: i64,
     mode: ExecutionMode,
 ) -> Result<Report> {
-    Ok(execute_core(c, p, store, now, mode, ReportDetail::Text)?.into_report(ReportDetail::Text))
+    Ok(execute_core(
+        c,
+        p,
+        store,
+        observed_at,
+        evaluated_at,
+        mode,
+        ReportDetail::Text,
+    )?
+    .into_report(ReportDetail::Text))
 }
 
 /// Run scheduled retention at `now`, in whole seconds since the Unix epoch.
@@ -2713,10 +2759,16 @@ pub(crate) fn execute_scheduled(
     store: &Store,
     now: i64,
 ) -> Result<Report> {
-    Ok(
-        execute_core(c, p, store, now, ExecutionMode::Run, ReportDetail::Summary)?
-            .into_report(ReportDetail::Summary),
-    )
+    Ok(execute_core(
+        c,
+        p,
+        store,
+        now,
+        now,
+        ExecutionMode::Run,
+        ReportDetail::Summary,
+    )?
+    .into_report(ReportDetail::Summary))
 }
 
 const TEXT_DISPLAY_LIMIT: usize = 30;
@@ -2944,11 +2996,37 @@ fn check_republished(
     }
 }
 
+#[inline]
+fn resolve_effective_epoch(
+    apply: bool,
+    archived: i64,
+    archived_at: Option<i64>,
+    tracked: Option<TrackedEpoch>,
+    last_synced_at: i64,
+    observed_at: i64,
+) -> (Option<i64>, Option<i64>) {
+    if apply {
+        (
+            tracked.map(|e| e.archived_since),
+            tracked.and_then(|e| e.codex_archived_at),
+        )
+    } else if archived == 1 {
+        let next = tracker::compute_next_epoch(archived_at, tracked, last_synced_at, observed_at);
+        (Some(next.archived_since), next.codex_archived_at)
+    } else {
+        (
+            tracked.map(|e| e.archived_since),
+            tracked.and_then(|e| e.codex_archived_at),
+        )
+    }
+}
+
 fn execute_core(
     c: &mut Connection,
     p: &Policy,
     store: &Store,
-    now: i64,
+    observed_at: i64,
+    evaluated_at: i64,
     mode: ExecutionMode,
     detail: ReportDetail,
 ) -> Result<ReportCore> {
@@ -2958,12 +3036,24 @@ fn execute_core(
         "policy is disabled; run enable to apply retention to recorded archive dates"
     );
     ensure!(
-        now >= p.enabled_at,
+        observed_at >= p.enabled_at,
         "system clock moved before policy activation"
     );
-    database::verify_policy(c, p)?;
-    let mut report = ReportCore::new(mode, now, detail);
-    if apply {
+    ensure!(
+        evaluated_at >= observed_at,
+        "evaluation timestamp cannot precede observation time"
+    );
+    let db_name = database::discover_state_db(&p.codex_home)
+        .map(|(name, _)| name)
+        .unwrap_or_else(|_| {
+            p.database_name
+                .clone()
+                .unwrap_or_else(|| database::DB_NAME.to_owned())
+        });
+    let caps = database::probe_schema(c, &db_name)?;
+    let mut desktop_pins = DesktopPins::load(&p.codex_home)?;
+    let mut report = ReportCore::new(mode, observed_at, detail);
+    let mut tracker = if apply {
         ensure!(
             !p.paused,
             "policy is paused; resume it before a cleanup run"
@@ -2971,12 +3061,24 @@ fn execute_core(
         if let Some(message) = recover(c, p, store)? {
             report.warning(detail, message);
         }
-    } else if fsutil::path_exists(&intent_path(store))? {
-        report.warning(
-            detail,
-            "pending recovery; run cleanup or disable before relying on this preview".into(),
+        let mut tracker = Tracker::open_readwrite(store, c, p, observed_at)?;
+        tracker.sync(c, &caps, observed_at)?;
+        tracker
+    } else {
+        if fsutil::path_exists(&intent_path(store))? {
+            report.warning(
+                detail,
+                "pending recovery; run cleanup or disable before relying on this preview".into(),
+            );
+        }
+        let tracker = Tracker::open_readonly(store, c, p, observed_at)?;
+        ensure!(
+            observed_at >= tracker.last_synced_at(),
+            "system clock moved backwards since the last tracker sync"
         );
-    }
+        tracker
+    };
+    let last_synced_at = tracker.last_synced_at();
 
     // An empty prefix preserves full keys when a native profile path is not
     // UTF-8 or relative; it does not change filesystem path operations or skip checks.
@@ -2996,32 +3098,47 @@ fn execute_core(
             let EntryStore::Compact(ref mut compact) = report.entries else {
                 unreachable!()
             };
-            report.examined = database::visit_archived_summary(c, now, p.duration(), |event| {
-                match event {
-                    database::SummaryVisit::DueHint(hint) => {
-                        compact.reserve_exact(hint);
-                        candidates.entries.reserve_exact(hint);
+            let due_ids = tracker.due_ids(evaluated_at, p.duration())?;
+            if !due_ids.is_empty() {
+                compact.reserve_exact(due_ids.len());
+                candidates.entries.reserve_exact(due_ids.len());
+            }
+            report.examined =
+                database::visit_archived_summary_by_ids(c, &caps, &due_ids, |thread| {
+                    let tracked = tracker.lookup(thread.id)?;
+                    let (epoch, recorded) = resolve_effective_epoch(
+                        apply,
+                        thread.archived,
+                        thread.archived_at,
+                        tracked,
+                        last_synced_at,
+                        observed_at,
+                    );
+                    let assessment = assess_row(
+                        &thread,
+                        desktop_pins.contains(thread.id),
+                        epoch,
+                        recorded,
+                        p,
+                        observed_at,
+                        evaluated_at,
+                    );
+                    if assessment.reason == EntryReason::Eligible {
+                        let index = compact.push(
+                            thread.id,
+                            thread.title,
+                            assessment.reason,
+                            assessment.eligible_at,
+                        )?;
+                        candidates.push(
+                            index,
+                            thread.path,
+                            &archive_prefix,
+                            thread.history_mode == "paginated",
+                        )?;
                     }
-                    database::SummaryVisit::Row(thread) => {
-                        let assessment = assess_borrowed(&thread, p, now);
-                        if assessment.reason == EntryReason::Eligible {
-                            let index = compact.push(
-                                thread.id,
-                                thread.title,
-                                assessment.reason,
-                                assessment.eligible_at,
-                            )?;
-                            candidates.push(
-                                index,
-                                thread.path,
-                                &archive_prefix,
-                                thread.history_mode == "paginated",
-                            )?;
-                        }
-                    }
-                }
-                Ok(())
-            })?;
+                    Ok(())
+                })?;
             report.skipped = report
                 .examined
                 .saturating_sub(candidates.entries.len() as u64);
@@ -3030,16 +3147,39 @@ fn execute_core(
             let EntryStore::Compact(ref mut compact) = report.entries else {
                 unreachable!()
             };
+            let unsynced_could_be_due =
+                !apply && (evaluated_at.saturating_sub(last_synced_at) > p.duration());
+            let due_ids = (!unsynced_could_be_due)
+                .then(|| tracker.due_ids(evaluated_at, p.duration()))
+                .transpose()?;
             let mut non_eligible = BinaryHeap::<EntryById>::with_capacity(TEXT_DISPLAY_LIMIT);
-            let fast_examined =
-                database::visit_archived_text(c, now, p.duration(), TEXT_DISPLAY_LIMIT, |event| {
+            let mut loaded_epochs: Option<tracker::EpochMap> = None;
+            let fast_examined = database::visit_archived_text(
+                c,
+                &caps,
+                due_ids.as_deref(),
+                TEXT_DISPLAY_LIMIT,
+                |event| {
                     match event {
-                        database::TextVisit::DueHint(hint) => {
-                            compact.reserve_exact(hint.saturating_add(TEXT_DISPLAY_LIMIT));
-                            candidates.entries.reserve_exact(hint);
-                        }
-                        database::TextVisit::Due(thread) => {
-                            let assessment = assess_borrowed(&thread, p, now);
+                        database::TextScanEvent::Due(thread) => {
+                            let tracked = tracker.lookup(thread.id)?;
+                            let (epoch, recorded) = resolve_effective_epoch(
+                                apply,
+                                thread.archived,
+                                thread.archived_at,
+                                tracked,
+                                last_synced_at,
+                                observed_at,
+                            );
+                            let assessment = assess_row(
+                                &thread,
+                                desktop_pins.contains(thread.id),
+                                epoch,
+                                recorded,
+                                p,
+                                observed_at,
+                                evaluated_at,
+                            );
                             if assessment.reason == EntryReason::Eligible {
                                 let index = compact.push(
                                     thread.id,
@@ -3055,8 +3195,25 @@ fn execute_core(
                                 )?;
                             }
                         }
-                        database::TextVisit::Prefix(thread) => {
-                            let assessment = assess_borrowed(&thread, p, now);
+                        database::TextScanEvent::Prefix(thread) => {
+                            let tracked = tracker.lookup(thread.id)?;
+                            let (epoch, recorded) = resolve_effective_epoch(
+                                apply,
+                                thread.archived,
+                                thread.archived_at,
+                                tracked,
+                                last_synced_at,
+                                observed_at,
+                            );
+                            let assessment = assess_row(
+                                &thread,
+                                desktop_pins.contains(thread.id),
+                                epoch,
+                                recorded,
+                                p,
+                                observed_at,
+                                evaluated_at,
+                            );
                             if assessment.reason != EntryReason::Eligible {
                                 compact.push(
                                     thread.id,
@@ -3066,9 +3223,30 @@ fn execute_core(
                                 )?;
                             }
                         }
-                        database::TextVisit::Full(thread) => {
+                        database::TextScanEvent::Full(thread) => {
+                            if loaded_epochs.is_none() {
+                                loaded_epochs = Some(tracker.load_map()?);
+                            }
+                            let tracked =
+                                loaded_epochs.as_ref().expect("loaded above").get(thread.id);
                             report.examined += 1;
-                            let assessment = assess_borrowed(&thread, p, now);
+                            let (epoch, recorded) = resolve_effective_epoch(
+                                apply,
+                                thread.archived,
+                                thread.archived_at,
+                                tracked,
+                                last_synced_at,
+                                observed_at,
+                            );
+                            let assessment = assess_row(
+                                &thread,
+                                desktop_pins.contains(thread.id),
+                                epoch,
+                                recorded,
+                                p,
+                                observed_at,
+                                evaluated_at,
+                            );
                             if assessment.reason == EntryReason::Eligible {
                                 let index = compact.push(
                                     thread.id,
@@ -3105,7 +3283,8 @@ fn execute_core(
                         }
                     }
                     Ok(())
-                })?;
+                },
+            )?;
             if let Some(examined) = fast_examined {
                 report.examined = examined;
                 report.skipped = examined.saturating_sub(candidates.entries.len() as u64);
@@ -3119,12 +3298,30 @@ fn execute_core(
             let EntryStore::Full(ref mut entries) = report.entries else {
                 unreachable!()
             };
-            database::visit_archived_full_with_count(c, |event| {
+            let epochs = tracker.load_map()?;
+            database::visit_archived_full_with_count(c, &caps, |event| {
                 match event {
                     database::FullVisit::Count(count) => entries.reserve_exact(count),
                     database::FullVisit::Row(thread) => {
                         report.examined += 1;
-                        let assessment = assess_borrowed(&thread, p, now);
+                        let tracked = epochs.get(thread.id);
+                        let (epoch, recorded) = resolve_effective_epoch(
+                            apply,
+                            thread.archived,
+                            thread.archived_at,
+                            tracked,
+                            last_synced_at,
+                            observed_at,
+                        );
+                        let assessment = assess_row(
+                            &thread,
+                            desktop_pins.contains(thread.id),
+                            epoch,
+                            recorded,
+                            p,
+                            observed_at,
+                            evaluated_at,
+                        );
                         let eligible = assessment.reason == EntryReason::Eligible;
                         let index = entries.len();
                         entries.push(Entry {
@@ -3155,9 +3352,6 @@ fn execute_core(
                 compact: &'a mut CompactEntries,
                 candidates: &'a mut CandidateArena,
                 examined: u64,
-                phase1_ok: usize,
-                matched_phase1_ok: usize,
-                epoch_hint: usize,
                 eligible_indices: Vec<u32>,
             }
             let EntryStore::Compact(ref mut compact) = report.entries else {
@@ -3168,88 +3362,145 @@ fn execute_core(
                 compact,
                 candidates: &mut candidates,
                 examined: 0,
-                phase1_ok: 0,
-                matched_phase1_ok: 0,
-                epoch_hint: 0,
                 eligible_indices: Vec::new(),
             };
-            database::visit_archived_compact(
+            database::visit_archived_compact_threads(
                 c,
+                &caps,
                 &mut state,
                 |state, event| {
                     match event {
-                        database::CompactVisit::Count(count) => {
+                        database::CompactThreadsEvent::Count(count) => {
                             state.compact.reserve_exact(count);
                         }
-                        database::CompactVisit::Thread(thread) => {
+                        database::CompactThreadsEvent::Thread(thread) => {
                             state.examined += 1;
                             let (reason, stored_ts) = if thread.archived != 1 {
                                 (EntryReason::UnknownArchiveStatus, None)
                             } else if !p.exclusions.is_empty() && p.exclusions.contains(thread.id) {
-                                (EntryReason::Excluded, None)
-                            } else if thread.pinned != 0 {
-                                (EntryReason::PinnedOrUnknownPin, None)
+                                (EntryReason::Excluded, thread.archived_at)
+                            } else if thread.pinned != 0 || desktop_pins.contains(thread.id) {
+                                (EntryReason::PinnedOrUnknownPin, thread.archived_at)
                             } else if !supported_history_mode(thread.history_mode) {
-                                (EntryReason::UnsupportedHistoryMode, None)
+                                (EntryReason::UnsupportedHistoryMode, thread.archived_at)
                             } else if thread.archived_at.is_none() {
                                 (EntryReason::UnknownArchiveTime, None)
                             } else {
-                                state.phase1_ok += 1;
                                 (EntryReason::MissingCapture, thread.archived_at)
                             };
                             state
                                 .compact
                                 .push(thread.id, thread.title, reason, stored_ts)?;
                         }
-                        database::CompactVisit::ThreadsDone => {
-                            state.compact.sort_entries_only();
-                        }
-                        database::CompactVisit::Epoch(epoch_row) => {
-                            let Some(epoch) = epoch_row.archived_since else {
-                                return Ok(());
-                            };
-                            let Some(idx) = state
-                                .compact
-                                .find_by_id_hinted(epoch_row.thread_id, &mut state.epoch_hint)
-                            else {
-                                return Ok(());
-                            };
-                            let deadline = epoch.checked_add(duration);
-                            if state.compact.entries[idx].reason() == CompactReason::MissingCapture
-                            {
-                                state.matched_phase1_ok += 1;
-                                let archived_at = state
-                                    .compact
-                                    .eligible_at(&state.compact.entries[idx])
-                                    .expect("phase1_ok entry stores archived_at");
-                                let final_reason =
-                                    if Some(archived_at) != epoch_row.codex_archived_at {
-                                        CompactReason::CaptureMismatch
-                                    } else if epoch <= 0
-                                        || epoch > now
-                                        || archived_at <= 0
-                                        || archived_at > now
-                                    {
-                                        CompactReason::InvalidOrFutureClock
-                                    } else if deadline.is_none_or(|v| now <= v) {
-                                        CompactReason::WithinRetention
-                                    } else {
-                                        state.eligible_indices.push(idx as u32);
-                                        CompactReason::Eligible
-                                    };
-                                state.compact.entries[idx].set_reason(final_reason);
-                                state.compact.set_eligible_at(idx, deadline)?;
-                            } else {
-                                state.compact.set_eligible_at(idx, deadline)?;
-                            }
-                        }
                     }
                     Ok(())
                 },
                 |state, tx| {
-                    if state.matched_phase1_ok < state.phase1_ok {
-                        state.compact.clear_unmatched_missing_capture();
+                    state.compact.sort_entries_only();
+                    let entry_count = state.compact.entries.len();
+                    let mut matched_bits = vec![0u8; entry_count.div_ceil(8)];
+                    let mut epoch_hint = 0usize;
+                    tracker.visit_all(|thread_id, tracked| {
+                        let Some(idx) = state.compact.find_by_id_hinted(thread_id, &mut epoch_hint)
+                        else {
+                            return Ok(());
+                        };
+                        matched_bits[idx >> 3] |= 1 << (idx & 7);
+                        let cur_reason = state.compact.entries[idx].reason();
+                        let archived = i64::from(cur_reason != CompactReason::UnknownArchiveStatus);
+                        let stored_archived_at = if archived == 1 {
+                            state.compact.eligible_at(&state.compact.entries[idx])
+                        } else {
+                            None
+                        };
+                        let (epoch, recorded) = resolve_effective_epoch(
+                            apply,
+                            archived,
+                            stored_archived_at,
+                            Some(tracked),
+                            last_synced_at,
+                            observed_at,
+                        );
+                        let deadline = epoch.and_then(|ep| ep.checked_add(duration));
+                        if cur_reason == CompactReason::MissingCapture {
+                            let archived_at =
+                                stored_archived_at.expect("phase1_ok entry stores archived_at");
+                            let final_reason = match epoch {
+                                None => CompactReason::MissingCapture,
+                                Some(_) if Some(archived_at) != recorded => {
+                                    CompactReason::CaptureMismatch
+                                }
+                                Some(ep)
+                                    if ep <= 0
+                                        || ep > observed_at
+                                        || archived_at <= 0
+                                        || archived_at > observed_at =>
+                                {
+                                    CompactReason::InvalidOrFutureClock
+                                }
+                                Some(_) if deadline.is_none_or(|v| evaluated_at <= v) => {
+                                    CompactReason::WithinRetention
+                                }
+                                Some(_) => {
+                                    state.eligible_indices.push(idx as u32);
+                                    CompactReason::Eligible
+                                }
+                            };
+                            state.compact.entries[idx].set_reason(final_reason);
+                        }
+                        state.compact.set_eligible_at(idx, deadline)?;
+                        Ok(())
+                    })?;
+
+                    // Finalize any entries that had no matching row in tracked_epochs.
+                    for idx in 0..entry_count {
+                        if matched_bits[idx >> 3] & (1 << (idx & 7)) != 0 {
+                            continue;
+                        }
+                        let cur_reason = state.compact.entries[idx].reason();
+                        if cur_reason == CompactReason::UnknownArchiveStatus {
+                            continue;
+                        }
+                        let stored_archived_at =
+                            state.compact.eligible_at(&state.compact.entries[idx]);
+                        let (epoch, recorded) = resolve_effective_epoch(
+                            apply,
+                            1,
+                            stored_archived_at,
+                            None,
+                            last_synced_at,
+                            observed_at,
+                        );
+                        let deadline = epoch.and_then(|ep| ep.checked_add(duration));
+                        if cur_reason == CompactReason::MissingCapture {
+                            let archived_at =
+                                stored_archived_at.expect("phase1_ok entry stores archived_at");
+                            let final_reason = match epoch {
+                                None => CompactReason::MissingCapture,
+                                Some(_) if Some(archived_at) != recorded => {
+                                    CompactReason::CaptureMismatch
+                                }
+                                Some(ep)
+                                    if ep <= 0
+                                        || ep > observed_at
+                                        || archived_at <= 0
+                                        || archived_at > observed_at =>
+                                {
+                                    CompactReason::InvalidOrFutureClock
+                                }
+                                Some(_) if deadline.is_none_or(|v| evaluated_at <= v) => {
+                                    CompactReason::WithinRetention
+                                }
+                                Some(_) => {
+                                    state.eligible_indices.push(idx as u32);
+                                    CompactReason::Eligible
+                                }
+                            };
+                            state.compact.entries[idx].set_reason(final_reason);
+                        }
+                        state.compact.set_eligible_at(idx, deadline)?;
                     }
+
                     if !state.eligible_indices.is_empty() {
                         state
                             .candidates
@@ -3261,6 +3512,7 @@ fn execute_core(
                             let mut seq_hint = 0usize;
                             database::visit_eligible_paths_sequential(
                                 tx,
+                                &caps,
                                 |id, path, paginated| {
                                     if let Some(idx) =
                                         state.compact.find_by_id_hinted(id, &mut seq_hint)
@@ -3283,7 +3535,7 @@ fn execute_core(
                                 .sort_unstable_by_key(|candidate| candidate.report_index);
                         } else {
                             state.eligible_indices.sort_unstable();
-                            let mut lookup = database::prepare_eligible_path_lookup(tx)?;
+                            let mut lookup = database::prepare_eligible_path_lookup(tx, &caps)?;
                             let mut id_buf = [0u8; 36];
                             for &idx_u32 in &state.eligible_indices {
                                 let idx = idx_u32 as usize;
@@ -3319,6 +3571,7 @@ fn execute_core(
     } else {
         // Release SQLite scan pages before HeaderCache/lineage allocations peak.
         database::shrink_memory(c);
+        tracker.shrink_memory();
         let mut candidate_ids =
             FastHashSet::with_capacity_and_hasher(candidates.entries.len(), Default::default());
         for candidate in &candidates.entries {
@@ -3334,7 +3587,7 @@ fn execute_core(
             &mut scratch.lineage,
         )
         .and_then(|()| {
-            database::add_spawn_dependencies(c, &mut graph)?;
+            database::add_spawn_dependencies(c, &caps, &mut graph)?;
             scratch.lineage.add_dependencies(&mut graph);
             scratch.lineage.release_graph_scratch();
             Ok(())
@@ -3534,10 +3787,13 @@ fn execute_core(
         let mut cleanup = Cleanup {
             policy: p,
             store,
-            now,
+            db_name: &db_name,
+            now: observed_at,
             graph: &graph,
             owners,
             headers,
+            tracker: &mut tracker,
+            desktop_pins: &mut desktop_pins,
             detail,
             #[cfg(test)]
             completed_batches: 0,
@@ -3585,7 +3841,7 @@ mod tests {
     #[test]
     fn cached_inventory_rechecks_orphan_parents_between_committed_groups() {
         for change in ["new", "rewrite", "replace"] {
-            let fixture = test_support::Fixture::new();
+            let mut fixture = test_support::Fixture::new();
             let first = fixture.add(1, 1);
             let second = fixture.add(2, 1);
             fixture.age(&first);
@@ -3621,13 +3877,24 @@ mod tests {
                     .unwrap();
             let mut graph = crate::relations::Dependencies::default();
             lineage.add_dependencies(&mut graph);
+            let mut tracker = Tracker::open_readwrite(
+                &fixture.store,
+                &mut fixture.c,
+                &fixture.policy,
+                test_support::now(),
+            )
+            .unwrap();
+            let mut desktop_pins = DesktopPins::load(&fixture.home).unwrap();
             let mut cleanup = Cleanup {
                 policy: &fixture.policy,
                 store: &fixture.store,
+                db_name: database::DB_NAME,
                 now: test_support::now(),
                 graph: &graph,
                 owners: RolloutOwners::new(&fixture.c, ""),
                 headers,
+                tracker: &mut tracker,
+                desktop_pins: &mut desktop_pins,
                 detail: ReportDetail::Full,
                 completed_batches: 0,
             };
@@ -4227,20 +4494,18 @@ mod tests {
             .c
             .execute("UPDATE threads SET archived=-1 WHERE id=?", [&unknown_neg])
             .unwrap();
-        fixture
-            .c
-            .execute(
-                "UPDATE codex_retain_epochs SET codex_archived_at=archived_since-1 WHERE thread_id=?",
-                [&mismatch],
-            )
-            .unwrap();
-        fixture
-            .c
-            .execute(
-                "UPDATE codex_retain_epochs SET archived_since=?1, codex_archived_at=?1 WHERE thread_id=?2",
-                rusqlite::params![test_support::now() + 60, &future_clock],
-            )
-            .unwrap();
+        let tc = fixture.tracker_conn();
+        tc.execute(
+            "UPDATE tracked_epochs SET codex_archived_at=archived_since-1 WHERE thread_id=?",
+            [&mismatch],
+        )
+        .unwrap();
+        tc.execute(
+            "UPDATE tracked_epochs SET archived_since=?1, codex_archived_at=?1 WHERE thread_id=?2",
+            rusqlite::params![test_support::now() + 60, &future_clock],
+        )
+        .unwrap();
+        drop(tc);
         fixture
             .c
             .execute(
@@ -4287,7 +4552,8 @@ mod tests {
             by_id[unknown_neg.as_str()],
             &EntryReason::UnknownArchiveStatus
         );
-        assert_eq!(by_id[mismatch.as_str()], &EntryReason::CaptureMismatch);
+        // Changed archived_at in sidecar model conservatively restarts retention.
+        assert_eq!(by_id[mismatch.as_str()], &EntryReason::WithinRetention);
         assert_eq!(
             by_id[future_clock.as_str()],
             &EntryReason::InvalidOrFutureClock
@@ -4350,6 +4616,7 @@ mod tests {
             &fixture.policy,
             &fixture.store,
             test_support::now(),
+            test_support::now(),
             ExecutionMode::Preview,
         )
         .unwrap();
@@ -4392,6 +4659,7 @@ mod tests {
 
     #[test]
     fn visit_archived_summary_boundary_math_and_null_guard() {
+        let mut fixture = test_support::Fixture::new();
         let mut conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(
             "CREATE TABLE threads (
@@ -4405,24 +4673,25 @@ mod tests {
                 name TEXT,
                 title TEXT NOT NULL DEFAULT ''
             );
-            CREATE INDEX idx_threads_archived ON threads(archived);
-            CREATE TABLE codex_retain_epochs (
-                thread_id TEXT PRIMARY KEY,
-                archived_since INTEGER NOT NULL,
-                codex_archived_at INTEGER
-            );",
+            CREATE INDEX idx_threads_archived ON threads(archived);",
         )
         .unwrap();
+        let caps = database::probe_schema(&conn, database::DB_NAME).unwrap();
+        let tc = fixture.tracker_conn();
 
-        let insert = |c: &Connection, id: &str, archived: Option<i64>, since: Option<i64>| {
+        let insert = |c: &Connection,
+                      tc: &Connection,
+                      id: &str,
+                      archived: Option<i64>,
+                      since: Option<i64>| {
             c.execute(
                 "INSERT INTO threads(id,rollout_path,archived,archived_at,title) VALUES(?1,'/p',?2,?3,'t')",
                 rusqlite::params![id, archived, since],
             )
             .unwrap();
             if let Some(since) = since {
-                c.execute(
-                    "INSERT INTO codex_retain_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
+                tc.execute(
+                    "INSERT INTO tracked_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
                     rusqlite::params![id, since],
                 )
                 .unwrap();
@@ -4431,20 +4700,27 @@ mod tests {
 
         let duration = 86_400i64;
         let now = duration * 2; // cutoff == 86_400
-        insert(&conn, "a-zero", Some(1), Some(0));
-        insert(&conn, "b-one", Some(1), Some(1));
-        insert(&conn, "c-cutoff-minus-1", Some(1), Some(duration - 1));
-        insert(&conn, "d-cutoff", Some(1), Some(duration));
-        insert(&conn, "e-overflow", Some(1), Some(i64::MAX - 10));
-        insert(&conn, "f-active", Some(0), None);
-        insert(&conn, "g-neg", Some(-1), Some(1));
-        insert(&conn, "h-two", Some(2), Some(1));
+        insert(&conn, &tc, "a-zero", Some(1), Some(0));
+        insert(&conn, &tc, "b-one", Some(1), Some(1));
+        insert(&conn, &tc, "c-cutoff-minus-1", Some(1), Some(duration - 1));
+        insert(&conn, &tc, "d-cutoff", Some(1), Some(duration));
+        insert(&conn, &tc, "e-overflow", Some(1), Some(i64::MAX - 10));
+        insert(&conn, &tc, "f-active", Some(0), None);
+        insert(&conn, &tc, "g-neg", Some(-1), Some(1));
+        insert(&conn, &tc, "h-two", Some(2), Some(1));
+        drop(tc);
 
+        let tracker = Tracker::open_readonly(
+            &fixture.store,
+            &fixture.c,
+            &fixture.policy,
+            test_support::now(),
+        )
+        .unwrap();
+        let due_ids = tracker.due_ids(now, duration).unwrap();
         let mut seen = Vec::new();
-        let examined = database::visit_archived_summary(&mut conn, now, duration, |event| {
-            if let database::SummaryVisit::Row(t) = event {
-                seen.push(t.id.to_owned());
-            }
+        let examined = database::visit_archived_summary_by_ids(&mut conn, &caps, &due_ids, |t| {
+            seen.push(t.id.to_owned());
             Ok(())
         })
         .unwrap();
@@ -4454,11 +4730,10 @@ mod tests {
 
         // Boundary: now == duration (cutoff == 0), now < duration, now == duration + 1 (cutoff == 1)
         for boundary_now in [duration - 1, duration, duration + 1] {
+            let due_ids = tracker.due_ids(boundary_now, duration).unwrap();
             let mut visited = 0usize;
-            let count = database::visit_archived_summary(&mut conn, boundary_now, duration, |ev| {
-                if matches!(ev, database::SummaryVisit::Row(_)) {
-                    visited += 1;
-                }
+            let count = database::visit_archived_summary_by_ids(&mut conn, &caps, &due_ids, |_| {
+                visited += 1;
                 Ok(())
             })
             .unwrap();
@@ -4466,20 +4741,26 @@ mod tests {
             assert_eq!(visited, 0, "no row can be due at now={boundary_now}");
         }
         // Boundary: cutoff == 2 (now == duration + 2) includes archived_since == 1 only.
+        let due_two = tracker.due_ids(duration + 2, duration).unwrap();
         let mut at_two = Vec::new();
-        database::visit_archived_summary(&mut conn, duration + 2, duration, |event| {
-            if let database::SummaryVisit::Row(t) = event {
-                at_two.push(t.id.to_owned());
-            }
+        database::visit_archived_summary_by_ids(&mut conn, &caps, &due_two, |t| {
+            at_two.push(t.id.to_owned());
             Ok(())
         })
         .unwrap();
         assert_eq!(at_two, vec!["b-one"]);
 
         // NULL archived status must fail closed identically to visit_archived_full.
-        insert(&conn, "z-null", None, None);
-        assert!(database::visit_archived_full(&conn, |_| Ok(())).is_err());
-        assert!(database::visit_archived_summary(&mut conn, now, duration, |_| Ok(())).is_err());
+        conn.execute(
+            "INSERT INTO threads(id,rollout_path,archived,archived_at,title) VALUES('z-null','/p',NULL,NULL,'t')",
+            [],
+        )
+        .unwrap();
+        assert!(database::visit_archived_full(&conn, &caps, |_| Ok(())).is_err());
+        assert!(
+            database::visit_archived_summary_by_ids(&mut conn, &caps, &[], |_| Ok(())).is_err()
+        );
+        let _ = &mut fixture;
     }
 
     #[test]
@@ -4754,26 +5035,23 @@ mod tests {
                 [&no_time],
             )
             .unwrap();
-        // 8. MissingCapture (epoch row deleted -> eligible_at MUST be null, not leaked archived_at!)
+        // 8. Unsynced newly archived row (absent from tracked_epochs -> conservatively WithinRetention in preview)
         let missing_cap = fixture.add(108, 1);
         fixture.age(&missing_cap);
-        fixture
-            .c
-            .execute(
-                "DELETE FROM codex_retain_epochs WHERE thread_id=?1",
-                [&missing_cap],
-            )
-            .unwrap();
-        // 9. CaptureMismatch
+        let tc = fixture.tracker_conn();
+        tc.execute(
+            "DELETE FROM tracked_epochs WHERE thread_id=?1",
+            [&missing_cap],
+        )
+        .unwrap();
+        // 9. Changed archived_at since last sync -> conservatively WithinRetention in preview
         let mismatch = fixture.add(109, 1);
         fixture.age(&mismatch);
-        fixture
-            .c
-            .execute(
-                "UPDATE codex_retain_epochs SET codex_archived_at=?2 WHERE thread_id=?1",
-                rusqlite::params![&mismatch, due_ts + 1],
-            )
-            .unwrap();
+        tc.execute(
+            "UPDATE tracked_epochs SET codex_archived_at=?2 WHERE thread_id=?1",
+            rusqlite::params![&mismatch, due_ts + 1],
+        )
+        .unwrap();
         // 10. InvalidOrFutureClock with i64::MIN overflowing i32 delta!
         let min_clock = fixture.add(110, 1);
         fixture
@@ -4783,14 +5061,12 @@ mod tests {
                 rusqlite::params![&min_clock, i64::MIN],
             )
             .unwrap();
-        fixture
-            .c
-            .execute(
-                "UPDATE codex_retain_epochs SET archived_since=?2, codex_archived_at=?2 WHERE thread_id=?1",
-                rusqlite::params![&min_clock, i64::MIN],
-            )
-            .unwrap();
-        // 11. Overflow deadline (archived_since near i64::MAX -> checked_add returns None -> InvalidOrFutureClock or WithinRetention)
+        tc.execute(
+            "UPDATE tracked_epochs SET archived_since=?2, codex_archived_at=?2 WHERE thread_id=?1",
+            rusqlite::params![&min_clock, i64::MIN],
+        )
+        .unwrap();
+        // 11. Overflow deadline (archived_since near i64::MAX -> checked_add returns None -> InvalidOrFutureClock)
         let future_clock = fixture.add(111, 1);
         fixture
             .c
@@ -4799,13 +5075,11 @@ mod tests {
                 rusqlite::params![&future_clock, i64::MAX - 5],
             )
             .unwrap();
-        fixture
-            .c
-            .execute(
-                "UPDATE codex_retain_epochs SET archived_since=?2, codex_archived_at=?2 WHERE thread_id=?1",
-                rusqlite::params![&future_clock, i64::MAX - 5],
-            )
-            .unwrap();
+        tc.execute(
+            "UPDATE tracked_epochs SET archived_since=?2, codex_archived_at=?2 WHERE thread_id=?1",
+            rusqlite::params![&future_clock, i64::MAX - 5],
+        )
+        .unwrap();
         // 12. UnknownArchiveStatus (archived = 2 and archived = -1)
         let arch_two = fixture.add(112, 1);
         fixture
@@ -4840,15 +5114,14 @@ mod tests {
                 [&pinned],
             )
             .unwrap();
-        // 14. Active thread with an orphan row in codex_retain_epochs (must be ignored).
+        // 14. Active thread with an orphan row in tracked_epochs (must be ignored).
         let active = fixture.add(114, 0);
-        fixture
-            .c
-            .execute(
-                "INSERT OR REPLACE INTO codex_retain_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
-                rusqlite::params![&active, due_ts],
-            )
-            .unwrap();
+        tc.execute(
+            "INSERT OR REPLACE INTO tracked_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
+            rusqlite::params![&active, due_ts],
+        )
+        .unwrap();
+        drop(tc);
 
         let full = execute(
             &mut fixture.c,
@@ -4863,6 +5136,7 @@ mod tests {
             &fixture.policy,
             &fixture.store,
             now,
+            now,
             ExecutionMode::Preview,
         )
         .unwrap();
@@ -4874,10 +5148,10 @@ mod tests {
             String::from_utf8(compact_json).unwrap(),
             String::from_utf8(full_json).unwrap()
         );
-        // Explicitly verify missing_cap had eligible_at = None (not leaked temporary archived_at).
+        // Unsynced row with ancient archived_at conservatively gets fresh retention from `now`.
         let mc = full.entries.iter().find(|e| e.id == missing_cap).unwrap();
-        assert_eq!(mc.reason, EntryReason::MissingCapture);
-        assert_eq!(mc.eligible_at, None);
+        assert_eq!(mc.reason, EntryReason::WithinRetention);
+        assert_eq!(mc.eligible_at, Some(now + fixture.policy.duration()));
         // Explicitly verify excluded still carried its epoch deadline.
         let ex = full.entries.iter().find(|e| e.id == excluded).unwrap();
         assert_eq!(ex.reason, EntryReason::Excluded);
@@ -4900,16 +5174,18 @@ mod tests {
 
         // Bulk-insert 4,100 non-due archived rows to cross the examined >= 4096 threshold.
         {
+            let mut tc = fixture.tracker_conn();
             let tx = fixture.c.transaction().unwrap();
+            let ttx = tc.transaction().unwrap();
             let mut ins_t = tx
                 .prepare(
                     "INSERT INTO threads(id,rollout_path,created_at,updated_at,source,model_provider,cwd,title,sandbox_policy,approval_mode,archived,archived_at,history_mode,is_pinned) \
                      VALUES(?1,?2,?3,?3,'cli','openai','/tmp',?4,'workspace','auto',1,?3,'legacy',0)",
                 )
                 .unwrap();
-            let mut ins_e = tx
+            let mut ins_e = ttx
                 .prepare(
-                    "INSERT OR REPLACE INTO codex_retain_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
+                    "INSERT OR REPLACE INTO tracked_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
                 )
                 .unwrap();
             for i in 10u128..4_110u128 {
@@ -4931,6 +5207,7 @@ mod tests {
             drop(ins_e);
             drop(ins_t);
             tx.commit().unwrap();
+            ttx.commit().unwrap();
         }
 
         let full = execute(
@@ -4945,6 +5222,7 @@ mod tests {
             &mut fixture.c,
             &fixture.policy,
             &fixture.store,
+            now,
             now,
             ExecutionMode::Preview,
         )
@@ -5080,16 +5358,18 @@ mod tests {
         // Bulk-insert 1,060 due rows (without disk files) to exercise the sequential
         // Pass 4 eligible-path scan (>= 1024 eligible && >= 1/8 examined) and CompactDetails interning.
         {
+            let mut tc = fixture.tracker_conn();
             let tx = fixture.c.transaction().unwrap();
+            let ttx = tc.transaction().unwrap();
             let mut ins_t = tx
                 .prepare(
                     "INSERT INTO threads(id,rollout_path,created_at,updated_at,source,model_provider,cwd,title,sandbox_policy,approval_mode,archived,archived_at,history_mode,is_pinned) \
                      VALUES(?1,?2,?3,?3,'cli','openai','/tmp',?4,'workspace','auto',1,?3,'legacy',0)",
                 )
                 .unwrap();
-            let mut ins_e = tx
+            let mut ins_e = ttx
                 .prepare(
-                    "INSERT OR REPLACE INTO codex_retain_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
+                    "INSERT OR REPLACE INTO tracked_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
                 )
                 .unwrap();
             for i in (100u128..1_160u128).rev() {
@@ -5111,6 +5391,7 @@ mod tests {
             drop(ins_e);
             drop(ins_t);
             tx.commit().unwrap();
+            ttx.commit().unwrap();
         }
 
         let full = execute(
@@ -5125,6 +5406,7 @@ mod tests {
             &mut fixture.c,
             &fixture.policy,
             &fixture.store,
+            now,
             now,
             ExecutionMode::Preview,
         )
@@ -5189,28 +5471,36 @@ mod tests {
     }
 
     #[test]
-    fn batch_statements_mid_run_mutations_preserve_exact_error_precedence() {
+    fn batch_statements_mid_run_mutations_stop_on_contract_violations_and_adapt_to_extensions() {
         for mutation in [
-            "extra_table",
-            "drop_migration",
+            "failed_migration",
             "incomplete_backfill",
-            "replace_db",
-            "drop_capture_owner",
-            "wrong_owner",
+            "corrupt_desktop_state",
         ] {
-            let fixture = test_support::Fixture::new();
+            let mut fixture = test_support::Fixture::new();
             let first = fixture.add(1, 1);
             let second = fixture.add(2, 1);
             fixture.age(&first);
             fixture.age(&second);
             let graph = crate::relations::Dependencies::default();
+            let mut tracker = Tracker::open_readwrite(
+                &fixture.store,
+                &mut fixture.c,
+                &fixture.policy,
+                test_support::now(),
+            )
+            .unwrap();
+            let mut desktop_pins = DesktopPins::load(&fixture.home).unwrap();
             let mut cleanup = Cleanup {
                 policy: &fixture.policy,
                 store: &fixture.store,
+                db_name: database::DB_NAME,
                 now: test_support::now(),
                 graph: &graph,
                 owners: RolloutOwners::new(&fixture.c, ""),
                 headers: crate::lineage::HeaderCache::default(),
+                tracker: &mut tracker,
+                desktop_pins: &mut desktop_pins,
                 detail: ReportDetail::Full,
                 completed_batches: 0,
             };
@@ -5229,20 +5519,17 @@ mod tests {
             assert!(stmts.is_some(), "batch 1 must cache BatchStatements");
             assert!(!fixture.exists(&first));
 
-            // Mutate schema / metadata on a separate connection between batch 1 and batch 2.
+            // Mutate database or Desktop global state between batch 1 and batch 2.
             let other = Connection::open(fixture.home.join(database::DB_NAME)).unwrap();
             let expected_substr = match mutation {
-                "extra_table" => {
+                "failed_migration" => {
                     other
-                        .execute("CREATE TABLE rogue_extension(x INTEGER)", [])
+                        .execute(
+                            "INSERT INTO _sqlx_migrations(version,description,success,checksum,execution_time) VALUES(99,'in_progress',0,x'00',0)",
+                            [],
+                        )
                         .unwrap();
-                    "unsupported or modified Codex schema"
-                }
-                "drop_migration" => {
-                    other
-                        .execute("DELETE FROM _sqlx_migrations WHERE version = (SELECT max(version) FROM _sqlx_migrations)", [])
-                        .unwrap();
-                    "Codex migration history differs"
+                    "incomplete or failed migration"
                 }
                 "incomplete_backfill" => {
                     other
@@ -5250,25 +5537,13 @@ mod tests {
                         .unwrap();
                     "Codex index backfill is incomplete"
                 }
-                "replace_db" => {
-                    let db_path = fixture.home.join(database::DB_NAME);
-                    let copy = fixture.home.join("replacement.sqlite");
-                    fs::copy(&db_path, &copy).unwrap();
-                    fs::rename(&copy, &db_path).unwrap();
-                    "Codex database was replaced"
-                }
-                "drop_capture_owner" => {
-                    other.execute("DROP TABLE codex_retain_owner", []).unwrap();
-                    "retention capture is missing or modified"
-                }
-                "wrong_owner" => {
-                    other
-                        .execute(
-                            "UPDATE codex_retain_owner SET owner='/other/policy' WHERE singleton=1",
-                            [],
-                        )
-                        .unwrap();
-                    "this Codex profile belongs to another retention policy"
+                "corrupt_desktop_state" => {
+                    fs::write(
+                        fixture.home.join(crate::desktop::GLOBAL_STATE_FILE),
+                        b"{broken",
+                    )
+                    .unwrap();
+                    "Codex Desktop pins"
                 }
                 _ => unreachable!(),
             };
@@ -5286,10 +5561,6 @@ mod tests {
                 .unwrap_err();
             assert!(!attempted, "{mutation}: must fail before journaling");
             assert!(
-                stmts.is_none(),
-                "{mutation}: failed verify must clear cached statements"
-            );
-            assert!(
                 err.is::<GlobalCleanupFailure>(),
                 "{mutation}: must stop run as GlobalCleanupFailure"
             );
@@ -5300,6 +5571,65 @@ mod tests {
             );
             assert!(fixture.exists(&second));
         }
+
+        // Additive non-breaking schema extensions (extra tables / columns) mid-run succeed.
+        let mut fixture = test_support::Fixture::new();
+        let first = fixture.add(10, 1);
+        let second = fixture.add(11, 1);
+        fixture.age(&first);
+        fixture.age(&second);
+        let graph = crate::relations::Dependencies::default();
+        let mut tracker = Tracker::open_readwrite(
+            &fixture.store,
+            &mut fixture.c,
+            &fixture.policy,
+            test_support::now(),
+        )
+        .unwrap();
+        let mut desktop_pins = DesktopPins::load(&fixture.home).unwrap();
+        let mut cleanup = Cleanup {
+            policy: &fixture.policy,
+            store: &fixture.store,
+            db_name: database::DB_NAME,
+            now: test_support::now(),
+            graph: &graph,
+            owners: RolloutOwners::new(&fixture.c, ""),
+            headers: crate::lineage::HeaderCache::default(),
+            tracker: &mut tracker,
+            desktop_pins: &mut desktop_pins,
+            detail: ReportDetail::Full,
+            completed_batches: 0,
+        };
+        let mut scratch = BatchScratch::default();
+        let mut stmts = None;
+        let mut attempted = false;
+        cleanup
+            .delete_batch_with_scratch(
+                &fixture.c,
+                &[&first],
+                &mut attempted,
+                &mut scratch,
+                &mut stmts,
+            )
+            .unwrap();
+        let other = Connection::open(fixture.home.join(database::DB_NAME)).unwrap();
+        other
+            .execute_batch(
+                "CREATE TABLE future_codex_feature(id TEXT PRIMARY KEY);
+                 ALTER TABLE threads ADD COLUMN future_ui_badge TEXT;",
+            )
+            .unwrap();
+        drop(other);
+        cleanup
+            .delete_batch_with_scratch(
+                &fixture.c,
+                &[&second],
+                &mut attempted,
+                &mut scratch,
+                &mut stmts,
+            )
+            .unwrap();
+        assert!(!fixture.exists(&second));
     }
 
     #[test]
@@ -5313,16 +5643,18 @@ mod tests {
         // Insert 5,000 active rows with tiny UUIDs before 4,100 archived rows with huge UUIDs,
         // forcing visit_archived_text to detect active >= examined and use idx_threads_archived.
         {
+            let mut tc = fixture.tracker_conn();
             let tx = fixture.c.transaction().unwrap();
+            let ttx = tc.transaction().unwrap();
             let mut ins_t = tx
                 .prepare(
                     "INSERT INTO threads(id,rollout_path,created_at,updated_at,source,model_provider,cwd,title,sandbox_policy,approval_mode,archived,archived_at,history_mode,is_pinned) \
                      VALUES(?1,?2,?3,?3,'cli','openai','/tmp',?4,'workspace','auto',?5,?6,'legacy',0)",
                 )
                 .unwrap();
-            let mut ins_e = tx
+            let mut ins_e = ttx
                 .prepare(
-                    "INSERT OR REPLACE INTO codex_retain_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
+                    "INSERT OR REPLACE INTO tracked_epochs(thread_id,archived_since,codex_archived_at) VALUES(?1,?2,?2)",
                 )
                 .unwrap();
             for i in 1u128..=5_000u128 {
@@ -5363,6 +5695,7 @@ mod tests {
             drop(ins_e);
             drop(ins_t);
             tx.commit().unwrap();
+            ttx.commit().unwrap();
         }
 
         let full = execute(
@@ -5377,6 +5710,7 @@ mod tests {
             &mut fixture.c,
             &fixture.policy,
             &fixture.store,
+            now,
             now,
             ExecutionMode::Preview,
         )
@@ -5417,6 +5751,7 @@ mod tests {
             &mut fixture.c,
             &fixture.policy,
             &fixture.store,
+            now,
             now,
             ExecutionMode::Preview,
         )

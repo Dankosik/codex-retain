@@ -1,8 +1,9 @@
+use crate::database::SchemaCapabilities;
 use anyhow::Result;
 use rusqlite::Connection;
 use serde::Serialize;
 
-pub(crate) const COMPATIBILITY_SCOPE: &str = "schema_and_selected_codex_binary";
+pub(crate) const COMPATIBILITY_SCOPE: &str = "storage_contract";
 
 #[derive(Serialize)]
 pub(crate) struct HistoryCoverage {
@@ -21,15 +22,23 @@ struct FormatCounts {
 }
 
 impl HistoryCoverage {
-    pub(crate) fn read(db: &Connection) -> Result<Self> {
-        // One fixed-size aggregate result, including all unknown modes in
-        // `other`; no titles, transcripts or arbitrarily many format labels.
-        let (archived_threads, legacy, paginated): (i64, i64, i64) = db.query_row(
-            "SELECT count(*), coalesce(sum(history_mode='legacy'),0), \
-             coalesce(sum(history_mode='paginated'),0) FROM threads WHERE archived=1",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
+    pub(crate) fn read(db: &Connection, caps: &SchemaCapabilities) -> Result<Self> {
+        let (archived_threads, legacy, paginated): (i64, i64, i64) = if caps.has_history_mode {
+            // One fixed-size aggregate result, including all unknown modes in
+            // `other`; no titles, transcripts or arbitrarily many format labels.
+            db.query_row(
+                "SELECT count(*), coalesce(sum(history_mode='legacy'),0), \
+                 coalesce(sum(history_mode='paginated'),0) FROM threads WHERE archived=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?
+        } else {
+            let total: i64 =
+                db.query_row("SELECT count(*) FROM threads WHERE archived=1", [], |row| {
+                    row.get(0)
+                })?;
+            (total, total, 0)
+        };
         let (archived_threads, legacy, paginated) = (
             u64::try_from(archived_threads)?,
             u64::try_from(legacy)?,
