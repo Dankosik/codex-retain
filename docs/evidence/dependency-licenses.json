@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "generator": "scripts/notices.py",
-  "cargo_lock_sha256": "ed23356d7fa7d02ae2ace47f4d2b763b5be1ce63013e7a1857df74f01ef4e6c8",
+  "cargo_lock_sha256": "a840f83ed164107e689cc20364889b8b588e325df5b1650a5310e4cd99f947a1",
   "scope": "All resolved default-feature packages, including build/dev/platform-conditional dependencies",
   "packages": [
     {
@@ -1682,9 +1682,9 @@
       ]
     },
     {
-      "id": "registry+https://github.com/rust-lang/crates.io-index#zstd@0.14.5",
+      "id": "registry+https://github.com/rust-lang/crates.io-index#zstd@0.14.3",
       "name": "zstd",
-      "version": "0.14.5",
+      "version": "0.14.3",
       "license": "BSD-3-Clause",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "files": [
@@ -1696,9 +1696,9 @@
       ]
     },
     {
-      "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-safe@8.4.0",
+      "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-safe@8.2.0",
       "name": "zstd-safe",
-      "version": "8.4.0",
+      "version": "8.2.0",
       "license": "BSD-3-Clause",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "files": [
@@ -1710,21 +1710,16 @@
       ]
     },
     {
-      "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.2.0+zstd.1.6.0",
+      "id": "registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.1.2+zstd.1.5.7",
       "name": "zstd-sys",
-      "version": "2.2.0+zstd.1.6.0",
-      "license": "BSD-3-Clause AND BSD-2-Clause",
+      "version": "2.1.2+zstd.1.5.7",
+      "license": "BSD-3-Clause",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "files": [
         {
           "path": "LICENSE",
           "sha256": "ce4868c8e4ebe47a7d4b3c93dbf6b802033e5ae2fa7638098173f80836daac60",
           "bytes": 1501
-        },
-        {
-          "path": "LICENSE.BSD-2-Clause",
-          "sha256": "982cd76c8a6b5c597aa999be672c4f16b953eb6d074fe29c0a931d7aae2c8fc2",
-          "bytes": 1401
         },
         {
           "path": "LICENSE.BSD-3-Clause",
@@ -1749,7 +1744,7 @@
     },
     {
       "name": "Zstandard C library",
-      "origin": "zstd-sys 2.2.0+zstd.1.6.0",
+      "origin": "zstd-sys 2.1.2+zstd.1.5.7",
       "license": "BSD-3-Clause option (zstd/LICENSE); alternative GPL terms are not selected",
       "files": [
         {
